@@ -9,6 +9,19 @@ import aiosqlite
 DEFAULT_DB_PATH = Path("data/investment_agent.db")
 
 
+async def _ensure_column(
+    conn: aiosqlite.Connection, table_name: str, column_name: str, column_type: str
+) -> None:
+    """Add a missing column for lightweight schema evolution."""
+    table_info = await (await conn.execute(f"PRAGMA table_info({table_name});")).fetchall()
+    existing_columns = {row[1] for row in table_info}
+
+    if column_name not in existing_columns:
+        await conn.execute(
+            f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type};"
+        )
+
+
 async def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
     """Initialize SQLite database and required schema.
 
@@ -32,11 +45,18 @@ async def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
                 expected_confidence REAL NOT NULL,
                 expected_entry_price REAL NOT NULL,
                 expected_target_price REAL,
+                expected_return_pct REAL,
                 expected_stop_loss REAL,
                 expected_hold_days INTEGER,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
             """
+        )
+        await _ensure_column(
+            conn=conn,
+            table_name="positions_thesis",
+            column_name="expected_return_pct",
+            column_type="REAL",
         )
 
         await conn.execute(
