@@ -8,8 +8,9 @@ Your Tech Lead / Architect is **FutureClaw** (an AI Agent running on the host se
 ## 🔄 The Collaboration Workflow
 You and FutureClaw communicate asynchronously via this Git repository.
 1. **FutureClaw** writes tasks in `tasks/`.
-2. **You (Developer Agent)** read the task, read the global architecture (`docs/architecture_v4.md`), and write the code.
+2. **You (Developer Agent)** read the task and write the code. (Only read `docs/architecture_v4.md` if you are in a brand new session and don't have the context).
 3. **You (Developer Agent)** MUST report your implementation status, technical concerns, or questions back to FutureClaw by appending to `docs/AGENT_SYNC.md` before finishing your task.
+4. **Auto-Commit**: After updating `AGENT_SYNC.md` and passing all tests, you MUST automatically stage and commit your work using `git add .` and `git commit -m '<conventional commit message>'`. DO NOT push.
 
 ## 📝 AGENT_SYNC.md Rules
 Never assume the Architect knows what you skipped or struggled with.

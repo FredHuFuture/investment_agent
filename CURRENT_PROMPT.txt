@@ -1,5 +1,9 @@
-请先阅读 `docs/architecture_v4.md` 了解整个系统的全局架构和业务背景，同时阅读 `docs/DEVELOPER_INSTRUCTIONS.md` 了解你的汇报规范。
+# 当前任务指令 (请复制给 Developer Agent)
 
-然后严格按照 `tasks/002_drift_analyzer.md` 的要求，一次性帮我把基础逻辑代码和测试脚本全写好并跑通测试。
+如果这是你所在 Session 的第一次对话，请先阅读 `docs/architecture_v4.md` 了解全局架构和业务背景。如果之前已经读过，请直接跳过，节约 Context。
 
-完成后，必须在 `docs/AGENT_SYNC.md` 中进行书面汇报！
+请严格执行 `tasks/003_portfolio_context_manager.md` 的要求，一次性帮我把基础逻辑代码和测试脚本全写好并跑通测试。
+
+完成后：
+1. 必须在 `docs/AGENT_SYNC.md` 中进行书面汇报！
+2. 必须执行 `git add .` 和 `git commit -m "..."` 提交你的所有修改！不需要推送到远端。
