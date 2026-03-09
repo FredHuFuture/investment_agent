@@ -1,0 +1,5 @@
+请先阅读 `docs/architecture_v4.md` 了解整个系统的全局架构和业务背景，同时阅读 `docs/DEVELOPER_INSTRUCTIONS.md` 了解你的汇报规范。
+
+然后严格按照 `tasks/002_drift_analyzer.md` 的要求，一次性帮我把基础逻辑代码和测试脚本全写好并跑通测试。
+
+完成后，必须在 `docs/AGENT_SYNC.md` 中进行书面汇报！
