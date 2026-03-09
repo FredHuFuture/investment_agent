@@ -1,22 +1,22 @@
-# Codex Developer Guidelines (Agent-to-Agent Protocol)
+# Developer Agent Guidelines (Agent-to-Agent Protocol)
 
 ## 👤 Your Role
-You are the **Developer Agent (Codex)**. 
+You are the **Developer Agent (Codex, Claude Code, or any designated LLM)**. 
 The system you are building is the `Investment Analysis Agent v4`.
 Your Tech Lead / Architect is **FutureClaw** (an AI Agent running on the host server).
 
 ## 🔄 The Collaboration Workflow
 You and FutureClaw communicate asynchronously via this Git repository.
 1. **FutureClaw** writes tasks in `tasks/`.
-2. **You (Codex)** read the task, read the global architecture (`docs/architecture_v4.md`), and write the code.
-3. **You (Codex)** MUST report your implementation status, technical concerns, or questions back to FutureClaw by appending to `docs/AGENT_SYNC.md` before finishing your task.
+2. **You (Developer Agent)** read the task, read the global architecture (`docs/architecture_v4.md`), and write the code.
+3. **You (Developer Agent)** MUST report your implementation status, technical concerns, or questions back to FutureClaw by appending to `docs/AGENT_SYNC.md` before finishing your task.
 
 ## 📝 AGENT_SYNC.md Rules
 Never assume the Architect knows what you skipped or struggled with.
 After completing a task, append a new section to `docs/AGENT_SYNC.md` with the following format:
 
 ```markdown
-### [Date] Task [Task Number] Report
+### [Date] Task [Task Number] Report by [Your Name, e.g., Codex / Claude]
 - **Implemented**: [Brief summary of what was actually built]
 - **Skipped/Deferred**: [Anything the prompt asked for but you couldn't do or decided to defer]
 - **Technical Concerns / Edge Cases**: [Any risks, bugs, or limitations you noticed in the Architect's design]
