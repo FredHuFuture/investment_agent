@@ -292,3 +292,30 @@ Architect improvement:
 **Test suite: 95 passed, 1 skipped (ccxt network), 0 failed.**
 
 (Updated after runtime fixes: factory routes btc/eth to YFinanceProvider, yfinance thread-safety lock, MultiIndex fix, Windows SelectorEventLoop policy.)
+
+---
+
+### [2026-03-10] Task 012 Report by Claude (Dev Agent)
+
+**Implemented:**
+- `charts/analysis_charts.py`: `create_price_chart()` (candlestick + SMA/BB overlays + volume + RSI subplots) and `create_agent_breakdown_chart()` (horizontal bar chart per agent with signal-colored bars).
+- `charts/portfolio_charts.py`: `create_allocation_chart()` (pie chart with cash slice) and `create_sector_chart()` (horizontal bar chart grouped by sector, sorted descending).
+- `charts/tracking_charts.py`: `create_calibration_chart()` (two-line chart with shaded gap: expected vs actual win rate) and `create_drift_scatter()` (scatter plot with diagonal reference line, colored by WIN/LOSS).
+- `charts/__init__.py`: Clean exports for all 6 chart functions.
+- `cli/charts_cli.py`: `analysis` / `portfolio` / `calibration` / `drift` subcommands. Saves HTML via `fig.write_html()`, opens in browser via `webbrowser.open()`. `--no-open` and `--output-dir` flags. Windows SelectorEventLoop policy set at module top.
+- `pyproject.toml`: Added `plotly>=5.0` dependency and `charts` + `backtesting` to hatch packages list.
+- `tests/test_012_charts.py`: 8 tests, all mocked data (no network). Covers all 6 chart functions + empty-data fallback paths.
+
+**All functions are pure**: zero I/O inside chart functions — data fetching lives in CLI.
+
+**Test Results:** 103 passed, 1 skipped, 0 failed (8 new tests added).
+
+**Deviations from Spec:**
+- None. Chart functions match spec signature exactly.
+
+**Technical Notes:**
+- Bollinger Bands column name: pandas_ta uses dynamic column names like `BBU_20_2.0` / `BBL_20_2.0`. CLI and tests use substring matching (`"BBU"` in col, `"BBL"` in col) to extract the right columns.
+- `create_calibration_chart`: shaded fill uses `fill="tonexty"` on the Actual trace (fills to Expected line above it).
+
+**Questions for FutureClaw:**
+- For the `drift` subcommand, I query `signal_history JOIN positions_thesis` directly since `DriftAnalyzer.compute_drift_summary()` is per-thesis-id and doesn't provide a fleet-level summary with win rates. Should I add a fleet-level method to `DriftAnalyzer` or keep the direct query in the CLI?
