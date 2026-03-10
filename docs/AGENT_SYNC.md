@@ -319,3 +319,44 @@ Architect improvement:
 
 **Questions for FutureClaw:**
 - For the `drift` subcommand, I query `signal_history JOIN positions_thesis` directly since `DriftAnalyzer.compute_drift_summary()` is per-thesis-id and doesn't provide a fleet-level summary with win rates. Should I add a fleet-level method to `DriftAnalyzer` or keep the direct query in the CLI?
+
+---
+
+### [2026-03-10] Task 013 Report by Claude (Dev Agent)
+
+**Implemented:**
+- `backtesting/models.py`: `BacktestConfig`, `SimulatedTrade`, `BacktestResult` dataclasses.
+- `backtesting/data_slicer.py`: `HistoricalDataProvider(DataProvider)` — wraps full OHLCV DataFrame, slices to `current_date` for no-lookahead guarantee. `get_financials()` raises `NotImplementedError` (non-PIT). `is_point_in_time()` → True.
+- `backtesting/metrics.py`: `compute_metrics()` pure function computing total_return, annualized_return, Sharpe, Sortino, max_drawdown, Calmar, win_rate, profit_factor, avg_win/loss, total_trades, avg_holding_days, max_consecutive_wins/losses. Helper functions `_sharpe`, `_sortino`, `_max_drawdown`, `_consecutive_runs` all pure.
+- `backtesting/engine.py`: `Backtester.run()` — full walk-forward loop: fetch/cache data → generate rebalance schedule → walk-forward with stop-loss/take-profit checks → agent signal → trade execution → equity curve → metrics. `cache_price_data()` fetches from yfinance (300-day lookback for SMA200) and stores to `price_history_cache` with `INSERT OR IGNORE`. `_make_agent()` factory supports TechnicalAgent, FundamentalAgent, MacroAgent by name.
+- `backtesting/__init__.py`: Clean exports.
+- `db/database.py`: Added `price_history_cache` table with `UNIQUE(ticker, date)` constraint and index.
+- `cli/backtest_cli.py`: `run` subcommand with `--start`, `--end`, `--agents`, `--frequency`, `--capital`, `--position-size`, `--stop-loss`, `--take-profit`, `--asset-type` flags. Windows SelectorEventLoop policy. ASCII report output.
+- `tests/test_013_backtesting.py`: 12 tests, all synthetic data / mocked agents (no network).
+
+**Test Results:** 115 passed, 1 skipped, 0 failed (12 new tests added).
+
+**Deviations from Spec:**
+- `MacroAgent` in `_make_agent()`: Uses real `FredProvider` + `YFinanceProvider` (spec intent) but wrapped in try/except so that missing FRED key causes graceful skip rather than crash. This is consistent with `engine/pipeline.py` behavior.
+- `cache_price_data()`: Uses `yf.download(start=..., end=...)` directly rather than `YFinanceProvider.get_price_history(period=...)` because yfinance `period=` parameter doesn't accept date ranges. This gives precise date-range control needed for the 300-day lookback.
+- Stop-loss exit price: Uses `entry_price * (1 - stop_loss_pct)` (idealized exit, not current_price). This is standard backtesting practice (models slippage-free perfect stop execution). Stop triggers are checked on next rebalance date, not intrabar.
+
+**Technical Notes:**
+- `_consecutive_runs()`: Treats `pnl_pct <= 0` as a loss (including break-even). Consistent with win = strictly positive return.
+- Rebalance dates: filtered to `available_dates` set (dates in the full_data index). This prevents `KeyError` when a scheduled rebalance date falls on a holiday.
+- Equity curve: updated at every rebalance date; between rebalances, equity is held constant (no mark-to-market interpolation between dates).
+
+**Questions for FutureClaw:**
+- Should `MacroAgent` in backtests use a cached/historical FRED provider that actually enforces PIT (only vintage data before `current_date`)? Currently FRED fetches current data which technically has look-ahead for macro series. This is a known limitation documented in the warnings system.
+- Should stop-loss use current bar's Low price (intraday touch) rather than `entry_price * (1 - stop_loss_pct)` for more realistic simulation?
+
+---
+
+**Phase 2 Partial Complete — Task Status Update:**
+
+| Task | Tests | Status |
+|------|-------|--------|
+| 001-011 | 95 | DONE (Phase 1) |
+| 012 Chart Generation | 8 | DONE |
+| 013 Backtesting Framework | 12 | DONE |
+| **TOTAL** | **115 passed, 1 skipped** | **Phase 2 Charts + Backtesting DONE** |

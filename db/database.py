@@ -207,6 +207,31 @@ async def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
             """
         )
 
+        # Task 013: price history cache for backtesting
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS price_history_cache (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ticker TEXT NOT NULL,
+                date TEXT NOT NULL,
+                open REAL NOT NULL,
+                high REAL NOT NULL,
+                low REAL NOT NULL,
+                close REAL NOT NULL,
+                volume REAL NOT NULL,
+                asset_type TEXT NOT NULL DEFAULT 'stock',
+                fetched_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(ticker, date)
+            );
+            """
+        )
+        await conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_price_cache_ticker_date
+            ON price_history_cache(ticker, date);
+            """
+        )
+
         await conn.commit()
 
     return path

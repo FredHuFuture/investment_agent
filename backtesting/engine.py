@@ -1,0 +1,372 @@
+"""Backtester: walk-forward simulation engine."""
+from __future__ import annotations
+
+import asyncio
+from datetime import datetime, timedelta
+from typing import Any
+
+import aiosqlite
+import pandas as pd
+
+from agents.models import AgentInput, AgentOutput, Signal
+from agents.technical import TechnicalAgent
+from backtesting.data_slicer import HistoricalDataProvider
+from backtesting.metrics import compute_metrics
+from backtesting.models import BacktestConfig, BacktestResult, SimulatedTrade
+from db.database import DEFAULT_DB_PATH
+from engine.aggregator import AggregatedSignal, SignalAggregator
+
+# Lock imported from yfinance_provider for thread-safe downloads
+from data_providers.yfinance_provider import YFinanceProvider, _yfinance_lock
+
+_NON_PIT_AGENTS = {"FundamentalAgent"}
+
+_REBALANCE_FREQS = {
+    "daily": "B",          # every business day
+    "weekly": "W-MON",     # every Monday
+    "monthly": "BMS",      # first business day of month
+}
+
+
+async def cache_price_data(
+    ticker: str,
+    start_date: str,
+    end_date: str,
+    asset_type: str = "stock",
+    db_path: str = str(DEFAULT_DB_PATH),
+) -> pd.DataFrame:
+    """Fetch full OHLCV and cache to price_history_cache. Returns DataFrame."""
+    # Calculate start with sufficient lookback for SMA200 (300 calendar days)
+    fetch_start = (
+        datetime.strptime(start_date, "%Y-%m-%d") - timedelta(days=300)
+    ).strftime("%Y-%m-%d")
+
+    # Check cache
+    async with aiosqlite.connect(db_path) as conn:
+        conn.row_factory = aiosqlite.Row
+        cached = await (
+            await conn.execute(
+                """
+                SELECT date, open, high, low, close, volume
+                FROM price_history_cache
+                WHERE ticker = ? AND date >= ? AND date <= ?
+                ORDER BY date ASC
+                """,
+                (ticker, fetch_start, end_date),
+            )
+        ).fetchall()
+
+        if cached:
+            df = pd.DataFrame(
+                [
+                    {
+                        "Open": row["open"],
+                        "High": row["high"],
+                        "Low": row["low"],
+                        "Close": row["close"],
+                        "Volume": row["volume"],
+                    }
+                    for row in cached
+                ],
+                index=pd.to_datetime([row["date"] for row in cached]),
+            )
+            return df
+
+    # Cache miss: fetch from yfinance
+    provider = YFinanceProvider()
+
+    def _download() -> pd.DataFrame:
+        import yfinance as yf
+        with _yfinance_lock:
+            return yf.download(
+                ticker,
+                start=fetch_start,
+                end=end_date,
+                interval="1d",
+                progress=False,
+                auto_adjust=False,
+            )
+
+    raw = await asyncio.to_thread(_download)
+    if raw is None or raw.empty:
+        raise ValueError(f"No price data for {ticker} ({fetch_start} to {end_date})")
+
+    # Normalize MultiIndex columns
+    if isinstance(raw.columns, pd.MultiIndex):
+        if ticker in raw.columns.get_level_values(1):
+            raw = raw.droplevel(1, axis=1)
+        elif ticker in raw.columns.get_level_values(0):
+            raw = raw[ticker]
+        else:
+            raw = raw.droplevel(0, axis=1)
+
+    raw = raw.rename(columns={col: str(col).title() for col in raw.columns})
+    if "Adj Close" in raw.columns:
+        raw = raw.drop(columns=["Adj Close"])
+
+    expected = ["Open", "High", "Low", "Close", "Volume"]
+    raw = raw[[c for c in expected if c in raw.columns]]
+
+    # Store to cache
+    async with aiosqlite.connect(db_path) as conn:
+        await conn.executemany(
+            """
+            INSERT OR IGNORE INTO price_history_cache
+                (ticker, date, open, high, low, close, volume, asset_type)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    ticker,
+                    str(idx.date()),
+                    float(row["Open"]),
+                    float(row["High"]),
+                    float(row["Low"]),
+                    float(row["Close"]),
+                    float(row["Volume"]),
+                    asset_type,
+                )
+                for idx, row in raw.iterrows()
+            ],
+        )
+        await conn.commit()
+
+    return raw
+
+
+class Backtester:
+    """Walk-forward backtesting engine.
+
+    Supports TechnicalAgent only by default (PIT-safe).
+    Other agents can be opted-in with disclaimer warnings.
+    """
+
+    def __init__(self, config: BacktestConfig) -> None:
+        self._config = config
+
+    async def run(
+        self,
+        full_data: pd.DataFrame | None = None,
+        db_path: str = str(DEFAULT_DB_PATH),
+    ) -> BacktestResult:
+        """Execute the backtest.
+
+        Args:
+            full_data: Pre-loaded OHLCV DataFrame (for testing/offline use).
+                       If None, fetches from yfinance and caches.
+            db_path: SQLite DB path for price cache.
+        """
+        cfg = self._config
+        warnings: list[str] = []
+
+        # Resolve agent list
+        agent_names = cfg.agents if cfg.agents is not None else ["TechnicalAgent"]
+
+        # Non-PIT warning
+        non_pit = [a for a in agent_names if a in _NON_PIT_AGENTS]
+        if non_pit:
+            warnings.append(
+                f"WARNING: Non-PIT agents used ({', '.join(non_pit)}). "
+                "Backtest results may be overly optimistic due to look-ahead bias in "
+                "restated financial data."
+            )
+
+        # 1. Fetch / use provided data
+        if full_data is None:
+            full_data = await cache_price_data(
+                cfg.ticker, cfg.start_date, cfg.end_date, cfg.asset_type, db_path
+            )
+
+        # 2. Generate rebalance dates within [start_date, end_date]
+        freq = _REBALANCE_FREQS.get(cfg.rebalance_frequency, "W-MON")
+        rebalance_dates = pd.bdate_range(
+            start=cfg.start_date, end=cfg.end_date, freq=freq
+        )
+        # Filter to dates that exist in our data
+        available_dates = set(full_data.index.normalize())
+        rebalance_dates = [
+            d for d in rebalance_dates if d.normalize() in available_dates
+        ]
+
+        if not rebalance_dates:
+            warnings.append("No rebalance dates in price data range.")
+            return BacktestResult(
+                config=cfg,
+                metrics=compute_metrics([], [], cfg.initial_capital),
+                warnings=warnings,
+            )
+
+        # 3. Walk-forward loop
+        cash = cfg.initial_capital
+        position: dict[str, Any] | None = None  # current open position
+        trades: list[SimulatedTrade] = []
+        equity_curve: list[dict] = []
+        signals_log: list[dict] = []
+
+        aggregator = SignalAggregator()
+
+        for date in rebalance_dates:
+            date_str = str(date.date())
+
+            # Get current close price
+            mask = full_data.index.normalize() == date.normalize()
+            if not mask.any():
+                continue
+            current_price = float(full_data.loc[mask, "Close"].iloc[-1])
+
+            # Check stop-loss / take-profit on open position
+            if position is not None:
+                entry_price = position["entry_price"]
+                pnl_pct = (current_price - entry_price) / entry_price
+
+                exit_reason = None
+                if cfg.stop_loss_pct is not None and pnl_pct <= -cfg.stop_loss_pct:
+                    exit_reason = "stop_loss"
+                    exit_price = entry_price * (1 - cfg.stop_loss_pct)
+                elif cfg.take_profit_pct is not None and pnl_pct >= cfg.take_profit_pct:
+                    exit_reason = "take_profit"
+                    exit_price = entry_price * (1 + cfg.take_profit_pct)
+
+                if exit_reason:
+                    trade = _close_trade(position, exit_price, date_str, exit_reason)
+                    trades.append(trade)
+                    cash += position["shares"] * exit_price
+                    position = None
+                    current_price = exit_price  # use exit price for equity calc this bar
+
+            # Run agents to get signal
+            provider = HistoricalDataProvider(full_data, date_str)
+            agent_input = AgentInput(ticker=cfg.ticker, asset_type=cfg.asset_type)
+
+            agent_outputs: list[AgentOutput] = []
+            for agent_name in agent_names:
+                try:
+                    agent = _make_agent(agent_name, provider)
+                    if agent is not None:
+                        out = await agent.analyze(agent_input)
+                        agent_outputs.append(out)
+                except Exception as exc:
+                    warnings.append(f"{agent_name} failed on {date_str}: {exc}")
+
+            # Aggregate signals
+            agg: AggregatedSignal = aggregator.aggregate(
+                agent_outputs, cfg.ticker, cfg.asset_type
+            )
+            final_signal = agg.final_signal
+            confidence = agg.final_confidence
+
+            signals_log.append({
+                "date": date_str,
+                "signal": final_signal.value,
+                "confidence": confidence,
+            })
+
+            # Trade logic
+            position_value = position["shares"] * current_price if position else 0.0
+
+            if final_signal == Signal.BUY and position is None:
+                trade_value = cash * cfg.position_size_pct
+                shares = trade_value / current_price
+                cost = shares * current_price
+                if cost <= cash:
+                    position = {
+                        "entry_date": date_str,
+                        "entry_price": current_price,
+                        "shares": shares,
+                        "signal": final_signal.value,
+                        "confidence": confidence,
+                    }
+                    cash -= cost
+                    position_value = shares * current_price
+
+            elif final_signal == Signal.SELL and position is not None:
+                trade = _close_trade(position, current_price, date_str, "signal_sell")
+                trades.append(trade)
+                cash += position["shares"] * current_price
+                position = None
+                position_value = 0.0
+
+            equity = cash + position_value
+            equity_curve.append({"date": date_str, "equity": equity})
+
+        # 4. Close remaining open position at last date
+        if position is not None and rebalance_dates:
+            last_date_str = str(rebalance_dates[-1].date())
+            mask = full_data.index.normalize() == pd.Timestamp(last_date_str).normalize()
+            if mask.any():
+                last_price = float(full_data.loc[mask, "Close"].iloc[-1])
+            else:
+                last_price = position["entry_price"]
+            trade = _close_trade(position, last_price, last_date_str, "end_of_period")
+            trades.append(trade)
+            cash += position["shares"] * last_price
+            position = None
+            # Update last equity curve entry
+            if equity_curve:
+                equity_curve[-1]["equity"] = cash
+
+        # 5. Compute metrics
+        metrics = compute_metrics(trades, equity_curve, cfg.initial_capital)
+
+        return BacktestResult(
+            config=cfg,
+            trades=trades,
+            equity_curve=equity_curve,
+            metrics=metrics,
+            warnings=warnings,
+            agent_signals_log=signals_log,
+        )
+
+
+def _close_trade(
+    position: dict[str, Any],
+    exit_price: float,
+    exit_date: str,
+    exit_reason: str,
+) -> SimulatedTrade:
+    """Build a closed SimulatedTrade from an open position dict."""
+    shares = position["shares"]
+    entry_price = position["entry_price"]
+    entry_date = position["entry_date"]
+
+    pnl = (exit_price - entry_price) * shares
+    pnl_pct = (exit_price - entry_price) / entry_price if entry_price > 0 else 0.0
+
+    try:
+        d1 = datetime.strptime(entry_date, "%Y-%m-%d")
+        d2 = datetime.strptime(exit_date, "%Y-%m-%d")
+        holding_days = (d2 - d1).days
+    except ValueError:
+        holding_days = None
+
+    return SimulatedTrade(
+        entry_date=entry_date,
+        entry_price=entry_price,
+        exit_date=exit_date,
+        exit_price=exit_price,
+        exit_reason=exit_reason,
+        signal=position.get("signal", "BUY"),
+        confidence=position.get("confidence", 0.0),
+        shares=shares,
+        pnl=round(pnl, 4),
+        pnl_pct=round(pnl_pct, 6),
+        holding_days=holding_days,
+    )
+
+
+def _make_agent(agent_name: str, provider: HistoricalDataProvider):
+    """Instantiate an agent by name. Returns None for unknown names."""
+    if agent_name == "TechnicalAgent":
+        return TechnicalAgent(provider)
+    if agent_name == "FundamentalAgent":
+        from agents.fundamental import FundamentalAgent
+        return FundamentalAgent(provider)
+    if agent_name == "MacroAgent":
+        try:
+            from data_providers.fred_provider import FredProvider
+            from data_providers.yfinance_provider import YFinanceProvider
+            from agents.macro import MacroAgent
+            return MacroAgent(FredProvider(), YFinanceProvider())
+        except Exception:
+            return None
+    return None
