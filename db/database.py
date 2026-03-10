@@ -90,11 +90,52 @@ async def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
             );
             """
         )
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS active_positions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ticker TEXT NOT NULL UNIQUE,
+                asset_type TEXT NOT NULL CHECK (asset_type IN ('stock', 'btc', 'eth')),
+                quantity REAL NOT NULL,
+                avg_cost REAL NOT NULL,
+                sector TEXT,
+                industry TEXT,
+                entry_date TEXT NOT NULL,
+                original_analysis_id INTEGER,
+                expected_return_pct REAL,
+                expected_hold_days INTEGER,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (original_analysis_id) REFERENCES positions_thesis(id)
+            );
+            """
+        )
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS portfolio_meta (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            """
+        )
 
         await conn.execute(
             """
             CREATE INDEX IF NOT EXISTS idx_trade_executions_thesis_id
             ON trade_executions(thesis_id);
+            """
+        )
+        await conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_active_positions_ticker
+            ON active_positions(ticker);
+            """
+        )
+        await conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_active_positions_asset_type
+            ON active_positions(asset_type);
             """
         )
 

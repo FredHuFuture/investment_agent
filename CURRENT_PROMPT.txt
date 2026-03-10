@@ -2,8 +2,17 @@
 
 如果这是你所在 Session 的第一次对话，请先阅读 `docs/architecture_v4.md` 了解全局架构和业务背景。如果之前已经读过，请直接跳过，节约 Context。
 
+## 当前可并行的两个任务
+
+### Agent A: Task 003 — Portfolio Context Manager
 请严格执行 `tasks/003_portfolio_context_manager.md` 的要求，一次性帮我把基础逻辑代码和测试脚本全写好并跑通测试。
 
+### Agent B: Task 004 — DataProvider 抽象层
+请严格执行 `tasks/004_data_provider.md` 的要求，一次性帮我把项目配置、抽象层和三个 Provider 实现全写好并跑通测试。
+
+## 通用完成步骤
 完成后：
 1. 必须在 `docs/AGENT_SYNC.md` 中进行书面汇报！
 2. 必须执行 `git add .` 和 `git commit -m "..."` 提交你的所有修改！不需要推送到远端。
+
+> **注意**: Task 003 和 004 互相独立，可以分配给两个不同的 Agent 并行完成。如果只有一个 Agent，请按 003 → 004 顺序执行。
