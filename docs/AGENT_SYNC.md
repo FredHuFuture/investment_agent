@@ -87,3 +87,45 @@ When a task is completed, the Developer Agent must document implementation detai
 
 **Next: Task 008 — Signal Aggregator + E2E Pipeline.**
 Spec written at `tasks/008_signal_aggregator.md`. CURRENT_PROMPT.txt updated. Ready for dev agent dispatch.
+
+---
+
+### [2026-03-10] Task 008 Report by Claude (Dev Agent)
+
+**Implemented:**
+- `engine/aggregator.py`: `AggregatedSignal` dataclass + `SignalAggregator` class.
+  - Default weights by asset_type (stock: 35/35/30, btc/eth: 45/55).
+  - Weighted aggregation with confidence_factor scaling (high-confidence agents weighted more).
+  - Signal determination: raw_score >= +0.3 → BUY, <= -0.3 → SELL, else HOLD.
+  - Confidence formula per spec: HOLD uses proximity-to-zero scoring, BUY/SELL uses distance-from-threshold scoring; clamped to [30, 90].
+  - Consensus analysis: score < 0.5 triggers 0.8x confidence penalty + warning.
+  - Regime extraction from MacroAgent's `metrics["regime"]` field.
+  - Reasoning string includes: final signal, all agent sub-signals with confidence, consensus verdict, regime (with net_score if available), weights used.
+  - Metrics dict includes: raw_score, consensus_score, buy/sell/hold counts, regime, weights_used, agent_contributions (per-agent weighted contribution).
+  - Empty outputs → HOLD fallback, confidence=30, warning="No agent produced a signal."
+  - `to_dict()` is fully JSON-serializable.
+
+- `engine/pipeline.py`: `AnalysisPipeline` class with `analyze_ticker(ticker, asset_type, portfolio)`.
+  - Module-level imports for all components (required for correct mock patching in tests).
+  - Selects agents by asset_type: stock → Technical + Fundamental + Macro; crypto → Technical + Macro only.
+  - FredProvider construction wrapped in try/except; MacroAgent skipped gracefully with pipeline warning if FRED key unavailable.
+  - `asyncio.gather(..., return_exceptions=True)` for parallel agent execution.
+  - Exception filtering: failed agents add warnings to `pipeline_warnings`, valid outputs collected separately.
+  - Pipeline warnings merged into `AggregatedSignal.warnings` after aggregation.
+
+- `tests/test_008_signal_aggregator.py`: 12 test cases covering all core aggregator behaviors.
+- `tests/test_008_pipeline.py`: 3 test cases covering E2E stock, crypto (no FundamentalAgent), and FRED key failure scenarios.
+
+**Test Results:** `pytest tests/ -v` → 57 passed, 2 skipped (network tests), 0 failed.
+
+**Deviations from Spec:**
+- `weighted_contribution` in agent_contributions uses `signal_value * agent_weight * confidence_factor` (includes confidence factor) rather than the placeholder 0.18 shown in spec example. This is more informative and accurately reflects the actual contribution to raw_score.
+- Provider imports moved to module level in `pipeline.py` (spec showed lazy imports inside function). Module-level imports are required for `unittest.mock.patch` to intercept them correctly in tests. Functionally equivalent.
+
+**Technical Notes:**
+- `FredProvider.__init__` may emit a `RuntimeWarning` at import time if `FRED_API_KEY` is not set. This is pre-existing behavior (Task 004), non-fatal.
+- `pandas_ta` Pandas4Warning is pre-existing (Task 005), non-fatal.
+
+**Questions for FutureClaw:**
+- The `AnalysisPipeline.__init__` accepts `db_path` but doesn't use it yet (reserved for Phase 2 learned weights from `agent_performance` table). Should we add a TODO comment or leave it silent?
+- For Task 009 (CLI Report), should the reasoning string format be finalized here or can it evolve? Currently it's multi-line with `\n` separators.
