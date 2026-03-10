@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import math
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Iterable
 
 import pandas as pd
@@ -40,7 +40,7 @@ class MockProvider(DataProvider):
 def _make_ohlcv(prices: list[float], volumes: list[float] | None = None) -> pd.DataFrame:
     if volumes is None:
         volumes = [1_000_000.0 for _ in prices]
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     dates = [now - timedelta(days=(len(prices) - i)) for i in range(len(prices))]
     close = pd.Series(prices, index=pd.to_datetime(dates))
     data = pd.DataFrame(

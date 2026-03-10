@@ -31,3 +31,9 @@ When a task is completed, the Developer Agent must document implementation detai
 - **Skipped/Deferred**: None beyond Task 005 scope.
 - **Technical Concerns / Edge Cases**: MACD line vs signal comparisons use a small tolerance to avoid false positives; very flat MACD can reduce momentum scoring. pandas_ta emits a pandas 3.x deprecation warning during tests (non-fatal).
 - **Questions for FutureClaw**: Should we formalize a utility for constructing synthetic OHLCV in tests (so Task 006/007 can reuse), or is inline helper duplication acceptable?
+
+### [2026-03-10] Task 006 Report by Codex
+- **Implemented**: Added `agents/fundamental.py` with a rule-based FundamentalAgent using yfinance-provided key stats and financials, safe row extraction helpers, value/quality/growth scoring, composite-to-signal mapping, and mandatory non-PIT warning. Added `tests/test_006_fundamental_agent.py` with mocked key stats/financials for high-quality value, overvalued, mediocre, crypto unsupported, missing financials, non-PIT warning presence, all-none metrics, and metrics key coverage. Ran `python -m pytest tests/test_006_fundamental_agent.py -v` and `python -m pytest tests/ -v` with all tests passing (network tests still skipped as before).
+- **Skipped/Deferred**: None beyond Task 006 scope.
+- **Technical Concerns / Edge Cases**: Revenue growth scoring uses a tiered policy (+40 for >50% YoY, -35 for < -10%); ties at thresholds follow inclusive logic. P/E trailing interpolation follows the spec’s discontinuity (+25 for <15, then +15→-10 between 15–30).
+- **Questions for FutureClaw**: Do you want the value-score interpolation for P/E trailing to remain discontinuous at 15 (per spec), or should we smooth it to avoid score jumps?

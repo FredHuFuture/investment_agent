@@ -90,6 +90,8 @@ class TechnicalAgent(BaseAgent):
             elif sma50_last < sma200_last:
                 trend_score -= 15
 
+        trend_score = max(-100.0, min(100.0, trend_score))
+
         weekly_trend_confirms: bool | None = None
         if weekly_df is not None and not weekly_df.empty:
             weekly_close = weekly_df["Close"]
@@ -125,9 +127,12 @@ class TechnicalAgent(BaseAgent):
         macd_signal = None
         macd_hist = None
         if macd_df is not None and not macd_df.empty:
-            macd_line = _safe_last(macd_df.iloc[:, 0])
-            macd_signal = _safe_last(macd_df.iloc[:, 2])
-            macd_hist = _safe_last(macd_df.iloc[:, 1])
+            macd_line_col = _find_col(macd_df, "MACD_")
+            macd_hist_col = _find_col(macd_df, "MACDh_")
+            macd_signal_col = _find_col(macd_df, "MACDs_")
+            macd_line = _safe_last(macd_df[macd_line_col]) if macd_line_col else None
+            macd_signal = _safe_last(macd_df[macd_signal_col]) if macd_signal_col else None
+            macd_hist = _safe_last(macd_df[macd_hist_col]) if macd_hist_col else None
             if macd_line is None or macd_signal is None:
                 warnings.append("MACD unavailable.")
             else:
@@ -139,7 +144,8 @@ class TechnicalAgent(BaseAgent):
                 else:
                     momentum_score -= 20
 
-            hist_series = macd_df.iloc[:, 1].dropna()
+            hist_col = macd_hist_col or _find_col(macd_df, "MACDh_")
+            hist_series = macd_df[hist_col].dropna() if hist_col else pd.Series(dtype=float)
             if len(hist_series) >= 3:
                 last_three = hist_series.iloc[-3:].tolist()
                 if last_three[2] > last_three[1] > last_three[0]:
@@ -160,6 +166,8 @@ class TechnicalAgent(BaseAgent):
                 momentum_score += 10
             elif volume_ratio < 0.5:
                 momentum_score -= 5
+
+        momentum_score = max(-100.0, min(100.0, momentum_score))
 
         volatility_score = 0.0
         bb_upper = None
@@ -208,6 +216,8 @@ class TechnicalAgent(BaseAgent):
             else:
                 warnings.append("ATR insufficient for trend check.")
 
+        volatility_score = max(-100.0, min(100.0, volatility_score))
+
         composite = trend_score * 0.45 + momentum_score * 0.35 + volatility_score * 0.20
 
         if composite >= 25:
@@ -227,10 +237,16 @@ class TechnicalAgent(BaseAgent):
             trend_score=trend_score,
             momentum_score=momentum_score,
             volatility_score=volatility_score,
+            current_price=current_price,
+            sma20=sma20_last,
+            sma50=sma50_last,
             sma200=sma200_last,
             rsi=rsi_last,
             macd_line=macd_line,
             macd_signal=macd_signal,
+            bb_upper=bb_upper,
+            bb_lower=bb_lower,
+            atr=atr_last,
             weekly_confirm=weekly_trend_confirms,
         )
 
@@ -297,10 +313,16 @@ def _build_reasoning(
     trend_score: float,
     momentum_score: float,
     volatility_score: float,
+    current_price: float,
+    sma20: float | None,
+    sma50: float | None,
     sma200: float | None,
     rsi: float | None,
     macd_line: float | None,
     macd_signal: float | None,
+    bb_upper: float | None,
+    bb_lower: float | None,
+    atr: float | None,
     weekly_confirm: bool | None,
 ) -> str:
     trend_label = "bullish" if trend_score > 15 else "bearish" if trend_score < -15 else "neutral"
@@ -315,17 +337,39 @@ def _build_reasoning(
         "favorable" if volatility_score > 10 else "unfavorable" if volatility_score < -10 else "neutral"
     )
 
-    parts = [f"Trend: {trend_label}."]
+    # Trend details
+    sma_details = []
+    if sma20 is not None:
+        rel = "above" if current_price > sma20 else "below"
+        sma_details.append(f"SMA20 {sma20:.2f}")
+    if sma50 is not None:
+        sma_details.append(f"SMA50 {sma50:.2f}")
     if sma200 is not None:
-        parts.append("SMA 200 available for trend alignment.")
+        sma_details.append(f"SMA200 {sma200:.2f}")
+    sma_info = f" ({', '.join(sma_details)})" if sma_details else ""
+    parts = [f"Trend: {trend_label}{sma_info}."]
+
+    # Momentum details
+    momentum_details = []
     if rsi is not None:
-        parts.append(f"RSI {rsi:.1f}.")
+        rsi_zone = "overbought" if rsi >= 70 else "oversold" if rsi < 30 else "healthy" if rsi >= 50 else "weak"
+        momentum_details.append(f"RSI {rsi:.1f} ({rsi_zone})")
     if macd_line is not None and macd_signal is not None:
         relation = "above" if macd_line > macd_signal else "below"
-        parts.append(f"MACD {relation} signal.")
+        momentum_details.append(f"MACD {relation} signal")
+    momentum_info = f" ({', '.join(momentum_details)})" if momentum_details else ""
+    parts.append(f"Momentum: {momentum_label}{momentum_info}.")
 
-    parts.append(f"Momentum: {momentum_label}.")
-    parts.append(f"Volatility: {volatility_label}.")
+    # Volatility details
+    vol_details = []
+    if bb_upper is not None and bb_lower is not None:
+        bb_width = bb_upper - bb_lower
+        vol_details.append(f"BB width {bb_width:.2f}")
+    if atr is not None:
+        vol_details.append(f"ATR {atr:.2f}")
+    vol_info = f" ({', '.join(vol_details)})" if vol_details else ""
+    parts.append(f"Volatility: {volatility_label}{vol_info}.")
+
     if weekly_confirm is True:
         parts.append("Weekly: confirms daily trend.")
     elif weekly_confirm is False:
