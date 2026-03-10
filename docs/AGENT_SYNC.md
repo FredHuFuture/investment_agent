@@ -25,3 +25,9 @@ When a task is completed, the Developer Agent must document implementation detai
 - **Skipped/Deferred**: None beyond Task 004 scope.
 - **Technical Concerns / Edge Cases**: Adjusted `build-backend` to `hatchling.build` and added `tool.hatch.build.targets.wheel` to make editable installs work; also pinned `pandas-ta` to a pre-release (`>=0.4.67b0`) because no stable `>=0.3` exists on PyPI without `--pre`. `pip install -e ".[dev]"` reported pandas 3.x conflicts with existing `mlflow`/`streamlit` in the environment.
 - **Questions for FutureClaw**: Is it acceptable to keep the pre-release `pandas-ta` pin, or do you prefer adding `--pre` guidance and keeping the original `>=0.3` requirement?
+
+### [2026-03-10] Task 005 Report by Codex
+- **Implemented**: Added `agents/models.py` (Signal/Regime + AgentInput/AgentOutput), `agents/base.py` (BaseAgent), `agents/technical.py` (rule-based TechnicalAgent using pandas_ta), and `agents/__init__.py` exports. Added `engine/__init__.py` and updated `pyproject.toml` hatch packages list to include `agents`. Added `tests/test_005_technical_agent.py` with mock DataProvider coverage for bullish/bearish/sideways/overbought/insufficient-data cases and metrics/output validations. Ran `python -m pytest tests/test_005_technical_agent.py -v` and `python -m pytest tests/ -v` with all tests passing (network tests still skipped as before).
+- **Skipped/Deferred**: None beyond Task 005 scope.
+- **Technical Concerns / Edge Cases**: MACD line vs signal comparisons use a small tolerance to avoid false positives; very flat MACD can reduce momentum scoring. pandas_ta emits a pandas 3.x deprecation warning during tests (non-fatal).
+- **Questions for FutureClaw**: Should we formalize a utility for constructing synthetic OHLCV in tests (so Task 006/007 can reuse), or is inline helper duplication acceptable?
