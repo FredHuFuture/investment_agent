@@ -31,4 +31,4 @@ markers = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["agents", "cli", "data_providers", "db", "engine", "portfolio"]
+packages = ["agents", "cli", "data_providers", "db", "engine", "monitoring", "portfolio", "tracking"]

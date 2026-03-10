@@ -175,3 +175,71 @@ Specs being written. CURRENT_PROMPT.txt will be updated.
 - **Skipped/Deferred**: Drift summary display in CLI explicitly deferred (Phase 2 per spec).
 - **Technical Concerns / Edge Cases**: Report formatter tolerates missing metrics keys and unknown agents; consensus line falls back to `0/0 agents (no signals)` when outputs are empty to avoid crashes.
 - **Questions for FutureClaw**: None for this task.
+
+### [2026-03-10] Architect Review: Tasks 008.5 + 009 (FutureClaw)
+
+**Task 008.5 — APPROVED with architect improvement.**
+
+Implementation is clean and faithful to spec. All 8 new tests pass. Existing 2 drift tests unbroken (backward compatible).
+
+Code quality:
+- `_parse_date` helper with safe `[:10]` slice and try/except — good defensive parsing.
+- `_mean` helper properly returns None for empty lists (not 0.0, which would be misleading).
+- `compute_drift_summary` correctly partitions by `position_status` and filters open trades from return_drift (which has no realized return to measure).
+- `get_thesis_ids` uses the same connection-or-path pattern as `compute_position_drift` — consistent API surface.
+
+Architect improvement:
+- Added `weighted_avg_exit_price`, `total_buy_qty`, `total_sell_qty` to the `no_executions` return dict for consistency with the main return path. Prevents potential `KeyError` if downstream code accesses these keys without checking `position_status` first.
+
+---
+
+**Task 009 — APPROVED.**
+
+Implementation is clean and well-architected. All 8 new tests pass.
+
+Code quality:
+- `cli/report.py`: Pure formatting functions with no I/O — excellent separation of concerns. Easy to test and reuse.
+- `_first_present(metrics, keys)` pattern handles metric key name variations across agents (e.g. `vix_current` vs `vix_level`). Good defensive programming.
+- `_as_float` safe conversion prevents crashes on unexpected metric types.
+- `_format_consensus` handles empty outputs gracefully (`0/0 agents (no signals)`).
+- `cli/analyze_cli.py`: Clean argparse setup. Ticker auto-uppercased. Async execution via `asyncio.run`.
+- E2E tests use `monkeypatch.setattr` (pytest-native, cleaner than `unittest.mock.patch`).
+- `.gitignore` added — good housekeeping.
+
+Metric key verification: Confirmed that report.py's `_first_present` lookups match actual agent metric keys:
+- FundamentalAgent uses `revenue_growth` (not `revenue_growth_yoy`) → covered by fallback list
+- MacroAgent uses `vix_current` (not `vix_level`) → covered by fallback list
+
+No code changes needed for Task 009.
+
+---
+
+**Phase 1 Complete Summary:**
+
+| Task | Tests | Status |
+|------|-------|--------|
+| 001 DB Schema | 1 | DONE |
+| 002 Drift Analyzer | 2 | DONE |
+| 003 Portfolio Manager | 8 | DONE |
+| 004 Data Providers | 8 (2 skipped) | DONE |
+| 005 Technical Agent | 8 | DONE |
+| 006 Fundamental Agent | 8 | DONE |
+| 007 Macro Agent | 9 | DONE |
+| 008 Signal Aggregator | 12+3 | DONE |
+| 008.5 Drift Enhancement | 8 | DONE |
+| 009 CLI Report | 4+4 | DONE |
+| 010 Position Monitoring + Alerts | 7+4 | DONE |
+| 011 Signal Tracking + Calibration | 5+5 | DONE |
+| **TOTAL** | **94 passed, 2 skipped** | **Phase 1 COMPLETE** |
+
+**Phase 2 backlog (formerly stretch goals):**
+- Monitoring Daemon (continuous background process, cron scheduling)
+- Backtesting Framework (historical signal replay)
+- LLM Integration (Task 012)
+
+**Phase 2 backlog:**
+- Task 012: LLM Integration (only after rule-based system proven)
+- Learned weights from agent_performance table
+- Save thesis to DB from CLI
+- Portfolio-aware analysis (position sizing, exposure check)
+- React frontend

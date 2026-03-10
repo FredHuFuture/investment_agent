@@ -140,6 +140,73 @@ async def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
             """
         )
 
+        # Task 010: monitoring alerts
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS monitoring_alerts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ticker TEXT NOT NULL,
+                alert_type TEXT NOT NULL,
+                severity TEXT NOT NULL CHECK (
+                    severity IN ('CRITICAL', 'HIGH', 'WARNING', 'INFO')
+                ),
+                message TEXT NOT NULL,
+                recommended_action TEXT,
+                current_price REAL,
+                trigger_price REAL,
+                acknowledged INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            """
+        )
+        await conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_monitoring_alerts_ticker_time
+            ON monitoring_alerts(ticker, created_at);
+            """
+        )
+
+        # Task 011: signal history
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS signal_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ticker TEXT NOT NULL,
+                asset_type TEXT NOT NULL,
+                final_signal TEXT NOT NULL CHECK (
+                    final_signal IN ('BUY', 'HOLD', 'SELL')
+                ),
+                final_confidence REAL NOT NULL,
+                regime TEXT,
+                raw_score REAL NOT NULL,
+                consensus_score REAL NOT NULL,
+                agent_signals_json TEXT NOT NULL,
+                reasoning TEXT NOT NULL,
+                warnings_json TEXT,
+                thesis_id INTEGER,
+                outcome TEXT CHECK (
+                    outcome IS NULL OR outcome IN ('WIN', 'LOSS', 'OPEN', 'SKIPPED')
+                ),
+                outcome_return_pct REAL,
+                outcome_resolved_at TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (thesis_id) REFERENCES positions_thesis(id)
+            );
+            """
+        )
+        await conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_signal_history_ticker
+            ON signal_history(ticker, created_at);
+            """
+        )
+        await conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_signal_history_outcome
+            ON signal_history(outcome, final_signal);
+            """
+        )
+
         await conn.commit()
 
     return path
