@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
-
+from agents.base import BaseAgent
 from agents.fundamental import FundamentalAgent
 from agents.macro import MacroAgent
 from agents.models import AgentInput, AgentOutput
@@ -24,6 +23,8 @@ class AnalysisPipeline:
         self,
         db_path: str = "investment_agent.db",
     ) -> None:
+        # Phase 2: db_path will be used to load learned weights from
+        # agent_performance table for adaptive weight tuning.
         self._db_path = db_path
 
     async def analyze_ticker(
@@ -47,7 +48,7 @@ class AnalysisPipeline:
         primary_provider = get_provider(asset_type)
 
         # 2. Initialize agents
-        agents: list[Any] = []
+        agents: list[BaseAgent] = []
         agents.append(TechnicalAgent(primary_provider))
 
         if asset_type == "stock":

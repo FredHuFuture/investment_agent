@@ -44,6 +44,12 @@ When a task is completed, the Developer Agent must document implementation detai
 - **Technical Concerns / Edge Cases**: M2 YoY uses a 12-month lookback (requires at least 13 points); insufficient history yields warnings and no score contribution. VIX SMA20 requires at least 20 rows; short history yields warnings.
 - **Questions for FutureClaw**: Should we switch VIX history to calendar days (including weekends) for closer alignment with FRED monthly data, or keep business-day sampling as-is?
 
+### [2026-03-10] Task 008.5 Report by Codex
+- **Implemented**: Enhanced `engine/drift_analyzer.py` to compute `actual_hold_days` and `hold_drift_days`, added `get_thesis_ids` helper, and implemented `compute_drift_summary` with closed/open filtering. Added `tests/test_008_5_drift_enhancement.py` (8 cases) for hold drift, summary aggregation, win rate, and lookback behavior. Ran `python -m pytest tests/test_008_5_drift_enhancement.py -v`, `python -m pytest tests/test_002_drift.py -v`, and `python -m pytest tests/ -v` with all tests passing (network tests still skipped as before).
+- **Skipped/Deferred**: SHORT direction handling deferred (per scope).
+- **Technical Concerns / Edge Cases**: `actual_hold_days` uses calendar days based on ISO date portion of `executed_at`; timezones are ignored by design. If execution rows are out of order by `id`, hold-day computation may be impacted (expects chronological inserts).
+- **Questions for FutureClaw**: Do you want `compute_drift_summary` to return separate averages for open vs closed entry drift (in addition to the combined `avg_entry_drift_pct`) for reporting clarity?
+
 ### [2026-03-10] Architect Review: All Tasks (FutureClaw)
 
 **Responses to Dev Agent Questions:**
@@ -129,3 +135,36 @@ Spec written at `tasks/008_signal_aggregator.md`. CURRENT_PROMPT.txt updated. Re
 **Questions for FutureClaw:**
 - The `AnalysisPipeline.__init__` accepts `db_path` but doesn't use it yet (reserved for Phase 2 learned weights from `agent_performance` table). Should we add a TODO comment or leave it silent?
 - For Task 009 (CLI Report), should the reasoning string format be finalized here or can it evolve? Currently it's multi-line with `\n` separators.
+
+### [2026-03-10] Task 008 Architect Review (FutureClaw)
+
+**Verdict: APPROVED with architect improvements.**
+
+**Responses to Dev Agent Questions:**
+1. **db_path TODO comment**: Added a Phase 2 comment. Done by architect directly.
+2. **Reasoning string format**: Multi-line with `\n` is fine. Task 009 CLI will parse and reformat as needed; the aggregator's `reasoning` field is an internal representation. It can evolve.
+
+**Both deviations ACCEPTED:**
+- `weighted_contribution` including confidence_factor is more informative than the placeholder. Approved.
+- Module-level imports for mockability is the correct Python pattern. Approved.
+
+**Architect Improvements Made:**
+1. **`engine/__init__.py`**: Added proper exports for `AggregatedSignal`, `SignalAggregator`, `AnalysisPipeline`, `DriftAnalyzer`. Clean public API.
+2. **`pipeline.py` type annotation**: Changed `agents: list[Any]` → `agents: list[BaseAgent]`. Removed unused `from typing import Any` import.
+3. **`pipeline.py` db_path comment**: Added `# Phase 2: db_path will be used to load learned weights from agent_performance table` comment.
+
+**Code Quality Assessment:**
+- `aggregator.py`: Clean, well-structured. Weighted sum normalization is implicit via `weighted_sum / total_weight` — this is correct and handles partial agent failure elegantly (no explicit weight renormalization needed).
+- `pipeline.py`: Good separation of concerns. Pipeline owns orchestration; aggregator owns math.
+- Test coverage: 12 aggregator + 3 pipeline = 15 tests. All major paths covered including edge cases (empty, partial failure, crypto weights, consensus penalty).
+- `to_dict()` JSON serialization verified with roundtrip test.
+
+**Known Limitation (acceptable for Phase 1):**
+- Single-agent edge case: If only one agent produces output, `raw_score = ±1.0` regardless of confidence (confidence cancels in numerator/denominator). Confidence formula would give max 90. This is mathematically correct but could overstate conviction from a single weak signal. In practice, at least Technical always runs, so single-agent only occurs if 2 agents fail — which already triggers pipeline warnings.
+
+**Test Suite:** 57 passed, 2 skipped (network), 0 failed. All green.
+
+---
+
+**Next: Task 008.5 (Drift Analyzer Enhancement) + Task 009 (CLI Report + E2E).**
+Specs being written. CURRENT_PROMPT.txt will be updated.

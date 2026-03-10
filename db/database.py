@@ -32,6 +32,7 @@ async def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
 
     async with aiosqlite.connect(path) as conn:
         await conn.execute("PRAGMA journal_mode=WAL;")
+        await conn.execute("PRAGMA busy_timeout=5000;")  # retry 5s before "locked"
         await conn.execute("PRAGMA synchronous=NORMAL;")
         await conn.execute("PRAGMA foreign_keys=ON;")
 
