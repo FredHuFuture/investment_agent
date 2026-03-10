@@ -4,26 +4,42 @@
 
 ## 执行顺序
 
-### Step 1: Task 008.5 (Drift Analyzer Enhancement)
-请严格执行 `tasks/008_5_drift_enhancement.md` 的要求。
+### Step 1: Task 012 (CLI Chart Generation)
+请严格执行 `tasks/012_chart_generation.md` 的要求。
 
-**前提**: Tasks 001-008 已完成。`engine/drift_analyzer.py` 已存在且测试通过 (57 passed)。
+**前提**: Tasks 001-011 已完成 (Phase 1 COMPLETE)。95 tests passed, 1 skipped。
 
-**提示**: 这是对现有 `DriftAnalyzer` 类的增量增强，不是新建类。确保向后兼容。
+**提示**:
+- 阅读 `engine/pipeline.py` 了解 `AnalysisPipeline.analyze_ticker()` 返回的 `AggregatedSignal` 结构。
+- 阅读 `engine/aggregator.py` 了解 `AggregatedSignal` 的 `ticker_info`, `agent_signals`, `metrics` 字段。
+- 阅读 `agents/models.py` 了解 `AgentOutput` 结构 (signal, confidence, metrics dict)。
+- 阅读 `tracking/tracker.py` 了解 `compute_calibration_data()` 的输出格式。
+- 阅读 `cli/report.py` 了解现有的 report formatting pattern。
+- **重要**: 所有 chart 函数必须是 **纯函数** (接受数据输入，返回 plotly Figure，无 I/O)。
+- **重要**: Windows 兼容 — CLI 文件顶部需要 `asyncio.WindowsSelectorEventLoopPolicy`。
+- **重要**: yfinance 有 thread-safety lock (`_yfinance_lock`)，所有 yfinance 调用已串行化。
+- plotly 暗色主题: `template="plotly_dark"`。
 
-### Step 2: Task 009 (CLI Analysis Report)
-完成 Task 008.5 后，请执行 `tasks/009_cli_report.md`。
+### Step 2: Task 013 (Backtesting Framework)
+完成 Task 012 后，请执行 `tasks/013_backtesting_framework.md`。
 
-**前提**: Task 008.5 已完成。`engine/pipeline.py` 和 `engine/aggregator.py` 已存在。
+**前提**: Task 012 已完成。
 
-**提示**: 阅读现有 `cli/portfolio_cli.py` 了解 CLI 模式。阅读 `agents/technical.py`, `agents/fundamental.py`, `agents/macro.py` 中的 metrics 字典了解各 agent 输出哪些 key。报告格式要防御性编程——metrics 中任何 key 缺失都不能 crash。
+**提示**:
+- 阅读 `data_providers/yfinance_provider.py` 了解 `get_price_history()` 返回的 DataFrame 格式 (Open, High, Low, Close, Volume)。
+- 阅读 `agents/technical.py` 了解 TechnicalAgent 的 `analyze()` 方法。
+- 阅读 `engine/aggregator.py` 了解 `SignalAggregator.aggregate()` 的用法。
+- **关键**: `HistoricalDataProvider` 必须确保无 lookahead bias — `get_price_history()` 只返回 current_date 及之前的数据。
+- **关键**: 默认只用 `TechnicalAgent` 回测（PIT-safe）。用户可 opt-in 其他 agent 但需要 disclaimer。
+- **注意**: SMA200 需要 200+ 天数据，所以 fetch 数据时要从 start_date 前 300 天开始。
+- **注意**: `price_history_cache` 表用 `INSERT OR IGNORE` 处理重复。
 
 ## 并行策略
-Task 008.5 和 Task 009 **不能并行**。009 的 CLI 可能会用到 008.5 的 drift summary（如果你选择在 CLI 中展示 drift 统计的话），但 009 的核心功能不依赖 008.5。如果你选择先做 009 再做 008.5 也可以，但推荐先 008.5。
+Task 012 和 Task 013 **顺序执行**。013 的 `--chart` flag 依赖 012 的 chart functions。先做 012 确保 plotly charts 可用，再做 013。
 
 ## 通用完成步骤
 每个 Task 完成后：
 1. 必须在 `docs/AGENT_SYNC.md` 中进行书面汇报！
 2. 必须执行 `git add .` 和 `git commit -m "..."` 提交你的所有修改！不需要推送到远端。
 
-> **注意**: 所有测试必须通过 (`pytest tests/ -v`)。当前基线: 57 passed, 2 skipped, 0 failed。
+> **注意**: 所有测试必须通过 (`pytest tests/ -v`)。当前基线: 95 passed, 1 skipped, 0 failed。

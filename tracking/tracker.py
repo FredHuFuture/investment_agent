@@ -15,6 +15,7 @@ class SignalTracker:
         self, lookback: int = 100
     ) -> dict[str, Any]:
         """Compute overall signal accuracy statistics."""
+        total_signals = await self._store.get_signal_count(lookback=lookback)
         resolved = await self._store.get_resolved_signals(lookback=lookback)
 
         win_count = sum(1 for r in resolved if r["outcome"] == "WIN")
@@ -64,7 +65,7 @@ class SignalTracker:
             return d["win_count"] / c if c > 0 else None
 
         return {
-            "total_signals": len(resolved),
+            "total_signals": total_signals,
             "resolved_count": resolved_count,
             "win_count": win_count,
             "loss_count": loss_count,

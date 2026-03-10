@@ -12,7 +12,8 @@ from data_providers.yfinance_provider import YFinanceProvider
 
 def test_factory_returns_correct_types() -> None:
     assert isinstance(get_provider("stock"), YFinanceProvider)
-    assert isinstance(get_provider("btc"), CcxtProvider)
+    assert isinstance(get_provider("btc"), YFinanceProvider)   # Phase 1: yfinance for crypto too
+    assert isinstance(get_provider("eth"), YFinanceProvider)   # Phase 1: yfinance for crypto too
     assert isinstance(get_provider("macro"), FredProvider)
     with pytest.raises(ValueError):
         get_provider("unknown")

@@ -20,10 +20,43 @@ def format_analysis_report(signal: AggregatedSignal) -> str:
     confidence = f"{signal.final_confidence:.0f}%"
     regime = signal.regime.value if signal.regime else "NEUTRAL"
 
+    # Header with company name if available
+    info = getattr(signal, "ticker_info", {}) or {}
+    name = info.get("name")
+    if name:
+        header = f"  ANALYSIS REPORT: {name} ({ticker})"
+    else:
+        header = f"  ANALYSIS REPORT: {ticker} ({asset_type})"
+
     lines: list[str] = [
         line_major,
-        f"  ANALYSIS REPORT: {ticker} ({asset_type})",
+        header,
         line_major,
+    ]
+
+    # Key metrics section
+    price = _as_float(info.get("current_price"))
+    if price is not None or info.get("sector") or info.get("market_cap"):
+        lines.append("")
+        if price is not None:
+            lines.append(f"  Price:      ${price:,.2f}")
+        market_cap = _as_float(info.get("market_cap"))
+        if market_cap is not None:
+            lines.append(f"  Market Cap: {_format_large_number(market_cap)}")
+        high_52w = _as_float(info.get("52w_high"))
+        low_52w = _as_float(info.get("52w_low"))
+        if high_52w is not None and low_52w is not None:
+            lines.append(f"  52W Range:  ${low_52w:,.2f} - ${high_52w:,.2f}")
+            if price is not None and high_52w > 0:
+                off_high = (price - high_52w) / high_52w * 100
+                lines.append(f"  vs 52W High: {off_high:+.1f}%")
+        sector = info.get("sector")
+        industry = info.get("industry")
+        if sector:
+            label = f"{sector} / {industry}" if industry else sector
+            lines.append(f"  Sector:     {label}")
+
+    lines.extend([
         "",
         f"  SIGNAL:     {final_signal}",
         f"  CONFIDENCE: {confidence}",
@@ -33,13 +66,13 @@ def format_analysis_report(signal: AggregatedSignal) -> str:
         "  AGENT BREAKDOWN",
         line_minor,
         "",
-    ]
+    ])
 
     if signal.agent_signals:
         for output in signal.agent_signals:
             short_name = output.agent_name.replace("Agent", "")
             label = f"{short_name}:"
-            lines.append(f"  {label:<12}{output.signal.value:<4} ({output.confidence:.0f}%)")
+            lines.append(f"  {label:<14}{output.signal.value:<5}({output.confidence:.0f}%)")
             lines.append(f"    {_format_agent_detail(output)}")
             lines.append("")
     else:
@@ -168,3 +201,17 @@ def _as_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _format_large_number(value: float) -> str:
+    """Format large numbers with B/M/K suffixes."""
+    abs_val = abs(value)
+    if abs_val >= 1e12:
+        return f"${value / 1e12:,.2f}T"
+    if abs_val >= 1e9:
+        return f"${value / 1e9:,.2f}B"
+    if abs_val >= 1e6:
+        return f"${value / 1e6:,.1f}M"
+    if abs_val >= 1e3:
+        return f"${value / 1e3:,.0f}K"
+    return f"${value:,.0f}"

@@ -48,7 +48,7 @@ def check_position(
                 f"{position.ticker} hit stop loss ${expected_stop_loss:.2f} "
                 f"(current: ${current_price:.2f}, loss: {unrealized_pnl_pct:.1%})"
             ),
-            recommended_action="CLOSE POSITION — stop loss triggered",
+            recommended_action="CLOSE POSITION -- stop loss triggered",
             current_price=current_price,
             trigger_price=expected_stop_loss,
         ))
@@ -64,7 +64,7 @@ def check_position(
                 f"{position.ticker} reached target ${expected_target_price:.2f} "
                 f"(current: ${current_price:.2f}, gain: {unrealized_pnl_pct:.1%})"
             ),
-            recommended_action="Consider taking profit — target reached",
+            recommended_action="Consider taking profit -- target reached",
             current_price=current_price,
             trigger_price=expected_target_price,
         ))
@@ -97,7 +97,7 @@ def check_position(
                 f"{position.ticker} unrealized loss {unrealized_pnl_pct:.1%} "
                 f"(current: ${current_price:.2f}, avg cost: ${position.avg_cost:.2f})"
             ),
-            recommended_action="Review position — significant unrealized loss",
+            recommended_action="Review position -- significant unrealized loss",
             current_price=current_price,
             trigger_price=None,
         ))

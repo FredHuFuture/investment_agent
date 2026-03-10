@@ -288,7 +288,7 @@ class FundamentalAgent(BaseAgent):
         else:
             growth_desc += "."
 
-        return f"{value_desc} {quality_desc} {growth_desc} ⚠ Non-PIT data — fundamental metrics may reflect restated financials."
+        return f"{value_desc} {quality_desc} {growth_desc} Non-PIT data -- fundamental metrics may reflect restated financials."
 
     def _empty_metrics(self) -> dict[str, Any]:
         return {

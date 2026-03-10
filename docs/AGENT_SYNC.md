@@ -232,14 +232,63 @@ No code changes needed for Task 009.
 | 011 Signal Tracking + Calibration | 5+5 | DONE |
 | **TOTAL** | **94 passed, 2 skipped** | **Phase 1 COMPLETE** |
 
-**Phase 2 backlog (formerly stretch goals):**
-- Monitoring Daemon (continuous background process, cron scheduling)
-- Backtesting Framework (historical signal replay)
-- LLM Integration (Task 012)
-
 **Phase 2 backlog:**
 - Task 012: LLM Integration (only after rule-based system proven)
+- Monitoring Daemon (continuous background process, cron scheduling)
+- Backtesting Framework (historical signal replay)
 - Learned weights from agent_performance table
 - Save thesis to DB from CLI
 - Portfolio-aware analysis (position sizing, exposure check)
 - React frontend
+
+---
+
+### [2026-03-10] Architect Review: Tasks 010 + 011 (FutureClaw)
+
+**Task 010 — APPROVED. No changes needed.**
+
+Implementation is clean and faithful to spec. All 11 tests pass (7 checker + 4 monitor).
+
+Code quality:
+- `checker.py`: Pure function with well-structured alert priority logic. Stop-loss suppresses SIGNIFICANT_LOSS, target-hit suppresses SIGNIFICANT_GAIN — correct mutual exclusion.
+- `check_position()` computes `unrealized_pnl_pct` locally from `current_price` and `position.avg_cost` rather than relying on `Position.unrealized_pnl_pct` (which uses default `current_price=0.0`) — correct decision.
+- TIME_OVERRUN: `max(expected_hold * 1.5, 7)` minimum floor + 90-day fallback when NULL — matches spec exactly.
+- `AlertStore`: Same connection-or-path pattern as `DriftAnalyzer` — consistent API.
+- `PortfolioMonitor`: Graceful degradation on price fetch failure (warning + skip). Thesis lookup via `original_analysis_id` for stop/target values. Saves portfolio snapshot with `trigger_event="daily_check"`.
+- CLI: Clean output formatting with severity icons.
+
+---
+
+**Task 011 — APPROVED with 1 architect improvement.**
+
+Implementation is clean and well-architected. All 10 tests pass.
+
+Code quality:
+- `SignalStore.save_signal()`: Properly extracts indexed fields from `AggregatedSignal.metrics` and serializes agent_signals/warnings to JSON.
+- `resolve_from_thesis()`: Correct outcome determination — BUY+positive=WIN, SELL+negative=WIN, HOLD=OPEN. No-executions=SKIPPED. Clean SQL queries.
+- `_row_to_dict()`: Properly parses JSON columns back to Python objects.
+- `SignalTracker`: Pure computation over store results — clean separation of concerns.
+- `compute_calibration_data()`: Sparse bucket filtering via `min_bucket_size` — addresses architecture review concern.
+- `compute_agent_performance()`: Correct agreement_rate and directional_accuracy computation from parsed agent_signals_json.
+
+Architect improvement:
+- **`compute_accuracy_stats` total_signals fix**: Original implementation set `total_signals = len(resolved)` which only included WIN/LOSS signals from `get_resolved_signals()`. This made `total_signals == resolved_count` always, so the CLI's "pending/skipped" count was always 0 even when unresolved signals existed. Added `get_signal_count(lookback)` to `SignalStore` that counts ALL signals (including NULL/OPEN/SKIPPED outcomes). Updated `compute_accuracy_stats` to use it for accurate `total_signals`. Existing tests still pass since test data only has WIN/LOSS signals.
+
+---
+
+**Phase 1 Complete — Final Architecture Summary:**
+
+| Layer | Components | Status |
+|-------|-----------|--------|
+| **Data** | DB schema (7 tables), WAL mode, aiosqlite | DONE |
+| **Portfolio** | Position/Portfolio models, PortfolioManager, CLI | DONE |
+| **Data Providers** | YFinance, ccxt, FRED providers + factory | DONE |
+| **Agents** | Technical (pandas_ta), Fundamental (yfinance), Macro (FRED+VIX) | DONE |
+| **Engine** | Signal Aggregator, Analysis Pipeline, Drift Analyzer | DONE |
+| **Monitoring** | Position checker, AlertStore, PortfolioMonitor, CLI | DONE |
+| **Tracking** | Signal history, accuracy stats, calibration, agent perf, CLI | DONE |
+| **CLI** | portfolio, analyze, monitor, signal — 4 entry points | DONE |
+
+**Test suite: 95 passed, 1 skipped (ccxt network), 0 failed.**
+
+(Updated after runtime fixes: factory routes btc/eth to YFinanceProvider, yfinance thread-safety lock, MultiIndex fix, Windows SelectorEventLoop policy.)

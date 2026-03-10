@@ -25,6 +25,7 @@ class AggregatedSignal:
     reasoning: str                   # combined reasoning
     metrics: dict[str, Any] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
+    ticker_info: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -37,6 +38,7 @@ class AggregatedSignal:
             "reasoning": self.reasoning,
             "metrics": self.metrics,
             "warnings": self.warnings,
+            "ticker_info": self.ticker_info,
         }
 
 
@@ -149,7 +151,7 @@ class SignalAggregator:
 
         if consensus_score < 0.5:
             confidence *= 0.8
-            warnings.append("Low agent consensus — signals conflict.")
+            warnings.append("Low agent consensus -- signals conflict.")
 
         confidence = max(30.0, min(90.0, confidence))
 
@@ -180,7 +182,7 @@ class SignalAggregator:
         elif consensus_score >= 0.5:
             consensus_str = f"{agree_count}/{total} agents agree"
         else:
-            consensus_str = f"{agree_count}/{total} agents — LOW CONSENSUS, reduced confidence"
+            consensus_str = f"{agree_count}/{total} agents -- LOW CONSENSUS, reduced confidence"
 
         if regime is not None:
             regime_display = regime.value

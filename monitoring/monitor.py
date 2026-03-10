@@ -51,7 +51,7 @@ class PortfolioMonitor:
                     if current_price is None or current_price <= 0:
                         raise ValueError(f"Invalid price returned: {current_price}")
                 except Exception as exc:
-                    warnings.append(f"{position.ticker}: price fetch failed — {exc}")
+                    warnings.append(f"{position.ticker}: price fetch failed -- {exc}")
                     continue
 
                 # Fetch stop_loss / target_price from positions_thesis if linked

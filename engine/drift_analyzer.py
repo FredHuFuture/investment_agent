@@ -87,10 +87,13 @@ class DriftAnalyzer:
                 "expected_return_pct": expected_return_pct,
                 "weighted_avg_entry_price": None,
                 "entry_drift_pct": None,
+                "weighted_avg_exit_price": None,
                 "actual_return_pct": None,
                 "return_drift_pct": None,
                 "actual_hold_days": None,
                 "hold_drift_days": None,
+                "total_buy_qty": 0.0,
+                "total_sell_qty": 0.0,
                 "position_status": "no_executions",
             }
 

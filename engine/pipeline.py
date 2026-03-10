@@ -69,15 +69,39 @@ class AnalysisPipeline:
             portfolio=portfolio,
         )
 
-        # 4. Run agents in parallel
-        results = await asyncio.gather(
-            *[agent.analyze(agent_input) for agent in agents],
-            return_exceptions=True,
-        )
+        # 4. Run agents + ticker info fetch in parallel
+        async def _fetch_ticker_info() -> dict:
+            """Fetch current price and key stats for report header."""
+            info: dict = {}
+            try:
+                price = await primary_provider.get_current_price(ticker)
+                info["current_price"] = price
+            except Exception:
+                pass
+            try:
+                stats = await primary_provider.get_key_stats(ticker)
+                info.update(stats)
+            except Exception:
+                pass
+            return info
+
+        all_tasks = [agent.analyze(agent_input) for agent in agents]
+        all_tasks.append(_fetch_ticker_info())  # type: ignore[arg-type]
+        results = await asyncio.gather(*all_tasks, return_exceptions=True)
+
+        # Last result is ticker_info; rest are agent results
+        ticker_info_result = results[-1]
+        agent_results = results[:-1]
+
+        ticker_info: dict = {}
+        if isinstance(ticker_info_result, dict):
+            ticker_info = ticker_info_result
+        elif isinstance(ticker_info_result, Exception):
+            pipeline_warnings.append(f"Ticker info fetch failed: {ticker_info_result}")
 
         # 5. Filter exceptions, collect valid outputs
         agent_outputs: list[AgentOutput] = []
-        for i, result in enumerate(results):
+        for i, result in enumerate(agent_results):
             if isinstance(result, Exception):
                 pipeline_warnings.append(f"{agents[i].name} failed: {result}")
             else:
@@ -87,7 +111,8 @@ class AnalysisPipeline:
         aggregator = SignalAggregator()
         signal = aggregator.aggregate(agent_outputs, ticker, asset_type)
 
-        # Merge pipeline-level warnings into the signal
+        # Attach ticker info and pipeline warnings
+        signal.ticker_info = ticker_info
         signal.warnings.extend(pipeline_warnings)
 
         return signal

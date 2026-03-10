@@ -44,9 +44,9 @@ def _cmd_history(db_path: str, ticker: str | None, signal: str | None, limit: in
         print(f"Signal History (last {limit}):")
         for r in rows:
             ts = str(r["created_at"])[:16].replace("T", " ")
-            outcome_str = f"→ {r['outcome']}" if r["outcome"] else "→  —"
-            ret_str = f"  {r['outcome_return_pct']:+.1%}" if r["outcome_return_pct"] is not None else "  —"
-            regime = r.get("regime") or "—"
+            outcome_str = f"-> {r['outcome']}" if r["outcome"] else "->  --"
+            ret_str = f"  {r['outcome_return_pct']:+.1%}" if r["outcome_return_pct"] is not None else "  --"
+            regime = r.get("regime") or "--"
             print(
                 f"  {ts}  {r['final_signal']:<5} {r['final_confidence']:.1f}%  "
                 f"{r['ticker']:<6} {r['asset_type']:<6} {regime:<10} "
@@ -120,8 +120,8 @@ def _cmd_calibration(db_path: str, lookback: int, min_bucket: int) -> None:
             )
         print()
         print("  Interpretation:")
-        print("    Delta > 0: under-confident (good — conservative)")
-        print("    Delta < 0: over-confident (bad — predictions too rosy)")
+        print("    Delta > 0: under-confident (good -- conservative)")
+        print("    Delta < 0: over-confident (bad -- predictions too rosy)")
         print()
         print(f"  ⚠ Buckets with < {min_bucket} samples excluded.")
         print("=" * 64)

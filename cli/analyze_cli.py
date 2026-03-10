@@ -2,9 +2,15 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import sys
 
 from cli.report import format_analysis_json, format_analysis_report
 from engine.pipeline import AnalysisPipeline
+
+# Windows: aiodns (used by aiohttp/ccxt) requires SelectorEventLoop,
+# not the default ProactorEventLoop.
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 
 async def _run_analysis(ticker: str, asset_type: str, json_output: bool) -> None:

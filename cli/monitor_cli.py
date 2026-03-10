@@ -3,11 +3,16 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import sys
 from datetime import datetime, timezone
 
 from db.database import DEFAULT_DB_PATH
 from monitoring.monitor import PortfolioMonitor
 from monitoring.store import AlertStore
+
+# Windows: aiodns (used by aiohttp/ccxt) requires SelectorEventLoop.
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 _SEVERITY_ICONS = {
     "CRITICAL": "🔴",
@@ -59,7 +64,7 @@ def _cmd_check(db_path: str) -> None:
             for alert in alerts:
                 icon = _SEVERITY_ICONS.get(alert["severity"], "  ")
                 print(
-                    f"  {icon} {alert['severity']:<10} {alert['ticker']} — {alert['alert_type']}"
+                    f"  {icon} {alert['severity']:<10} {alert['ticker']} -- {alert['alert_type']}"
                 )
                 print(f"     {alert['message']}")
                 print(f"     → {alert['recommended_action']}")

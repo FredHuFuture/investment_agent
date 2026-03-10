@@ -216,6 +216,26 @@ class SignalStore:
 
         return await self._with_conn(_op)
 
+    async def get_signal_count(self, lookback: int = 100) -> int:
+        """Count total signals in lookback window (all outcomes, including NULL/OPEN/SKIPPED)."""
+
+        async def _op(conn: aiosqlite.Connection) -> int:
+            row = await (
+                await conn.execute(
+                    """
+                    SELECT COUNT(*) FROM (
+                        SELECT id FROM signal_history
+                        ORDER BY created_at DESC
+                        LIMIT ?
+                    )
+                    """,
+                    (lookback,),
+                )
+            ).fetchone()
+            return int(row[0]) if row else 0
+
+        return await self._with_conn(_op)
+
     async def get_resolved_signals(
         self,
         lookback: int = 100,
