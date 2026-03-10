@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pandas as pd
 import pytest
@@ -12,7 +12,7 @@ from data_providers.base import DataProvider
 
 
 def _mock_vix_data(vix_value: float, num_days: int = 60) -> pd.DataFrame:
-    dates = pd.date_range(end=datetime.utcnow(), periods=num_days, freq="B")
+    dates = pd.date_range(end=datetime.now(timezone.utc), periods=num_days, freq="B")
     data = pd.DataFrame(
         {
             "Open": [vix_value] * num_days,

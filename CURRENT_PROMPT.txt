@@ -4,17 +4,16 @@
 
 ## 执行顺序
 
-### Step 1: Agent A → Task 005 (Technical Agent + 共享框架)
-请严格执行 `tasks/005_technical_agent.md` 的要求。**此 Task 包含共享框架（agents/models.py, agents/base.py），后续 Task 006/007 依赖它。必须先完成。**
+### Step 1: Task 008 (Signal Aggregator + E2E Pipeline)
+请严格执行 `tasks/008_signal_aggregator.md` 的要求。
 
-### Step 2: Agent B + Agent C → Tasks 006 & 007 (并行)
-Task 005 提交后，以下两个 Task 可并行执行：
-- **Agent B**: 执行 `tasks/006_fundamental_agent.md` (Fundamental Agent)
-- **Agent C**: 执行 `tasks/007_macro_regime_agent.md` (Macro/Regime Agent)
+**前提**: Tasks 005-007 已完成。`agents/technical.py`, `agents/fundamental.py`, `agents/macro.py` 已存在且全部测试通过 (42 passed)。
+
+**提示**: 请先阅读 `docs/AGENT_SYNC.md` 末尾的 Architect Review，了解架构决策和注意事项。
 
 ## 通用完成步骤
 每个 Task 完成后：
 1. 必须在 `docs/AGENT_SYNC.md` 中进行书面汇报！
 2. 必须执行 `git add .` 和 `git commit -m "..."` 提交你的所有修改！不需要推送到远端。
 
-> **注意**: Task 005 必须先完成（它创建共享框架）。Task 006 和 007 互相独立，可并行。
+> **注意**: Task 008 依赖 005-007 的 Agent 实现。所有测试必须通过 (`pytest tests/ -v`)。

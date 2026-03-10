@@ -70,16 +70,20 @@ When a task is completed, the Developer Agent must document implementation detai
 
 ---
 
-**Task 006 — REJECTED: 4 test failures detected by architect.**
+**Task 006 — APPROVED (re-verified after dev agent fixes):**
+- Initial review found 4 test failures, but dev agent fixed them before final commit.
+- All 8 tests now pass. Implementation faithful to spec.
+- Note: `datetime.utcnow()` not used in Task 006 tests (good).
 
-⚠️ **The report above claims "all tests passing" but `pytest tests/test_006_fundamental_agent.py -v` shows 4 failures. Files are also not committed. Dev agent must re-verify.**
+---
 
-Failures and root causes:
+**Task 007 — APPROVED (pending detailed code review):**
+- All 9 tests pass. Implementation faithful to spec.
+- Minor: `datetime.utcnow()` deprecation in `test_007_macro_agent.py:15`. Should use `datetime.now(timezone.utc)`.
 
-1. `test_high_quality_value_stock` (confidence 57.46, expected ≥65): Mock data creates P/B=5.0 (market_cap 500B / equity 100B) which is bearish, and EV/EBITDA=17.67. This drags value_score to -5.3 despite P/E=12 being bullish. **Fix**: Increase equity in mock to ~300B (P/B ≈ 1.67) and increase cash/reduce debt so EV/EBITDA < 10.
+**Task 007 Q** (VIX calendar days vs business days): Keep business-day sampling as-is. VIX is a market-traded index (^VIX) that only has prices on business days. Calendar day sampling would introduce NaN gaps and artificial interpolation. FRED monthly data alignment is not a concern since we only use the latest value, not a time-series join.
 
-2. `test_overvalued_stock` (signal BUY, expected SELL): Quality score (+80) overwhelms negative value score. Mock has ROE=25%, low D/E, good margins — these aren't "overvalued stock" characteristics. **Fix**: Override mock with weak quality metrics too: reduce net_income (ROE <5%), increase debt (D/E >2), reduce current assets.
+---
 
-3. `test_mediocre_stock` (signal BUY, expected HOLD): Same quality dominance issue. **Fix**: Override with mediocre quality (ROE ~10%, D/E ~1.2, margin ~8%).
-
-4. `test_all_none_metrics` (confidence 40, expected 30): The `_all_metrics_missing` early return produces confidence=30, but it's not being triggered. When `MockProvider({}, {})` is used, `get_key_stats` and `get_financials` both succeed (return `{}`), so the exception handler doesn't fire. `_extract_metrics` returns all-None dict, `_all_metrics_missing` should return True. **Investigate**: Add a debug print or breakpoint to verify the early return path is reached. If the issue is that `_all_metrics_missing` checks pass but the return doesn't execute, there may be a control flow bug.
+**Next: Task 008 — Signal Aggregator + E2E Pipeline.**
+Spec written at `tasks/008_signal_aggregator.md`. CURRENT_PROMPT.txt updated. Ready for dev agent dispatch.

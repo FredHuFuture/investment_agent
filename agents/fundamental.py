@@ -107,15 +107,22 @@ class FundamentalAgent(BaseAgent):
             balance_sheet,
             ["Total Stockholders Equity", "Total Stockholder Equity", "Stockholders Equity"],
         )
-        total_debt = _safe_extract(balance_sheet, ["Total Debt", "Long Term Debt", "Total Liabilities"])
+        total_debt = _safe_extract(
+            balance_sheet,
+            ["Total Debt", "Long Term Debt", "Long Term Debt And Capital Lease Obligation"],
+        )
         current_assets = _safe_extract(balance_sheet, ["Current Assets"])
         current_liabilities = _safe_extract(balance_sheet, ["Current Liabilities"])
         fcf = _safe_extract(cash_flow, ["Free Cash Flow"])
         ebitda = _safe_extract(income_statement, ["EBITDA"])
         cash = _safe_extract(balance_sheet, ["Cash And Cash Equivalents", "Cash"])
 
+        # Guard: negative equity (heavy buybacks, e.g. Starbucks/McDonald's)
+        # makes P/B, ROE, D/E economically meaningless → treat as None
+        equity_valid = equity is not None and equity > 0
+
         pb_ratio = None
-        if market_cap is not None and equity not in (None, 0):
+        if market_cap is not None and equity_valid:
             pb_ratio = market_cap / equity
 
         ev_ebitda = None
@@ -125,7 +132,7 @@ class FundamentalAgent(BaseAgent):
             ev_ebitda = (market_cap + debt_val - cash_val) / ebitda
 
         roe = None
-        if net_income is not None and equity not in (None, 0):
+        if net_income is not None and equity_valid:
             roe = net_income / equity
 
         profit_margin = None
@@ -142,7 +149,7 @@ class FundamentalAgent(BaseAgent):
                     revenue_growth = (latest - prior) / prior
 
         debt_equity = None
-        if total_debt is not None and equity not in (None, 0):
+        if total_debt is not None and equity_valid:
             debt_equity = total_debt / equity
 
         current_ratio = None
