@@ -1,1 +1,1 @@
-"""CLI entrypoints."""
+"""CLI package for investment analysis agent."""

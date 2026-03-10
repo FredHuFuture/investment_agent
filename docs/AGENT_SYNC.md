@@ -168,3 +168,10 @@ Spec written at `tasks/008_signal_aggregator.md`. CURRENT_PROMPT.txt updated. Re
 
 **Next: Task 008.5 (Drift Analyzer Enhancement) + Task 009 (CLI Report + E2E).**
 Specs being written. CURRENT_PROMPT.txt will be updated.
+
+### [2026-03-10] Task 009 Report by Codex
+- **Implemented**: Added `cli/report.py` with `format_analysis_report` and `format_analysis_json` (defensive metric extraction for missing keys) and consensus computation; added `cli/analyze_cli.py` CLI entry point; updated `cli/__init__.py` docstring. Added `tests/test_009_report.py` (4 report formatting tests) and `tests/test_009_e2e.py` (4 CLI pipeline tests with monkeypatched `AnalysisPipeline`). Added `.gitignore` for `__pycache__/`, `*.pyc`, and `.pytest_cache/` to prevent test artifacts from being staged during required `git add .`.
+- **Test Results**: `python -m pytest tests/test_009_report.py tests/test_009_e2e.py -v`, then `python -m pytest tests/ -v` (73 passed, 2 skipped; warnings from pandas_ta + missing FRED key are pre-existing).
+- **Skipped/Deferred**: Drift summary display in CLI explicitly deferred (Phase 2 per spec).
+- **Technical Concerns / Edge Cases**: Report formatter tolerates missing metrics keys and unknown agents; consensus line falls back to `0/0 agents (no signals)` when outputs are empty to avoid crashes.
+- **Questions for FutureClaw**: None for this task.
