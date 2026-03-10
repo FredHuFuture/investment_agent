@@ -36,6 +36,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "--log-level", type=str, default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
     )
+    start_p.add_argument(
+        "--no-daily", action="store_true", default=False,
+        help="Disable the daily portfolio check job.",
+    )
+    start_p.add_argument(
+        "--no-weekly", action="store_true", default=False,
+        help="Disable the weekly revaluation job.",
+    )
 
     # run-once
     once_p = sub.add_parser("run-once", help="Run a single job immediately, then exit.")
@@ -51,9 +59,11 @@ def _cmd_start(args) -> None:
     config = DaemonConfig(
         daily_hour=args.daily_hour,
         daily_minute=args.daily_minute,
+        daily_enabled=not args.no_daily,
         weekly_day=args.weekly_day,
         weekly_hour=args.weekly_hour,
         weekly_minute=args.weekly_minute,
+        weekly_enabled=not args.no_weekly,
         timezone=args.timezone,
         log_file=args.log_file,
         log_level=args.log_level,

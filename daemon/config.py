@@ -22,6 +22,10 @@ class DaemonConfig:
     weekly_hour: int = 10          # 10 AM ET
     weekly_minute: int = 0
 
+    # Job enable/disable toggles
+    daily_enabled: bool = True
+    weekly_enabled: bool = True
+
     # Catalyst scan (stub -- disabled until Task 017)
     catalyst_enabled: bool = False
 

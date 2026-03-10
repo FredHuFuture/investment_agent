@@ -412,3 +412,55 @@ Architect improvement:
 | 013 Backtesting Framework | 12 | DONE |
 | 014 Monitoring Daemon | 10 | DONE |
 | **TOTAL** | **125 passed, 1 skipped** | **Sprint 4 COMPLETE** |
+
+---
+
+### [2026-03-10] Task 014.5 Report by Claude (Dev Agent)
+
+**Implemented:**
+
+- `cli/report.py` -- Extended with detail mode. All additions are backwards-compatible:
+  - Signature: `format_analysis_report(signal, detail=False)` -- existing callers unchanged.
+  - Added `import textwrap` and two module-level constants: `_DOT_SEP = "." * 62`, `_SIGNAL_VALUES`.
+  - When `detail=True`, replaces the single-line `_format_agent_detail()` call with `_format_agent_detailed()` which returns a multi-line block per agent.
+  - When `detail=True`, appends `_format_aggregation_detail()` section between CONSENSUS and WARNINGS.
+  - New functions added: `_format_agent_detailed()`, `_format_aggregation_detail()`, `_append_technical_groups()`, `_append_fundamental_groups()`, `_append_macro_groups()`, `_append_group()`, `_fmt_score()`.
+  - Detail block structure per agent: dotted separator -- grouped metrics (sub-scores, key indicators) -- reasoning wrapped at 58 chars with `> ` prefix -- weight contribution math -- closing dotted separator.
+  - Aggregation section: weights, raw_score with threshold note, consensus with dominant signal and strength, consensus adjustment note, final signal + confidence.
+  - All None/missing metrics silently skipped (no "N/A" clutter).
+
+- `cli/analyze_cli.py` -- Added `--detail` / `-d` flag via argparse `action="store_true"`. Passed as `detail=args.detail` to `format_analysis_report()`. `_run_analysis()` signature extended with `detail=False` parameter.
+
+- `tests/test_009_report.py` -- Added 4 new tests (8 total, up from 4):
+  1. `test_detail_mode_shows_all_metrics` -- verifies RSI, SMA, MACD, ATR, P/E, VIX, Treasury values appear in detail mode but not standard; dotted separators and weight math present.
+  2. `test_detail_mode_shows_reasoning` -- verifies unique reasoning string + `> ` prefix in detail mode, absent from standard mode.
+  3. `test_detail_mode_shows_aggregation_math` -- verifies AGGREGATION DETAIL section with Weights/Raw Score/Consensus/Consensus Adj/Final keys and `+/-0.30` threshold.
+  4. `test_standard_mode_unchanged` -- regression guard: `format_analysis_report(signal)` == `format_analysis_report(signal, detail=False)`, and detail markers (AGGREGATION DETAIL, `> `, "contribution") absent.
+
+**Test Results:** 129 passed, 1 skipped, 0 failed (4 new tests added).
+
+**Deviations from Spec:**
+- `_format_agent_detailed` takes `contributions` and `weights_used` as separate parameters (extracted from `signal.metrics` in `format_analysis_report`) rather than the single `contributions` dict shown in the spec. Functionally equivalent -- cleaner to separate the two concerns.
+- Aggregation detail section placed between CONSENSUS and WARNINGS (spec says "after agent breakdown" -- interpreted as after consensus line, before warnings, which keeps the logical flow: per-agent detail -- aggregation math -- summary warnings).
+
+**Technical Notes:**
+- `textwrap.wrap(reasoning, width=58)` handles multi-line reasoning strings correctly -- each paragraph line is wrapped independently. The aggregator's `reasoning` field uses `\n` as a separator; `wrap()` treats newlines as word boundaries, so the output is clean.
+- `_append_group(lines, title, items)` is a shared helper that silently skips groups with no valid (non-None) items, preventing empty section headers.
+- No new files, no new dependencies, no data layer changes -- exactly per spec scope.
+
+**Questions for FutureClaw:**
+- Should the `--detail` flag also expand the `status` subcommand in `daemon_cli.py` to show `result_json` contents (positions analyzed, alerts generated) in human-readable form? Currently `status` is minimal.
+- For Task 015 (FastAPI), should `format_analysis_report()` be exposed as a utility or should the API return JSON exclusively?
+
+---
+
+**Sprint 4 Final Summary:**
+
+| Task | Tests | Status |
+|------|-------|--------|
+| 001-011 | 95 | DONE (Phase 1) |
+| 012 Chart Generation | 8 | DONE |
+| 013 Backtesting Framework | 12 | DONE |
+| 014 Monitoring Daemon | 10 | DONE |
+| 014.5 Analysis Detail Mode | 4 | DONE |
+| **TOTAL** | **129 passed, 1 skipped** | **Sprint 4 + 014.5 COMPLETE** |

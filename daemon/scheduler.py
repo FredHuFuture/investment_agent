@@ -74,30 +74,32 @@ class MonitoringDaemon:
         self._scheduler = AsyncIOScheduler()
 
         # Daily check: Mon-Fri at configured time
-        self._scheduler.add_job(
-            self._job_daily,
-            CronTrigger(
-                hour=self._config.daily_hour,
-                minute=self._config.daily_minute,
-                day_of_week=self._config.daily_days,
-                timezone=self._config.timezone,
-            ),
-            id="daily_check",
-            name="Daily Portfolio Check",
-        )
+        if self._config.daily_enabled:
+            self._scheduler.add_job(
+                self._job_daily,
+                CronTrigger(
+                    hour=self._config.daily_hour,
+                    minute=self._config.daily_minute,
+                    day_of_week=self._config.daily_days,
+                    timezone=self._config.timezone,
+                ),
+                id="daily_check",
+                name="Daily Portfolio Check",
+            )
 
         # Weekly revaluation
-        self._scheduler.add_job(
-            self._job_weekly,
-            CronTrigger(
-                hour=self._config.weekly_hour,
-                minute=self._config.weekly_minute,
-                day_of_week=self._config.weekly_day,
-                timezone=self._config.timezone,
-            ),
-            id="weekly_revaluation",
-            name="Weekly Deep Revaluation",
-        )
+        if self._config.weekly_enabled:
+            self._scheduler.add_job(
+                self._job_weekly,
+                CronTrigger(
+                    hour=self._config.weekly_hour,
+                    minute=self._config.weekly_minute,
+                    day_of_week=self._config.weekly_day,
+                    timezone=self._config.timezone,
+                ),
+                id="weekly_revaluation",
+                name="Weekly Deep Revaluation",
+            )
 
     async def _job_daily(self) -> None:
         """Scheduler wrapper for run_daily_check."""
@@ -128,16 +130,18 @@ class MonitoringDaemon:
         self._setup_scheduler()
         self._scheduler.start()
 
+        daily_status = (
+            f"Mon-Fri {self._config.daily_hour:02d}:{self._config.daily_minute:02d} {self._config.timezone}"
+            if self._config.daily_enabled else "DISABLED"
+        )
+        weekly_status = (
+            f"{self._config.weekly_day} {self._config.weekly_hour:02d}:{self._config.weekly_minute:02d} {self._config.timezone}"
+            if self._config.weekly_enabled else "DISABLED"
+        )
         self._logger.info(
-            "Scheduler started. Daily check: Mon-Fri %02d:%02d %s. "
-            "Weekly revaluation: %s %02d:%02d %s.",
-            self._config.daily_hour,
-            self._config.daily_minute,
-            self._config.timezone,
-            self._config.weekly_day,
-            self._config.weekly_hour,
-            self._config.weekly_minute,
-            self._config.timezone,
+            "Scheduler started. Daily check: %s. Weekly revaluation: %s.",
+            daily_status,
+            weekly_status,
         )
 
         self._shutdown_event = asyncio.Event()
