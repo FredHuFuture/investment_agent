@@ -1,0 +1,332 @@
+"""Async job functions for the monitoring daemon.
+
+Each function is self-contained, never raises (catches all exceptions),
+and records its execution in the daemon_runs table.
+"""
+from __future__ import annotations
+
+import json
+import logging
+import time
+from datetime import datetime, timezone
+from typing import Any
+
+import aiosqlite
+
+from daemon.signal_comparator import compare_signals
+from db.database import DEFAULT_DB_PATH
+from engine.aggregator import AggregatedSignal
+from engine.pipeline import AnalysisPipeline
+from monitoring.models import Alert
+from monitoring.monitor import PortfolioMonitor
+from monitoring.store import AlertStore
+from portfolio.manager import PortfolioManager
+from tracking.store import SignalStore
+
+
+# ---------------------------------------------------------------------------
+# Public job functions
+# ---------------------------------------------------------------------------
+
+async def run_daily_check(
+    db_path: str = str(DEFAULT_DB_PATH),
+    logger: logging.Logger | None = None,
+) -> dict[str, Any]:
+    """Run the daily portfolio health check.
+
+    Wraps PortfolioMonitor.run_check() with logging and daemon_runs recording.
+    Never raises -- all exceptions are caught, logged, and recorded.
+
+    Returns dict with result fields or error details.
+    """
+    if logger is None:
+        logger = logging.getLogger("investment_daemon")
+
+    started_at = datetime.now(timezone.utc).isoformat()
+    t0 = time.monotonic()
+
+    try:
+        monitor = PortfolioMonitor(db_path)
+        result = await monitor.run_check()
+        duration_ms = int((time.monotonic() - t0) * 1000)
+
+        n_checked = result.get("checked_positions", 0)
+        n_alerts = len(result.get("alerts", []))
+        n_warnings = len(result.get("warnings", []))
+        logger.info(
+            "Daily check complete -- %d positions, %d alerts, %d warnings",
+            n_checked, n_alerts, n_warnings,
+        )
+        for w in result.get("warnings", []):
+            logger.warning("  %s", w)
+
+        await _record_daemon_run(
+            db_path=db_path,
+            job_name="daily_check",
+            status="success",
+            started_at=started_at,
+            duration_ms=duration_ms,
+            result_json=json.dumps({
+                "checked_positions": n_checked,
+                "alerts_generated": n_alerts,
+                "warnings": n_warnings,
+            }),
+        )
+        return result
+
+    except Exception as exc:
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        err_msg = str(exc)
+        logger.error("Daily check failed: %s", err_msg, exc_info=True)
+        await _record_daemon_run(
+            db_path=db_path,
+            job_name="daily_check",
+            status="error",
+            started_at=started_at,
+            duration_ms=duration_ms,
+            error_message=err_msg,
+        )
+        return {"error": err_msg, "checked_positions": 0, "alerts": [], "warnings": []}
+
+
+async def run_weekly_revaluation(
+    db_path: str = str(DEFAULT_DB_PATH),
+    logger: logging.Logger | None = None,
+) -> dict[str, Any]:
+    """Run weekly full re-analysis for all portfolio positions.
+
+    For each position:
+    1. Run AnalysisPipeline.analyze_ticker()
+    2. Load original thesis signal/confidence from positions_thesis
+    3. Compare signals -- if reversed, create SIGNAL_REVERSAL alert
+    4. Save new signal to signal_history
+
+    Never raises -- per-position errors are collected and the loop continues.
+    Returns summary dict.
+    """
+    if logger is None:
+        logger = logging.getLogger("investment_daemon")
+
+    started_at = datetime.now(timezone.utc).isoformat()
+    t0 = time.monotonic()
+
+    positions_analyzed = 0
+    signal_reversals: list[dict] = []
+    alerts_generated = 0
+    signals_saved = 0
+    errors: list[dict] = []
+
+    try:
+        pm = PortfolioManager(db_path)
+        portfolio = await pm.load_portfolio()
+        pipeline = AnalysisPipeline(db_path=db_path)
+
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("PRAGMA foreign_keys=ON;")
+            alert_store = AlertStore(conn)
+            signal_store = SignalStore(conn)
+
+            for position in portfolio.positions:
+                try:
+                    # Run full re-analysis
+                    signal: AggregatedSignal = await pipeline.analyze_ticker(
+                        position.ticker, position.asset_type, portfolio
+                    )
+
+                    # Load original thesis for comparison
+                    original_signal: str | None = None
+                    original_confidence: float | None = None
+                    thesis_id = position.original_analysis_id
+
+                    if thesis_id is not None:
+                        thesis_row = await (
+                            await conn.execute(
+                                """
+                                SELECT expected_signal, expected_confidence
+                                FROM positions_thesis
+                                WHERE id = ?
+                                """,
+                                (thesis_id,),
+                            )
+                        ).fetchone()
+                        if thesis_row is not None:
+                            original_signal = str(thesis_row[0]) if thesis_row[0] else None
+                            original_confidence = float(thesis_row[1]) if thesis_row[1] else None
+
+                    # Compare signals if original thesis exists
+                    if original_signal and original_confidence is not None:
+                        comparison = compare_signals(
+                            original_signal=original_signal,
+                            original_confidence=original_confidence,
+                            current_signal=signal.final_signal.value,
+                            current_confidence=signal.final_confidence,
+                        )
+                        logger.info(
+                            "  %s: %s",
+                            position.ticker,
+                            comparison.summary,
+                        )
+
+                        if comparison.direction_reversed:
+                            reversal_info = {
+                                "ticker": position.ticker,
+                                "original_signal": original_signal,
+                                "current_signal": signal.final_signal.value,
+                                "confidence": signal.final_confidence,
+                            }
+                            signal_reversals.append(reversal_info)
+
+                            reversal_alert = Alert(
+                                ticker=position.ticker,
+                                alert_type="SIGNAL_REVERSAL",
+                                severity="HIGH",
+                                message=(
+                                    f"Signal reversed from {original_signal} to "
+                                    f"{signal.final_signal.value} "
+                                    f"(confidence: {signal.final_confidence:.0f})"
+                                ),
+                                recommended_action=(
+                                    f"Review position -- original thesis was {original_signal}, "
+                                    f"re-analysis now signals {signal.final_signal.value}."
+                                ),
+                                current_price=signal.ticker_info.get("current_price"),
+                            )
+                            await alert_store.save_alert(reversal_alert)
+                            alerts_generated += 1
+
+                    # Save the new signal to signal_history
+                    await signal_store.save_signal(signal, thesis_id=thesis_id)
+                    signals_saved += 1
+                    positions_analyzed += 1
+
+                except Exception as exc:
+                    err_msg = str(exc)
+                    logger.error("  %s: analysis failed -- %s", position.ticker, err_msg, exc_info=True)
+                    errors.append({"ticker": position.ticker, "error": err_msg})
+
+            # Save portfolio snapshot with weekly trigger
+            now = datetime.now(timezone.utc).isoformat()
+            import json as _json
+            await conn.execute(
+                """
+                INSERT INTO portfolio_snapshots (
+                    timestamp, total_value, cash, positions_json, trigger_event
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    now,
+                    portfolio.total_value,
+                    portfolio.cash,
+                    _json.dumps([p.to_dict() for p in portfolio.positions]),
+                    "weekly_revaluation",
+                ),
+            )
+            await conn.commit()
+
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        logger.info(
+            "Weekly revaluation complete -- %d analyzed, %d reversals, %d errors",
+            positions_analyzed, len(signal_reversals), len(errors),
+        )
+
+        result = {
+            "positions_analyzed": positions_analyzed,
+            "signal_reversals": signal_reversals,
+            "alerts_generated": alerts_generated,
+            "signals_saved": signals_saved,
+            "errors": errors,
+        }
+        await _record_daemon_run(
+            db_path=db_path,
+            job_name="weekly_revaluation",
+            status="success",
+            started_at=started_at,
+            duration_ms=duration_ms,
+            result_json=json.dumps({
+                "positions_analyzed": positions_analyzed,
+                "signal_reversals": len(signal_reversals),
+                "alerts_generated": alerts_generated,
+                "signals_saved": signals_saved,
+                "errors": len(errors),
+            }),
+        )
+        return result
+
+    except Exception as exc:
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        err_msg = str(exc)
+        logger.error("Weekly revaluation failed: %s", err_msg, exc_info=True)
+        await _record_daemon_run(
+            db_path=db_path,
+            job_name="weekly_revaluation",
+            status="error",
+            started_at=started_at,
+            duration_ms=duration_ms,
+            error_message=err_msg,
+        )
+        return {
+            "error": err_msg,
+            "positions_analyzed": positions_analyzed,
+            "signal_reversals": signal_reversals,
+            "alerts_generated": alerts_generated,
+            "signals_saved": signals_saved,
+            "errors": errors,
+        }
+
+
+async def run_catalyst_scan_stub(
+    db_path: str = str(DEFAULT_DB_PATH),
+    logger: logging.Logger | None = None,
+) -> dict[str, Any]:
+    """Catalyst scanner stub -- not implemented until Task 017 (LLM integration).
+
+    Records a 'skipped' run in daemon_runs.
+    """
+    if logger is None:
+        logger = logging.getLogger("investment_daemon")
+
+    started_at = datetime.now(timezone.utc).isoformat()
+    reason = "Catalyst scanner not available -- requires LLM integration (Task 017)"
+    logger.info(reason)
+
+    await _record_daemon_run(
+        db_path=db_path,
+        job_name="catalyst_scan",
+        status="skipped",
+        started_at=started_at,
+        duration_ms=0,
+        result_json=json.dumps({"reason": reason}),
+    )
+    return {"status": "skipped", "reason": reason}
+
+
+# ---------------------------------------------------------------------------
+# Internal helper
+# ---------------------------------------------------------------------------
+
+async def _record_daemon_run(
+    db_path: str,
+    job_name: str,
+    status: str,
+    started_at: str,
+    duration_ms: int,
+    result_json: str | None = None,
+    error_message: str | None = None,
+) -> None:
+    """Insert a row into daemon_runs for auditing."""
+    try:
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute(
+                """
+                INSERT INTO daemon_runs
+                    (job_name, status, started_at, duration_ms, result_json, error_message)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (job_name, status, started_at, duration_ms, result_json, error_message),
+            )
+            await conn.commit()
+    except Exception as exc:
+        # Never let audit recording crash the caller
+        logging.getLogger("investment_daemon").error(
+            "_record_daemon_run failed: %s", exc
+        )

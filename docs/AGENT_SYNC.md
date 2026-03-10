@@ -352,11 +352,63 @@ Architect improvement:
 
 ---
 
-**Phase 2 Partial Complete — Task Status Update:**
+**Phase 2 Partial Complete -- Task Status Update:**
 
 | Task | Tests | Status |
 |------|-------|--------|
 | 001-011 | 95 | DONE (Phase 1) |
 | 012 Chart Generation | 8 | DONE |
 | 013 Backtesting Framework | 12 | DONE |
-| **TOTAL** | **115 passed, 1 skipped** | **Phase 2 Charts + Backtesting DONE** |
+| **TOTAL** | **115 passed, 1 skipped** | **Sprint 3 COMPLETE** |
+
+---
+
+### [2026-03-10] Task 014 Report by Claude (Dev Agent)
+
+**Implemented:**
+- `daemon/config.py`: `DaemonConfig` dataclass with defaults for schedule (daily Mon-Fri 17:00 ET, weekly Sat 10:00 ET), timezone, log file/level.
+- `daemon/signal_comparator.py`: Pure `compare_signals()` function + `SignalComparison` dataclass. Reversal = BUY->SELL or SELL->BUY only. BUY->HOLD or HOLD->BUY are NOT reversals. No I/O.
+- `daemon/jobs.py`: Three async job functions:
+  - `run_daily_check()`: wraps `PortfolioMonitor.run_check()`, logs summary, records to `daemon_runs`.
+  - `run_weekly_revaluation()`: loads portfolio, runs `AnalysisPipeline.analyze_ticker()` per position, queries original thesis from `positions_thesis`, calls `compare_signals()`, saves SIGNAL_REVERSAL alerts + new signals. Uses single `aiosqlite.connect()` for all per-position writes. Per-position try/except -- failures don't abort the loop.
+  - `run_catalyst_scan_stub()`: logs "not available", records `status="skipped"`.
+  - `_record_daemon_run()`: inserts to `daemon_runs` table, catches its own exceptions (never crashes caller).
+- `daemon/scheduler.py`: `MonitoringDaemon` class:
+  - `_setup_logging()`: `RotatingFileHandler` (5 MB, 3 backups) + stderr console handler. Format: `%(asctime)s [%(levelname)s] %(name)s: %(message)s`.
+  - `_setup_scheduler()`: `AsyncIOScheduler` with `CronTrigger` for daily + weekly jobs.
+  - `start()`: init DB + start scheduler + register POSIX signal handlers + block on `asyncio.Event`.
+  - `stop()`: graceful scheduler shutdown + event set.
+  - `run_once(job_name)`: directly calls job function without scheduler (used by CLI).
+  - `get_status()`: queries `daemon_runs` for last run per job type.
+- `daemon/__init__.py`: exports `DaemonConfig`, `MonitoringDaemon`.
+- `cli/daemon_cli.py`: `start` / `run-once` / `status` subcommands. Windows SelectorEventLoop policy. ASCII output for run-once results and status view.
+- `db/database.py`: Added `daemon_runs` table (job_name, status CHECK, started_at, duration_ms, result_json, error_message) + index.
+- `pyproject.toml`: Added `apscheduler>=3.10,<4.0` dependency and `daemon` to hatch packages.
+- `tests/test_014_daemon.py`: 10 tests -- 4 pure signal comparator tests (no mocks), 6 job function tests with `tmp_path` DB + mocked dependencies. Verified: daemon_runs rows, monitoring_alerts rows, signal_history rows.
+
+**Test Results:** 125 passed, 1 skipped, 0 failed (10 new tests added).
+
+**Deviations from Spec:**
+- `run_weekly_revaluation` portfolio snapshot: uses `"weekly_revaluation"` as `trigger_event` (spec says the same). Done.
+- Windows graceful shutdown: POSIX signal handlers (`SIGINT`, `SIGTERM`) are registered only on non-Windows platforms (spec requirement). On Windows, `KeyboardInterrupt` from `asyncio.Event.wait()` triggers `stop()` via the `except` clause.
+
+**Technical Notes:**
+- APScheduler 3.x `AsyncIOScheduler`: must be created and started in the same event loop that runs the `start()` coroutine. This works correctly when called via `asyncio.run()` in the CLI.
+- `_record_daemon_run` wraps its own `aiosqlite.connect()` in try/except -- if the DB is unavailable, the run record silently fails rather than crashing the job. This keeps job functions truly "never raise".
+- Logger name `"investment_daemon"` used consistently across all daemon modules. Tests create per-test loggers with `NullHandler` to avoid test output pollution.
+
+**Questions for FutureClaw:**
+- Should `run_weekly_revaluation` also skip positions without `original_analysis_id` (no linked thesis) differently from positions WITH a thesis? Currently both run analysis, but only thesis-linked positions can produce SIGNAL_REVERSAL alerts. No-thesis positions still get their signal saved to `signal_history`.
+- For the `status` subcommand, should `result_json` content (positions_analyzed, alerts, etc.) be parsed and displayed, or is the current top-level summary sufficient?
+
+---
+
+**Sprint 4 Complete -- Updated Task Status:**
+
+| Task | Tests | Status |
+|------|-------|--------|
+| 001-011 | 95 | DONE (Phase 1) |
+| 012 Chart Generation | 8 | DONE |
+| 013 Backtesting Framework | 12 | DONE |
+| 014 Monitoring Daemon | 10 | DONE |
+| **TOTAL** | **125 passed, 1 skipped** | **Sprint 4 COMPLETE** |

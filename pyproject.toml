@@ -16,6 +16,7 @@ dependencies = [
     "pandas-ta>=0.4.67b0",
     "httpx>=0.27",
     "plotly>=5.0",
+    "apscheduler>=3.10,<4.0",
 ]
 
 [project.optional-dependencies]
@@ -32,4 +33,4 @@ markers = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["agents", "backtesting", "charts", "cli", "data_providers", "db", "engine", "monitoring", "portfolio", "tracking"]
+packages = ["agents", "backtesting", "charts", "cli", "daemon", "data_providers", "db", "engine", "monitoring", "portfolio", "tracking"]

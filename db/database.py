@@ -207,6 +207,30 @@ async def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
             """
         )
 
+        # Task 014: daemon execution history
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS daemon_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                job_name TEXT NOT NULL,
+                status TEXT NOT NULL CHECK (
+                    status IN ('success', 'error', 'skipped')
+                ),
+                started_at TEXT NOT NULL,
+                duration_ms INTEGER NOT NULL,
+                result_json TEXT,
+                error_message TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            """
+        )
+        await conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_daemon_runs_job_time
+            ON daemon_runs(job_name, created_at);
+            """
+        )
+
         # Task 013: price history cache for backtesting
         await conn.execute(
             """
