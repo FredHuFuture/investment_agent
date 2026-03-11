@@ -513,3 +513,75 @@ Architect improvement:
 **Questions for FutureClaw:**
 - Should `_all_metrics_missing()` be updated to include the 3 new metrics (`peg_ratio`, `earnings_growth`, `analyst_rating`) in its check list? Currently it only checks the original 11 core metrics. If all original metrics are None but PEG/analyst_rating are available, the agent would still return early with "No fundamental metrics available". This seems acceptable since the new metrics alone are insufficient for a meaningful score, but flagging for review.
 - The architecture_v5.md section 5.3 still shows the old weights (0.35/0.35/0.30). Should I update it, or will FutureClaw update it during review?
+
+---
+
+### [2026-03-10] Task 018 Report by Claude (Dev Agent)
+
+**Implemented:**
+
+- `agents/crypto.py`: `CryptoAgent` class extending `BaseAgent` with 7-factor crypto scoring model:
+  - **Factor 1 -- Market Structure (15%)**: BTC dominance proxy (static rank-based), supply scarcity ratio (circulatingSupply / maxSupply). BTC gets +10 dominance bonus; supply ratio > 90% earns scarcity premium. Fallback to known BTC supply ratio (0.94) when yfinance misses it.
+  - **Factor 2 -- Momentum & Trend (20%)**: 3/6/12-month returns (scaled contribution), ATH distance (from available data), 200-DMA position. Each timeframe contributes proportionally to the score.
+  - **Factor 3 -- Volatility & Risk (15%)**: 30-day annualized volatility, 90-day max drawdown, 90-day Sharpe ratio (5% risk-free assumption), recovery time since last 20%+ drawdown.
+  - **Factor 4 -- Liquidity & Volume (10%)**: 20-day average USD volume, 5d/20d volume trend ratio, turnover ratio (daily volume / market cap).
+  - **Factor 5 -- Macro & Correlation (15%)**: 90-day rolling Pearson correlation with S&P 500 (^GSPC), VIX level sensitivity. S&P 500 and VIX fetched via yfinance with `_yfinance_lock` for thread safety.
+  - **Factor 6 -- Network & Adoption (10%)**: Hardcoded constants per spec (`CRYPTO_ADOPTION` dict). BTC: age=16, ETF=True, regulatory=FAVORABLE, bear_survivals=5. ETH: age=10, ETF=True, regulatory=NEUTRAL, bear_survivals=4.
+  - **Factor 7 -- Cycle & Timing (15%)**: BTC halving cycle position (months since April 2024 halving / 48-month cycle), fear/greed proxy composite (30-day momentum + VIX + volume trend, 0-100 scale).
+  - Composite: weighted sum of 7 factors, each clamped to [-100, +100]. Signal thresholds: >= 20 = BUY, <= -20 = SELL, else HOLD. Confidence formula matches FundamentalAgent pattern.
+  - Regime determination from macro + cycle scores + VIX.
+  - Graceful fallback: returns HOLD (confidence 30%) when price data unavailable or insufficient (<30 days).
+  - All yfinance calls use `asyncio.to_thread()` and `_yfinance_lock` (imported from `data_providers.yfinance_provider`).
+
+- `agents/__init__.py`: Added `CryptoAgent` import and export.
+
+- `engine/pipeline.py`: Modified agent selection logic:
+  - Crypto assets (btc, eth) now use `CryptoAgent` only (single agent).
+  - Stocks unchanged: TechnicalAgent + FundamentalAgent + MacroAgent.
+  - MacroAgent/FredProvider initialization only happens for non-crypto paths.
+
+- `engine/aggregator.py`: Updated crypto weights:
+  - `"btc": {"CryptoAgent": 1.0}`, `"eth": {"CryptoAgent": 1.0}`.
+  - Stock weights unchanged: Technical 0.30, Fundamental 0.45, Macro 0.25.
+
+- `cli/report.py`: Added CryptoAgent display in both modes:
+  - **Standard mode** (`_format_agent_detail`): Shows `Cycle: {phase} | Momentum: {score} | Vol: {pct}% | Regime: {regime}`.
+  - **Detail mode** (`_append_crypto_groups`): Full breakdown of all 7 factor groups with individual metrics: Factor Scores, Momentum & Trend, Volatility & Risk, Liquidity & Volume, Macro & Correlation, Network & Adoption, Cycle & Timing, Regime.
+
+- `tests/test_018_crypto_agent.py`: 14 tests, all mocked data (no network):
+  1. `test_crypto_agent_btc_basic` -- BTC analysis returns valid AgentOutput with all 7 factors.
+  2. `test_crypto_agent_eth_basic` -- ETH analysis returns valid AgentOutput.
+  3. `test_market_structure_scoring` -- BTC dominance bonus + scarcity scoring.
+  4. `test_momentum_multi_timeframe` -- Bullish vs bearish trend comparison.
+  5. `test_volatility_risk_metrics` -- Vol/drawdown/Sharpe metrics present and valid.
+  6. `test_liquidity_scoring` -- Volume and turnover metrics.
+  7. `test_macro_correlation` -- S&P correlation + VIX impact on scoring.
+  8. `test_network_adoption_constants` -- BTC=35, ETH=25, regulatory/ETF/age verified.
+  9. `test_cycle_timing_halving` -- Halving cycle position and phase.
+  10. `test_fear_greed_proxy` -- Contrarian signals from extreme conditions.
+  11. `test_missing_data_graceful` -- HOLD fallback on missing price data.
+  12. `test_unsupported_asset_type` -- Stock rejected with NotImplementedError.
+  13. `test_report_standard_mode_crypto` -- Standard report shows crypto one-liner.
+  14. `test_report_detail_mode_crypto` -- Detail report shows all 7 factor groups.
+
+- Updated existing tests:
+  - `tests/test_008_pipeline.py`: Renamed `test_pipeline_crypto_no_fundamental` to `test_pipeline_crypto_uses_crypto_agent`. Now mocks `CryptoAgent` instead of TechnicalAgent + MacroAgent for crypto path. Asserts 1 agent signal (CryptoAgent) with weight 1.0.
+  - `tests/test_008_signal_aggregator.py`: Updated `test_crypto_weights` to use `CryptoAgent` instead of TechnicalAgent + MacroAgent. Verifies other agents are ignored for btc, CryptoAgent weight = 1.0.
+
+**Test Results:** 147 passed, 1 skipped (ccxt network), 0 failed (14 new tests added, 2 existing tests updated).
+
+**Deviations from Spec:**
+- **14 tests instead of 10-12**: Added 2 extra tests for report formatting (standard + detail mode) to ensure CryptoAgent display works correctly in both CLI modes.
+- **Rate environment in Factor 5**: Spec mentions using FredProvider/MacroAgent data for rate environment scoring. To keep CryptoAgent self-contained (no dependency on FredProvider), rate environment is captured as a placeholder metric (`rate_environment: None`). VIX alone serves as the macro proxy in this factor. Full FRED integration can be added in a future enhancement if needed.
+- **Fear/Greed proxy**: Spec says "derived from VIX + volume + momentum composite". Implemented as a 0-100 composite of 3 components: 30-day momentum (return normalized), VIX inversion (low VIX = greed), and 5d/20d volume ratio. Each component is weighted equally.
+- **ATH distance**: Uses all-time high from available price data (1 year for `period="1y"`), not true lifetime ATH. True ATH would require longer history or a separate API call.
+
+**Technical Notes:**
+- `_fetch_spy_prices()` and `_fetch_vix()` are instance methods that use `asyncio.to_thread()` with `_yfinance_lock`. In tests, these methods are monkey-patched to return mock data, preventing any network calls.
+- Supply data (`circulatingSupply`, `maxSupply`) is extracted from yfinance's `info` dict via `get_key_stats()`. The existing `YFinanceProvider.get_key_stats()` does NOT include these fields. In production, the CryptoAgent calls `get_key_stats()` which returns whatever yfinance provides. If these fields are missing, BTC falls back to hardcoded supply ratio (0.94); ETH treats as unlimited (neutral score).
+- `numpy` is imported for `np.sqrt(252)` in volatility annualization. This is an existing project dependency (transitive via pandas).
+
+**Questions for FutureClaw:**
+- Should `YFinanceProvider.get_key_stats()` be updated to also extract `circulatingSupply` and `maxSupply` from the yfinance `info` dict? Currently the provider only extracts a limited set of fields (market_cap, pe_ratio, etc.). The CryptoAgent can still function without them (using fallbacks), but having them in the provider would be cleaner.
+- The S&P 500 correlation calculation requires date alignment between crypto (7-day trading) and equity (5-day trading) indices. Currently using `index.intersection()` to find overlapping dates. This may miss some correlation signal on weekends when crypto trades but equities don't. Is this acceptable, or should we interpolate?
+- Should `architecture_v5.md` be updated to reflect the new CryptoAgent, updated crypto weights, and pipeline routing change?

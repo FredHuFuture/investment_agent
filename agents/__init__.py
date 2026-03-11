@@ -1,6 +1,7 @@
 """Analysis agents package."""
 
 from agents.base import BaseAgent
+from agents.crypto import CryptoAgent
 from agents.fundamental import FundamentalAgent
 from agents.macro import MacroAgent
 from agents.models import AgentInput, AgentOutput, Regime, Signal
@@ -10,6 +11,7 @@ __all__ = [
     "AgentInput",
     "AgentOutput",
     "BaseAgent",
+    "CryptoAgent",
     "FundamentalAgent",
     "MacroAgent",
     "Regime",

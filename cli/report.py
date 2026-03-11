@@ -192,6 +192,22 @@ def _format_agent_detail(output: AgentOutput) -> str:
             parts.append(f"Score: {int(round(net_score)):+d}")
         return " | ".join(parts) if parts else "(no detail)"
 
+    if name == "CryptoAgent":
+        parts = []
+        cycle_phase = metrics.get("cycle_phase")
+        if cycle_phase:
+            parts.append(f"Cycle: {cycle_phase}")
+        momentum = _as_float(metrics.get("momentum_trend_score"))
+        if momentum is not None:
+            parts.append(f"Momentum: {momentum:+.0f}")
+        vol = _as_float(metrics.get("volatility_30d_pct"))
+        if vol is not None:
+            parts.append(f"Vol: {vol:.0f}%")
+        regime = metrics.get("regime")
+        if regime:
+            parts.append(f"Regime: {regime}")
+        return " | ".join(parts) if parts else "(no detail)"
+
     return "(unknown agent)"
 
 
@@ -217,6 +233,8 @@ def _format_agent_detailed(
         _append_fundamental_groups(lines, metrics)
     elif name == "MacroAgent":
         _append_macro_groups(lines, metrics)
+    elif name == "CryptoAgent":
+        _append_crypto_groups(lines, metrics)
 
     # Reasoning block
     reasoning = (output.reasoning or "").strip()
@@ -419,6 +437,116 @@ def _append_macro_groups(lines: list[str], metrics: dict[str, Any]) -> None:
     if m2 is not None:
         policy_items.append(("M2 YoY Growth", f"{m2:+.1%}"))
     _append_group(lines, "Policy", policy_items)
+
+    # Regime
+    regime = metrics.get("regime")
+    if regime is not None:
+        _append_group(lines, "Regime", [("Regime", str(regime))])
+
+
+def _append_crypto_groups(lines: list[str], metrics: dict[str, Any]) -> None:
+    """Append CryptoAgent 7-factor metric groups to lines."""
+    # Factor scores
+    _append_group(lines, "Factor Scores", [
+        ("Market Structure", _fmt_score(metrics.get("market_structure_score"))),
+        ("Momentum & Trend", _fmt_score(metrics.get("momentum_trend_score"))),
+        ("Volatility & Risk", _fmt_score(metrics.get("volatility_risk_score"))),
+        ("Liquidity & Volume", _fmt_score(metrics.get("liquidity_volume_score"))),
+        ("Macro & Correlation", _fmt_score(metrics.get("macro_correlation_score"))),
+        ("Network & Adoption", _fmt_score(metrics.get("network_adoption_score"))),
+        ("Cycle & Timing", _fmt_score(metrics.get("cycle_timing_score"))),
+        ("Composite", _fmt_score(metrics.get("composite_score"))),
+    ])
+
+    # Momentum details
+    momentum_items: list[tuple[str, str | None]] = []
+    ret_3m = _as_float(metrics.get("return_3m_pct"))
+    if ret_3m is not None:
+        momentum_items.append(("3M Return", f"{ret_3m:+.1f}%"))
+    ret_6m = _as_float(metrics.get("return_6m_pct"))
+    if ret_6m is not None:
+        momentum_items.append(("6M Return", f"{ret_6m:+.1f}%"))
+    ret_12m = _as_float(metrics.get("return_12m_pct"))
+    if ret_12m is not None:
+        momentum_items.append(("12M Return", f"{ret_12m:+.1f}%"))
+    ath_dist = _as_float(metrics.get("ath_distance_pct"))
+    if ath_dist is not None:
+        momentum_items.append(("ATH Distance", f"{ath_dist:+.1f}%"))
+    sma200 = _as_float(metrics.get("sma_200"))
+    if sma200 is not None:
+        momentum_items.append(("SMA 200", f"${sma200:,.2f}"))
+    _append_group(lines, "Momentum & Trend", momentum_items)
+
+    # Volatility details
+    vol_items: list[tuple[str, str | None]] = []
+    vol_30d = _as_float(metrics.get("volatility_30d_pct"))
+    if vol_30d is not None:
+        vol_items.append(("30D Volatility", f"{vol_30d:.1f}%"))
+    max_dd = _as_float(metrics.get("max_drawdown_90d_pct"))
+    if max_dd is not None:
+        vol_items.append(("Max DD (90D)", f"{max_dd:.1f}%"))
+    sharpe = _as_float(metrics.get("sharpe_90d"))
+    if sharpe is not None:
+        vol_items.append(("Sharpe (90D)", f"{sharpe:.2f}"))
+    recovery = _as_float(metrics.get("recovery_days"))
+    if recovery is not None:
+        vol_items.append(("Recovery Days", f"{int(recovery)}"))
+    _append_group(lines, "Volatility & Risk", vol_items)
+
+    # Liquidity details
+    liq_items: list[tuple[str, str | None]] = []
+    avg_vol = _as_float(metrics.get("avg_daily_volume_usd"))
+    if avg_vol is not None:
+        liq_items.append(("Avg Daily Vol", _format_large_number(avg_vol)))
+    vol_trend = _as_float(metrics.get("volume_trend"))
+    if vol_trend is not None:
+        liq_items.append(("Volume Trend", f"{vol_trend:.2f}x"))
+    turnover = _as_float(metrics.get("turnover_pct"))
+    if turnover is not None:
+        liq_items.append(("Turnover", f"{turnover:.2f}%"))
+    _append_group(lines, "Liquidity & Volume", liq_items)
+
+    # Macro details
+    macro_items: list[tuple[str, str | None]] = []
+    sp_corr = _as_float(metrics.get("sp500_correlation_90d"))
+    if sp_corr is not None:
+        macro_items.append(("S&P500 Corr (90D)", f"{sp_corr:.2f}"))
+    vix = _as_float(metrics.get("vix_level"))
+    if vix is not None:
+        macro_items.append(("VIX", f"{vix:.1f}"))
+    _append_group(lines, "Macro & Correlation", macro_items)
+
+    # Adoption details
+    adopt_items: list[tuple[str, str | None]] = []
+    age = _as_float(metrics.get("age_years"))
+    if age is not None:
+        adopt_items.append(("Asset Age", f"{int(age)} years"))
+    etf = metrics.get("etf_access")
+    if etf is not None:
+        adopt_items.append(("ETF Access", "Yes" if etf else "No"))
+    reg = metrics.get("regulatory_status")
+    if reg is not None:
+        adopt_items.append(("Regulatory", str(reg)))
+    bear = _as_float(metrics.get("bear_survivals"))
+    if bear is not None:
+        adopt_items.append(("Bear Survivals", str(int(bear))))
+    _append_group(lines, "Network & Adoption", adopt_items)
+
+    # Cycle details
+    cycle_items: list[tuple[str, str | None]] = []
+    phase = metrics.get("cycle_phase")
+    if phase is not None:
+        cycle_items.append(("Cycle Phase", str(phase)))
+    months = _as_float(metrics.get("months_since_halving"))
+    if months is not None:
+        cycle_items.append(("Months Since Halving", f"{months:.0f}"))
+    pos = _as_float(metrics.get("halving_cycle_position"))
+    if pos is not None:
+        cycle_items.append(("Cycle Position", f"{pos:.2f}"))
+    fg = _as_float(metrics.get("fear_greed_proxy"))
+    if fg is not None:
+        cycle_items.append(("Fear/Greed Proxy", f"{fg:.0f}"))
+    _append_group(lines, "Cycle & Timing", cycle_items)
 
     # Regime
     regime = metrics.get("regime")

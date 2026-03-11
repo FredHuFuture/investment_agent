@@ -82,49 +82,41 @@ class TestAnalysisPipeline:
         # No pipeline errors
         assert not any("failed" in w.lower() for w in result.warnings)
 
-    # 2. Crypto: FundamentalAgent skipped, only Technical + Macro
+    # 2. Crypto: uses CryptoAgent only (no Technical/Fundamental/Macro)
     @pytest.mark.asyncio
-    async def test_pipeline_crypto_no_fundamental(self) -> None:
+    async def test_pipeline_crypto_uses_crypto_agent(self) -> None:
         from engine.pipeline import AnalysisPipeline
 
-        tech_out = _make_output("TechnicalAgent", Signal.BUY, 70, ticker="BTC")
-        macro_out = _make_output(
-            "MacroAgent", Signal.HOLD, 55, ticker="BTC", metrics={"regime": "NEUTRAL", "net_score": 5}
+        crypto_out = _make_output(
+            "CryptoAgent", Signal.BUY, 70, ticker="BTC",
+            metrics={"regime": "RISK_ON", "composite_score": 25.0},
         )
 
         with (
             patch("engine.pipeline.get_provider") as mock_get_provider,
-            patch("engine.pipeline.TechnicalAgent") as MockTech,
-            patch("engine.pipeline.FredProvider"),
-            patch("engine.pipeline.YFinanceProvider"),
-            patch("engine.pipeline.MacroAgent") as MockMacro,
+            patch("engine.pipeline.CryptoAgent") as MockCrypto,
         ):
             mock_get_provider.return_value = MagicMock()
 
-            mock_tech = MagicMock()
-            mock_tech.name = "TechnicalAgent"
-            mock_tech.analyze = AsyncMock(return_value=tech_out)
-            MockTech.return_value = mock_tech
-
-            mock_macro = MagicMock()
-            mock_macro.name = "MacroAgent"
-            mock_macro.analyze = AsyncMock(return_value=macro_out)
-            MockMacro.return_value = mock_macro
+            mock_crypto = MagicMock()
+            mock_crypto.name = "CryptoAgent"
+            mock_crypto.analyze = AsyncMock(return_value=crypto_out)
+            MockCrypto.return_value = mock_crypto
 
             pipeline = AnalysisPipeline()
             result = await pipeline.analyze_ticker("BTC", "btc")
 
         assert isinstance(result, AggregatedSignal)
-        # Only 2 agents for crypto (no FundamentalAgent)
-        assert len(result.agent_signals) == 2
+        # Only 1 agent for crypto (CryptoAgent)
+        assert len(result.agent_signals) == 1
         agent_names = {o.agent_name for o in result.agent_signals}
-        assert "TechnicalAgent" in agent_names
-        assert "MacroAgent" in agent_names
+        assert "CryptoAgent" in agent_names
+        assert "TechnicalAgent" not in agent_names
         assert "FundamentalAgent" not in agent_names
-        # btc weights applied
+        assert "MacroAgent" not in agent_names
+        # CryptoAgent weight = 1.0
         weights = result.metrics["weights_used"]
-        assert weights.get("TechnicalAgent") == pytest.approx(0.45)
-        assert weights.get("MacroAgent") == pytest.approx(0.55)
+        assert weights.get("CryptoAgent") == pytest.approx(1.0)
 
     # 3. No FRED key → MacroAgent skipped, result still valid, warning present
     @pytest.mark.asyncio

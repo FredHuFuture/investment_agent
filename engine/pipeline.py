@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from agents.base import BaseAgent
+from agents.crypto import CryptoAgent
 from agents.fundamental import FundamentalAgent
 from agents.macro import MacroAgent
 from agents.models import AgentInput, AgentOutput
@@ -49,18 +50,24 @@ class AnalysisPipeline:
 
         # 2. Initialize agents
         agents: list[BaseAgent] = []
-        agents.append(TechnicalAgent(primary_provider))
 
-        if asset_type == "stock":
-            agents.append(FundamentalAgent(primary_provider))
+        if asset_type in ("btc", "eth"):
+            # Crypto: use dedicated CryptoAgent (7-factor model)
+            agents.append(CryptoAgent(primary_provider))
+        else:
+            # Stocks: Technical + Fundamental + Macro
+            agents.append(TechnicalAgent(primary_provider))
 
-        # MacroAgent needs two providers; skip gracefully if FRED key unavailable
-        try:
-            fred_provider = FredProvider()
-            vix_provider = YFinanceProvider()
-            agents.append(MacroAgent(fred_provider, vix_provider))
-        except Exception as exc:
-            pipeline_warnings.append(f"MacroAgent skipped: {exc}")
+            if asset_type == "stock":
+                agents.append(FundamentalAgent(primary_provider))
+
+            # MacroAgent needs two providers; skip gracefully if FRED key unavailable
+            try:
+                fred_provider = FredProvider()
+                vix_provider = YFinanceProvider()
+                agents.append(MacroAgent(fred_provider, vix_provider))
+            except Exception as exc:
+                pipeline_warnings.append(f"MacroAgent skipped: {exc}")
 
         # 3. Construct AgentInput
         agent_input = AgentInput(

@@ -56,12 +56,10 @@ class SignalAggregator:
             "MacroAgent": 0.25,
         },
         "btc": {
-            "TechnicalAgent": 0.45,
-            "MacroAgent": 0.55,
+            "CryptoAgent": 1.0,
         },
         "eth": {
-            "TechnicalAgent": 0.45,
-            "MacroAgent": 0.55,
+            "CryptoAgent": 1.0,
         },
     }
 
