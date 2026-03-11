@@ -240,5 +240,89 @@ def test_metrics_keys_present() -> None:
         "market_cap",
         "dividend_yield",
         "sector",
+        "peg_ratio",
+        "earnings_growth",
+        "analyst_rating",
     }
     assert expected_keys.issubset(set(output.metrics.keys()))
+
+
+def test_peg_ratio_scoring() -> None:
+    """PEG < 1.0 (cheap) should push value score higher vs PEG 3.0 (expensive)."""
+    base_financials = _mock_financials()
+
+    # Cheap PEG = 0.8 -> value score boost
+    cheap_stats = _mock_key_stats({"pegRatio": 0.8})
+    provider_cheap = MockProvider(cheap_stats, base_financials)
+    agent = FundamentalAgent(provider_cheap)
+    out_cheap = asyncio.run(agent.analyze(AgentInput(ticker="TEST", asset_type="stock")))
+
+    # Expensive PEG = 3.0 -> value score penalty
+    expensive_stats = _mock_key_stats({"pegRatio": 3.0})
+    provider_exp = MockProvider(expensive_stats, base_financials)
+    agent2 = FundamentalAgent(provider_exp)
+    out_exp = asyncio.run(agent2.analyze(AgentInput(ticker="TEST", asset_type="stock")))
+
+    assert out_cheap.metrics["value_score"] > out_exp.metrics["value_score"]
+    assert out_cheap.metrics["peg_ratio"] == 0.8
+    assert out_exp.metrics["peg_ratio"] == 3.0
+
+
+def test_earnings_growth_scoring() -> None:
+    """Strong earnings growth (35%) should give higher growth score than contraction (-15%)."""
+    base_financials = _mock_financials()
+
+    # Strong earnings growth
+    strong_stats = _mock_key_stats({"earningsGrowth": 0.35})
+    provider_strong = MockProvider(strong_stats, base_financials)
+    agent = FundamentalAgent(provider_strong)
+    out_strong = asyncio.run(agent.analyze(AgentInput(ticker="TEST", asset_type="stock")))
+
+    # Earnings contraction
+    weak_stats = _mock_key_stats({"earningsGrowth": -0.15})
+    provider_weak = MockProvider(weak_stats, base_financials)
+    agent2 = FundamentalAgent(provider_weak)
+    out_weak = asyncio.run(agent2.analyze(AgentInput(ticker="TEST", asset_type="stock")))
+
+    assert out_strong.metrics["growth_score"] > out_weak.metrics["growth_score"]
+    assert out_strong.metrics["earnings_growth"] == 0.35
+    assert out_weak.metrics["earnings_growth"] == -0.15
+
+
+def test_analyst_rating_scoring() -> None:
+    """Strong Buy rating (1.5) should give higher quality score than Sell rating (4.5)."""
+    base_financials = _mock_financials()
+
+    # Strong Buy
+    buy_stats = _mock_key_stats({"recommendationMean": 1.5})
+    provider_buy = MockProvider(buy_stats, base_financials)
+    agent = FundamentalAgent(provider_buy)
+    out_buy = asyncio.run(agent.analyze(AgentInput(ticker="TEST", asset_type="stock")))
+
+    # Sell
+    sell_stats = _mock_key_stats({"recommendationMean": 4.5})
+    provider_sell = MockProvider(sell_stats, base_financials)
+    agent2 = FundamentalAgent(provider_sell)
+    out_sell = asyncio.run(agent2.analyze(AgentInput(ticker="TEST", asset_type="stock")))
+
+    assert out_buy.metrics["quality_score"] > out_sell.metrics["quality_score"]
+    assert out_buy.metrics["analyst_rating"] == 1.5
+    assert out_sell.metrics["analyst_rating"] == 4.5
+
+
+def test_missing_new_metrics_graceful() -> None:
+    """Agent should work without pegRatio/earningsGrowth/recommendationMean (None-safe)."""
+    # Base _mock_key_stats does NOT include pegRatio, earningsGrowth, recommendationMean
+    key_stats = _mock_key_stats()
+    financials = _mock_financials()
+    provider = MockProvider(key_stats, financials)
+    agent = FundamentalAgent(provider)
+    output = asyncio.run(agent.analyze(AgentInput(ticker="TEST", asset_type="stock")))
+
+    # Should complete without error
+    assert output.signal in (Signal.BUY, Signal.HOLD, Signal.SELL)
+    assert output.confidence >= 30.0
+    # New metrics should be None when not provided
+    assert output.metrics["peg_ratio"] is None
+    assert output.metrics["earnings_growth"] is None
+    assert output.metrics["analyst_rating"] is None

@@ -464,3 +464,52 @@ Architect improvement:
 | 014 Monitoring Daemon | 10 | DONE |
 | 014.5 Analysis Detail Mode | 4 | DONE |
 | **TOTAL** | **129 passed, 1 skipped** | **Sprint 4 + 014.5 COMPLETE** |
+
+---
+
+### [2026-03-10] Task 015.5 Report by Claude (Dev Agent)
+
+**Implemented:**
+
+- `agents/fundamental.py` -- Added 3 new metrics + dividend yield scoring:
+  - Extraction: `pegRatio`, `earningsGrowth`, `recommendationMean` from `key_stats` dict (yfinance info).
+  - PEG Ratio scoring added to `_compute_value_score()`: `_score_linear(peg, 1.0, 2.5, 15, -10, higher_is_better=False)`. PEG < 1.0 = full bullish score (+15), PEG > 2.5 = bearish (-10).
+  - Earnings Growth scoring added to `_compute_growth_score()`: tiered thresholds (>30%: +25, >10%: +15, >=0: +5, >-10%: -15, else: -25).
+  - Analyst Rating scoring added to `_compute_quality_score()`: `_score_linear(rating, 1.5, 3.5, 10, -10, higher_is_better=False)`. Strong Buy (<=1.5) = +10, Sell (>=3.5) = -10.
+  - Dividend Yield bonus: +5 to growth_score when yield > 3%.
+  - All new metrics added to `_empty_metrics()` (peg_ratio, earnings_growth, analyst_rating).
+  - All additions are None-safe: skip scoring contribution when metric is None (returns 0.0 from `_score_linear`, skips tiered block).
+
+- `engine/aggregator.py` -- Updated equity weights:
+  - Stock: `TechnicalAgent: 0.30, FundamentalAgent: 0.45, MacroAgent: 0.25` (was 0.35/0.35/0.30).
+  - Crypto weights unchanged (0.45/0.55).
+
+- `cli/report.py` -- Display updates for new metrics:
+  - Standard mode (`_format_agent_detail`): Replaced `Rev Growth` with `PEG` and `EPS Gr` (earnings growth) in the FundamentalAgent one-liner. Format: `P/E: 33.0 | PEG: 1.8 | ROE: 151.9% | EPS Gr: +15.0% | D/E: 1.34`.
+  - Detail mode (`_append_fundamental_groups`): PEG Ratio added to Valuation group, Analyst Rating (with label, e.g. "1.8 (Buy)") added to Quality group, Earnings Growth added to Growth group.
+  - Added `_analyst_label(rating)` helper: maps 1.0-5.0 scale to "Strong Buy"/"Buy"/"Hold"/"Sell"/"Strong Sell".
+
+- `tests/test_006_fundamental_agent.py` -- 4 new tests (12 total, up from 8):
+  1. `test_peg_ratio_scoring`: Verifies PEG 0.8 (cheap) produces higher value_score than PEG 3.0 (expensive).
+  2. `test_earnings_growth_scoring`: Verifies 35% earnings growth produces higher growth_score than -15% contraction.
+  3. `test_analyst_rating_scoring`: Verifies rating 1.5 (Strong Buy) produces higher quality_score than rating 4.5 (Sell).
+  4. `test_missing_new_metrics_graceful`: Verifies agent works without pegRatio/earningsGrowth/recommendationMean (all None, no crash).
+  - Updated `test_metrics_keys_present` to include new metric keys (peg_ratio, earnings_growth, analyst_rating).
+
+- `tests/test_008_signal_aggregator.py` -- Updated 2 existing tests to reflect new equity weights:
+  - `test_mixed_produces_hold`: Changed `raw_score == 0.0` assertion to `abs(raw_score) < 0.3` (asymmetric weights mean BUY+SELL no longer cancel to zero).
+  - `test_confidence_weighting`: Removed `final_signal == BUY` assertion (raw_score is positive but below 0.30 threshold with new weights); kept core assertion that Technical's contribution > Fundamental's contribution at 80% vs 30% confidence.
+
+**Test Results:** 133 passed, 1 skipped, 0 failed (4 new tests added).
+
+**Deviations from Spec:**
+- None. All scoring thresholds, weight values, display formats, and test cases match the task spec exactly.
+
+**Technical Notes:**
+- The task spec uses `lower_is_better=True` in pseudocode, but the actual `_score_linear()` function uses `higher_is_better` parameter (inverted). Translated correctly: `lower_is_better=True` -> `higher_is_better=False`.
+- Weight change from 0.35/0.35/0.30 to 0.30/0.45/0.25 required updating two aggregator test assertions that assumed symmetric weights. The tests were updated to be weight-agnostic where possible (testing relative ordering rather than exact values).
+- Revenue growth remains in detail mode (Growth group); earnings growth is shown alongside it, not as a replacement. In standard mode, earnings growth replaces revenue growth per spec.
+
+**Questions for FutureClaw:**
+- Should `_all_metrics_missing()` be updated to include the 3 new metrics (`peg_ratio`, `earnings_growth`, `analyst_rating`) in its check list? Currently it only checks the original 11 core metrics. If all original metrics are None but PEG/analyst_rating are available, the agent would still return early with "No fundamental metrics available". This seems acceptable since the new metrics alone are insufficient for a meaningful score, but flagging for review.
+- The architecture_v5.md section 5.3 still shows the old weights (0.35/0.35/0.30). Should I update it, or will FutureClaw update it during review?

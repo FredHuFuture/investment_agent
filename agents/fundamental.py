@@ -42,6 +42,15 @@ class FundamentalAgent(BaseAgent):
             )
 
         metrics = self._extract_metrics(key_stats, financials)
+
+        # Extract additional metrics from key_stats (available via yfinance info dict)
+        peg = _to_float(key_stats.get("pegRatio"))
+        earnings_growth = _to_float(key_stats.get("earningsGrowth"))
+        analyst_rating = _to_float(key_stats.get("recommendationMean"))
+        metrics["peg_ratio"] = peg
+        metrics["earnings_growth"] = earnings_growth
+        metrics["analyst_rating"] = analyst_rating
+
         if _all_metrics_missing(metrics):
             return AgentOutput(
                 agent_name=self.name,
@@ -193,6 +202,10 @@ class FundamentalAgent(BaseAgent):
         score += _score_linear(
             metrics.get("pct_from_52w_high"), -0.30, -0.05, 10, -5, higher_is_better=False
         )
+        # PEG < 1.0 is undervalued relative to growth, > 2.5 is expensive
+        score += _score_linear(
+            metrics.get("peg_ratio"), 1.0, 2.5, 15, -10, higher_is_better=False
+        )
         return _clamp(score)
 
     def _compute_quality_score(self, metrics: dict[str, Any]) -> float:
@@ -208,6 +221,10 @@ class FundamentalAgent(BaseAgent):
         )
         score += _score_linear(
             metrics.get("current_ratio"), 2.0, 1.0, 15, -20, higher_is_better=True
+        )
+        # Analyst consensus: 1.0 = Strong Buy, 3.0 = Hold, 5.0 = Strong Sell
+        score += _score_linear(
+            metrics.get("analyst_rating"), 1.5, 3.5, 10, -10, higher_is_better=False
         )
         return _clamp(score)
 
@@ -227,6 +244,25 @@ class FundamentalAgent(BaseAgent):
                 score -= 35
             else:
                 score -= 25
+
+        # Earnings growth scoring
+        earnings_growth = metrics.get("earnings_growth")
+        if earnings_growth is not None:
+            if earnings_growth > 0.30:
+                score += 25
+            elif earnings_growth > 0.10:
+                score += 15
+            elif earnings_growth >= 0:
+                score += 5
+            elif earnings_growth > -0.10:
+                score -= 15
+            else:
+                score -= 25
+
+        # Dividend yield bonus for yield > 3%
+        dividend_yield = metrics.get("dividend_yield")
+        if dividend_yield is not None and dividend_yield > 0.03:
+            score += 5
 
         pe_trailing = metrics.get("pe_trailing")
         pe_forward = metrics.get("pe_forward")
@@ -310,6 +346,9 @@ class FundamentalAgent(BaseAgent):
             "market_cap": None,
             "dividend_yield": None,
             "sector": None,
+            "peg_ratio": None,
+            "earnings_growth": None,
+            "analyst_rating": None,
         }
 
 

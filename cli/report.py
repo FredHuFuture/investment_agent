@@ -161,13 +161,15 @@ def _format_agent_detail(output: AgentOutput) -> str:
         pe = _as_float(metrics.get("pe_trailing"))
         if pe is not None:
             parts.append(f"P/E: {pe:.1f}")
+        peg = _as_float(metrics.get("peg_ratio"))
+        if peg is not None:
+            parts.append(f"PEG: {peg:.1f}")
         roe = _as_float(metrics.get("roe"))
         if roe is not None:
             parts.append(f"ROE: {roe:.1%}")
-        revenue_growth = _first_present(metrics, ["revenue_growth_yoy", "revenue_growth"])
-        revenue_val = _as_float(revenue_growth)
-        if revenue_val is not None:
-            parts.append(f"Rev Growth: {revenue_val:+.1%}")
+        eps_growth = _as_float(metrics.get("earnings_growth"))
+        if eps_growth is not None:
+            parts.append(f"EPS Gr: {eps_growth:+.1%}")
         debt_equity = _as_float(metrics.get("debt_equity"))
         if debt_equity is not None:
             parts.append(f"D/E: {debt_equity:.2f}")
@@ -220,8 +222,8 @@ def _format_agent_detailed(
     reasoning = (output.reasoning or "").strip()
     if reasoning:
         lines.append("    Reasoning:")
-        for chunk in textwrap.wrap(reasoning, width=58):
-            lines.append(f"      > {chunk}")
+        for chunk in textwrap.wrap(reasoning, width=56):
+            lines.append(f"      {chunk}")
 
     # Weight contribution math
     contrib = contributions.get(name, {})
@@ -267,32 +269,25 @@ def _append_technical_groups(lines: list[str], metrics: dict[str, Any]) -> None:
     if rsi_val is not None:
         indicator_items.append(("RSI (14)", f"{rsi_val:.1f}"))
 
-    macd_parts: list[str] = []
     ml = _as_float(metrics.get("macd_line"))
     ms = _as_float(metrics.get("macd_signal"))
     mh = _as_float(metrics.get("macd_histogram"))
     if ml is not None:
-        macd_parts.append(f"Line: {ml:.2f}")
+        indicator_items.append(("MACD Line", f"{ml:.2f}"))
     if ms is not None:
-        macd_parts.append(f"Signal: {ms:.2f}")
+        indicator_items.append(("MACD Signal", f"{ms:.2f}"))
     if mh is not None:
-        sign = "+" if mh >= 0 else ""
-        macd_parts.append(f"Hist: {sign}{mh:.2f}")
-    if macd_parts:
-        indicator_items.append(("MACD", "  ".join(macd_parts)))
+        indicator_items.append(("MACD Hist", f"{mh:+.2f}"))
 
-    bb_parts: list[str] = []
     bu = _as_float(metrics.get("bb_upper"))
     bm = _as_float(metrics.get("bb_middle"))
     bl = _as_float(metrics.get("bb_lower"))
     if bu is not None:
-        bb_parts.append(f"Upper: ${bu:,.2f}")
+        indicator_items.append(("BB Upper", f"${bu:,.2f}"))
     if bm is not None:
-        bb_parts.append(f"Mid: ${bm:,.2f}")
+        indicator_items.append(("BB Mid", f"${bm:,.2f}"))
     if bl is not None:
-        bb_parts.append(f"Lower: ${bl:,.2f}")
-    if bb_parts:
-        indicator_items.append(("Bollinger", "  ".join(bb_parts)))
+        indicator_items.append(("BB Lower", f"${bl:,.2f}"))
 
     atr = _as_float(metrics.get("atr_14"))
     if atr is not None:
@@ -336,6 +331,9 @@ def _append_fundamental_groups(lines: list[str], metrics: dict[str, Any]) -> Non
     fcf_yield = _as_float(metrics.get("fcf_yield"))
     if fcf_yield is not None:
         val_items.append(("FCF Yield", f"{fcf_yield:.1%}"))
+    peg = _as_float(metrics.get("peg_ratio"))
+    if peg is not None:
+        val_items.append(("PEG Ratio", f"{peg:.2f}"))
     _append_group(lines, "Valuation", val_items)
 
     # Quality
@@ -352,6 +350,9 @@ def _append_fundamental_groups(lines: list[str], metrics: dict[str, Any]) -> Non
     cr = _as_float(metrics.get("current_ratio"))
     if cr is not None:
         qual_items.append(("Current Ratio", f"{cr:.2f}"))
+    ar = _as_float(metrics.get("analyst_rating"))
+    if ar is not None:
+        qual_items.append(("Analyst Rating", f"{ar:.1f} ({_analyst_label(ar)})"))
     _append_group(lines, "Quality", qual_items)
 
     # Growth
@@ -359,6 +360,9 @@ def _append_fundamental_groups(lines: list[str], metrics: dict[str, Any]) -> Non
     rev_growth = _as_float(_first_present(metrics, ["revenue_growth_yoy", "revenue_growth"]))
     if rev_growth is not None:
         growth_items.append(("Revenue Growth", f"{rev_growth:+.1%}"))
+    eps_growth = _as_float(metrics.get("earnings_growth"))
+    if eps_growth is not None:
+        growth_items.append(("Earnings Growth", f"{eps_growth:+.1%}"))
     div_yield = _as_float(metrics.get("dividend_yield"))
     if div_yield is not None:
         growth_items.append(("Dividend Yield", f"{div_yield:.1%}"))
@@ -550,6 +554,19 @@ def _as_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _analyst_label(rating: float) -> str:
+    """Convert numeric analyst rating to human-readable label."""
+    if rating <= 1.5:
+        return "Strong Buy"
+    if rating <= 2.5:
+        return "Buy"
+    if rating <= 3.5:
+        return "Hold"
+    if rating <= 4.5:
+        return "Sell"
+    return "Strong Sell"
 
 
 def _format_large_number(value: float) -> str:
