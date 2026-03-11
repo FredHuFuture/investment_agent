@@ -109,6 +109,23 @@ def format_analysis_report(signal: AggregatedSignal, detail: bool = False) -> st
         lines.extend(_format_aggregation_detail(signal))
         lines.append("")
 
+    # Sector adjustment section
+    sector_modifier = (signal.metrics or {}).get("sector_modifier")
+    sector_name = (signal.metrics or {}).get("sector_name")
+    if sector_modifier is not None and sector_name is not None:
+        regime = signal.regime.value if signal.regime else "NEUTRAL"
+        if detail:
+            pre_conf = (signal.metrics or {}).get("pre_sector_confidence")
+            lines.extend(_format_sector_detail(
+                sector_name, regime, sector_modifier,
+                pre_conf, signal.final_confidence, line_minor,
+            ))
+            lines.append("")
+        else:
+            sign = "+" if sector_modifier >= 0 else ""
+            lines.append(f"  Sector Adj: {sign}{sector_modifier} ({sector_name} in {regime})")
+            lines.append("")
+
     lines.extend([
         "  WARNINGS:",
     ])
@@ -639,6 +656,44 @@ def _format_aggregation_detail(signal: AggregatedSignal) -> list[str]:
         f"    Final:           {signal.final_signal.value}"
         f" @ {signal.final_confidence:.0f}% confidence"
     )
+
+    return lines
+
+
+# ---------------------------------------------------------------------------
+# Sector adjustment section (detail=True only for full block)
+# ---------------------------------------------------------------------------
+
+def _format_sector_detail(
+    sector: str,
+    regime: str,
+    modifier: int,
+    pre_confidence: float | None,
+    post_confidence: float,
+    line_minor: str,
+) -> list[str]:
+    """Return lines for the SECTOR ADJUSTMENT block (detail=True)."""
+    lines: list[str] = [
+        line_minor,
+        "  SECTOR ADJUSTMENT",
+        line_minor,
+    ]
+    lines.append(f"    Sector:     {sector}")
+    lines.append(f"    Regime:     {regime}")
+
+    sign = "+" if modifier >= 0 else ""
+    if modifier > 0:
+        flavor = "sector favored in current regime"
+    elif modifier < 0:
+        flavor = "sector faces headwinds in current regime"
+    else:
+        flavor = "no adjustment"
+    lines.append(f"    Modifier:   {sign}{modifier} ({flavor})")
+
+    if pre_confidence is not None:
+        lines.append(
+            f"    Adjusted:   {pre_confidence:.0f}% -> {post_confidence:.0f}% confidence"
+        )
 
     return lines
 

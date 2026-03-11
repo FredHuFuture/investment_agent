@@ -11,6 +11,7 @@ from data_providers.factory import get_provider
 from data_providers.fred_provider import FredProvider
 from data_providers.yfinance_provider import YFinanceProvider
 from engine.aggregator import AggregatedSignal, SignalAggregator
+from engine.sector import get_sector_modifier
 from portfolio.models import Portfolio
 
 
@@ -121,5 +122,19 @@ class AnalysisPipeline:
         # Attach ticker info and pipeline warnings
         signal.ticker_info = ticker_info
         signal.warnings.extend(pipeline_warnings)
+
+        # 7. Apply sector rotation modifier (stocks only, not crypto)
+        if asset_type not in ("btc", "eth"):
+            sector = ticker_info.get("sector")
+            regime_str = signal.regime.value if signal.regime else "NEUTRAL"
+            modifier = get_sector_modifier(sector, regime_str)
+            if modifier != 0:
+                pre_confidence = signal.final_confidence
+                signal.final_confidence = max(
+                    30.0, min(90.0, signal.final_confidence + modifier)
+                )
+                signal.metrics["sector_modifier"] = modifier
+                signal.metrics["sector_name"] = sector
+                signal.metrics["pre_sector_confidence"] = pre_confidence
 
         return signal
