@@ -17,10 +17,14 @@ if sys.platform == "win32":
 
 
 async def _run_analysis(
-    ticker: str, asset_type: str, json_output: bool, detail: bool = False
+    ticker: str,
+    asset_type: str,
+    json_output: bool,
+    detail: bool = False,
+    adaptive_weights: bool = False,
 ) -> None:
     """Run the analysis pipeline and print results."""
-    pipeline = AnalysisPipeline()
+    pipeline = AnalysisPipeline(use_adaptive_weights=adaptive_weights)
     result = await pipeline.analyze_ticker(ticker, asset_type)
 
     if json_output:
@@ -57,6 +61,12 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Show full agent analysis breakdown (all metrics, reasoning, weights).",
     )
+    parser.add_argument(
+        "--adaptive-weights",
+        dest="adaptive_weights",
+        action="store_true",
+        help="Use learned agent weights from backtest optimization (stored in DB).",
+    )
     return parser
 
 
@@ -76,6 +86,7 @@ def main() -> None:
             asset_type=asset_type,
             json_output=args.json_output,
             detail=args.detail,
+            adaptive_weights=args.adaptive_weights,
         )
     )
 

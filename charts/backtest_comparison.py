@@ -440,6 +440,212 @@ Plotly.newPlot('equity-chart', {eq_json}.data, {eq_json}.layout);
 </html>"""
 
 
+def generate_batch_summary_chart(batch_result, output_path: str) -> str:
+    """Generate a comparison chart from a BatchResult object.
+
+    Shows grouped bars for each ticker x agent combo, comparing:
+    - Total Return
+    - Max Drawdown
+    - Sharpe Ratio
+
+    Args:
+        batch_result: A BatchResult object from BatchRunner.
+        output_path: Path to write the HTML file.
+
+    Returns:
+        Path to the generated HTML file.
+    """
+    summary = batch_result.to_summary_dict()
+    if not summary:
+        Path(output_path).write_text("<html><body>No results</body></html>")
+        return output_path
+
+    # Build flat list for plotting: (ticker, combo_key, metrics)
+    entries: list[tuple[str, str, dict]] = []
+    for ticker in sorted(summary.keys()):
+        for combo_key in sorted(summary[ticker].keys()):
+            entries.append((ticker, combo_key, summary[ticker][combo_key]))
+
+    # Get unique combos for color assignment
+    all_combos = sorted({e[1] for e in entries})
+    combo_colors = {}
+    palette = ["#2196F3", "#FF9800", "#4CAF50", "#E91E63", "#9C27B0", "#00BCD4"]
+    for i, c in enumerate(all_combos):
+        combo_colors[c] = palette[i % len(palette)]
+
+    fig = make_subplots(
+        rows=1, cols=3,
+        subplot_titles=[
+            "Total Return %",
+            "Max Drawdown % (closer to 0 = better)",
+            "Sharpe Ratio",
+        ],
+        horizontal_spacing=0.08,
+    )
+
+    tickers_seen: set[str] = set()
+    for combo in all_combos:
+        t_labels = []
+        returns = []
+        drawdowns = []
+        sharpes = []
+        for ticker, ck, m in entries:
+            if ck != combo:
+                continue
+            t_labels.append(ticker)
+            returns.append(m.get("total_return_pct") or 0)
+            drawdowns.append(abs(m.get("max_drawdown_pct") or 0))
+            sharpes.append(m.get("sharpe_ratio") or 0)
+
+        show_legend = combo not in tickers_seen
+        tickers_seen.add(combo)
+        short_name = combo.replace("Agent", "")
+
+        fig.add_trace(go.Bar(
+            name=short_name, x=t_labels, y=returns,
+            marker_color=combo_colors[combo],
+            text=[f"{r:.0f}%" for r in returns], textposition="outside",
+            showlegend=show_legend,
+        ), row=1, col=1)
+        fig.add_trace(go.Bar(
+            name=short_name, x=t_labels, y=drawdowns,
+            marker_color=combo_colors[combo],
+            text=[f"-{d:.1f}%" for d in drawdowns], textposition="outside",
+            showlegend=False,
+        ), row=1, col=2)
+        fig.add_trace(go.Bar(
+            name=short_name, x=t_labels, y=sharpes,
+            marker_color=combo_colors[combo],
+            text=[f"{s:.2f}" for s in sharpes], textposition="outside",
+            showlegend=False,
+        ), row=1, col=3)
+
+    # Sharpe reference lines
+    fig.add_hline(y=1.0, line_dash="dash", line_color="#999", row=1, col=3)
+    fig.add_hline(y=2.0, line_dash="dash", line_color="#4CAF50", row=1, col=3)
+
+    fig.update_layout(
+        title=dict(
+            text="Batch Backtest Comparison<br><sup>Agent Combos x Tickers</sup>",
+            x=0.5, font=dict(size=18),
+        ),
+        template="plotly_dark",
+        barmode="group",
+        height=500,
+        width=1400,
+        font=dict(family="Arial", size=12),
+        legend=dict(
+            orientation="h", yanchor="bottom", y=1.02, x=0.5, xanchor="center",
+        ),
+        margin=dict(t=100, b=60),
+    )
+
+    fig.update_yaxes(title_text="Return %", row=1, col=1)
+    fig.update_yaxes(title_text="Drawdown %", row=1, col=2)
+    fig.update_yaxes(title_text="Sharpe", row=1, col=3)
+
+    # Write HTML
+    html_content = fig.to_html(include_plotlyjs="cdn", full_html=True)
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(html_content)
+
+    return output_path
+
+
+def generate_agent_comparison_chart(batch_result, ticker: str, output_path: str) -> str:
+    """Generate chart comparing different agent combos on a single ticker.
+
+    Args:
+        batch_result: A BatchResult object.
+        ticker: The ticker to focus on.
+        output_path: Path to write the HTML file.
+
+    Returns:
+        Path to the generated HTML file.
+    """
+    if ticker not in batch_result.results:
+        Path(output_path).write_text(f"<html><body>No results for {ticker}</body></html>")
+        return output_path
+
+    combos = batch_result.results[ticker]
+    if not combos:
+        Path(output_path).write_text(f"<html><body>No combos for {ticker}</body></html>")
+        return output_path
+
+    combo_keys = sorted(combos.keys())
+    short_names = [k.replace("Agent", "") for k in combo_keys]
+
+    # Extract metrics
+    returns = [combos[k].metrics.get("total_return_pct", 0) for k in combo_keys]
+    sharpes = [combos[k].metrics.get("sharpe_ratio", 0) or 0 for k in combo_keys]
+    drawdowns = [abs(combos[k].metrics.get("max_drawdown_pct", 0)) for k in combo_keys]
+    win_rates = [(combos[k].metrics.get("win_rate", 0) or 0) * 100 for k in combo_keys]
+
+    fig = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=[
+            f"{ticker}: Total Return by Agent Combo",
+            f"{ticker}: Max Drawdown (lower = better)",
+            f"{ticker}: Sharpe Ratio",
+            f"{ticker}: Win Rate %",
+        ],
+        vertical_spacing=0.18,
+        horizontal_spacing=0.12,
+    )
+
+    palette = ["#2196F3", "#FF9800", "#4CAF50", "#E91E63", "#9C27B0"]
+
+    fig.add_trace(go.Bar(
+        x=short_names, y=returns,
+        marker_color=[palette[i % len(palette)] for i in range(len(returns))],
+        text=[f"{r:.0f}%" for r in returns], textposition="outside",
+        showlegend=False,
+    ), row=1, col=1)
+
+    fig.add_trace(go.Bar(
+        x=short_names, y=drawdowns,
+        marker_color=[palette[i % len(palette)] for i in range(len(drawdowns))],
+        text=[f"-{d:.1f}%" for d in drawdowns], textposition="outside",
+        showlegend=False,
+    ), row=1, col=2)
+
+    fig.add_trace(go.Bar(
+        x=short_names, y=sharpes,
+        marker_color=[palette[i % len(palette)] for i in range(len(sharpes))],
+        text=[f"{s:.2f}" for s in sharpes], textposition="outside",
+        showlegend=False,
+    ), row=2, col=1)
+
+    fig.add_trace(go.Bar(
+        x=short_names, y=win_rates,
+        marker_color=[palette[i % len(palette)] for i in range(len(win_rates))],
+        text=[f"{w:.0f}%" for w in win_rates], textposition="outside",
+        showlegend=False,
+    ), row=2, col=2)
+
+    fig.update_layout(
+        title=dict(
+            text=(
+                f"Agent Comparison: {ticker}<br>"
+                "<sup>Backtest Metrics by Agent Combination</sup>"
+            ),
+            x=0.5, font=dict(size=16),
+        ),
+        template="plotly_dark",
+        height=700,
+        width=1000,
+        margin=dict(t=100, b=60),
+    )
+
+    html_content = fig.to_html(include_plotlyjs="cdn", full_html=True)
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(html_content)
+
+    return output_path
+
+
 if __name__ == "__main__":
     import sys
     data_path = sys.argv[1] if len(sys.argv) > 1 else "data/backtest_data.json"

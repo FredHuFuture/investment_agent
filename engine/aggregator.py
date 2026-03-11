@@ -66,8 +66,12 @@ class SignalAggregator:
     def __init__(
         self,
         weights: dict[str, dict[str, float]] | None = None,
+        buy_threshold: float = 0.30,
+        sell_threshold: float = -0.30,
     ) -> None:
         self._weights = weights or self.DEFAULT_WEIGHTS
+        self._buy_threshold = buy_threshold
+        self._sell_threshold = sell_threshold
 
     def aggregate(
         self,
@@ -124,18 +128,20 @@ class SignalAggregator:
         raw_score = weighted_sum / total_weight if total_weight > 0 else 0.0
 
         # --- Signal determination ---
-        if raw_score >= 0.3:
+        bt = self._buy_threshold
+        st = self._sell_threshold
+        if raw_score >= bt:
             final_signal = Signal.BUY
-        elif raw_score <= -0.3:
+        elif raw_score <= st:
             final_signal = Signal.SELL
         else:
             final_signal = Signal.HOLD
 
         # --- Confidence calculation ---
         if final_signal == Signal.HOLD:
-            confidence = 40.0 + (0.3 - abs(raw_score)) * (30.0 / 0.3)
+            confidence = 40.0 + (bt - abs(raw_score)) * (30.0 / bt) if bt > 0 else 50.0
         else:
-            confidence = 50.0 + (abs(raw_score) - 0.3) * (40.0 / 0.7)
+            confidence = 50.0 + (abs(raw_score) - bt) * (40.0 / (1.0 - bt)) if bt < 1.0 else 70.0
         confidence = max(30.0, min(90.0, confidence))
 
         # --- Consensus analysis ---
@@ -214,6 +220,8 @@ class SignalAggregator:
             "regime": regime.value if regime else None,
             "weights_used": weights,
             "agent_contributions": agent_contributions,
+            "buy_threshold": self._buy_threshold,
+            "sell_threshold": self._sell_threshold,
         }
 
         return AggregatedSignal(

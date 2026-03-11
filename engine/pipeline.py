@@ -24,10 +24,11 @@ class AnalysisPipeline:
     def __init__(
         self,
         db_path: str = "investment_agent.db",
+        use_adaptive_weights: bool = False,
     ) -> None:
-        # Phase 2: db_path will be used to load learned weights from
-        # agent_performance table for adaptive weight tuning.
         self._db_path = db_path
+        self._use_adaptive_weights = use_adaptive_weights
+        self._adaptive_weights = None  # Lazy-loaded on first analyze_ticker call
 
     async def analyze_ticker(
         self,
@@ -120,8 +121,23 @@ class AnalysisPipeline:
             else:
                 agent_outputs.append(result)
 
-        # 6. Aggregate
-        aggregator = SignalAggregator()
+        # 6. Aggregate -- with adaptive weights if enabled
+        if self._use_adaptive_weights and self._adaptive_weights is None:
+            try:
+                from engine.weight_adapter import WeightAdapter
+                adapter = WeightAdapter(db_path=self._db_path)
+                self._adaptive_weights = await adapter.load_weights()
+            except Exception as exc:
+                pipeline_warnings.append(f"Adaptive weights load failed: {exc}")
+
+        if self._adaptive_weights is not None and self._use_adaptive_weights:
+            aggregator = SignalAggregator(
+                weights=self._adaptive_weights.weights,
+                buy_threshold=self._adaptive_weights.buy_threshold,
+                sell_threshold=self._adaptive_weights.sell_threshold,
+            )
+        else:
+            aggregator = SignalAggregator()
         signal = aggregator.aggregate(agent_outputs, ticker, asset_type)
 
         # Attach ticker info and pipeline warnings

@@ -273,6 +273,15 @@ class Backtester:
                 "date": date_str,
                 "signal": final_signal.value,
                 "confidence": confidence,
+                "raw_score": agg.metrics.get("raw_score", 0.0),
+                "agent_signals": [
+                    {
+                        "agent": o.agent_name,
+                        "signal": o.signal.value,
+                        "confidence": o.confidence,
+                    }
+                    for o in agent_outputs
+                ],
             })
 
             # Trade logic
