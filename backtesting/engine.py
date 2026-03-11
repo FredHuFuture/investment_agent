@@ -203,7 +203,21 @@ class Backtester:
         equity_curve: list[dict] = []
         signals_log: list[dict] = []
 
-        aggregator = SignalAggregator()
+        # Build backtest-aware aggregator weights: ensure every requested
+        # agent has weight > 0 for the chosen asset_type.  The production
+        # aggregator may assign weight 0 to TechnicalAgent on crypto
+        # (since CryptoAgent is the default), but during backtesting we
+        # want to honour whichever agents the user selected.
+        _bt_weights = dict(SignalAggregator.DEFAULT_WEIGHTS)
+        at_key = cfg.asset_type or "stock"
+        current = dict(_bt_weights.get(at_key, _bt_weights["stock"]))
+        missing = [a for a in agent_names if a not in current or current[a] == 0.0]
+        if missing:
+            # Equal-weight all requested agents so none is silently dropped
+            equal_w = round(1.0 / len(agent_names), 4)
+            current = {a: equal_w for a in agent_names}
+        _bt_weights[at_key] = current
+        aggregator = SignalAggregator(weights=_bt_weights)
 
         for date in rebalance_dates:
             date_str = str(date.date())

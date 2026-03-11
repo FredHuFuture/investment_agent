@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+from datetime import datetime
 from typing import Any
 
 from backtesting.models import SimulatedTrade
@@ -31,10 +32,18 @@ def compute_metrics(
     final_equity = equity_curve[-1]["equity"]
     total_return = (final_equity - initial_capital) / initial_capital if initial_capital > 0 else 0.0
 
-    # Annualized return (geometric)
-    n_days = max(len(equity_curve) - 1, 1)
-    ann_factor = 252.0 / n_days
-    annualized_return = (1 + total_return) ** ann_factor - 1
+    # Annualized return (geometric) -- use actual calendar dates
+    first_date_str = equity_curve[0]["date"]
+    last_date_str = equity_curve[-1]["date"]
+    try:
+        d1 = datetime.strptime(first_date_str, "%Y-%m-%d")
+        d2 = datetime.strptime(last_date_str, "%Y-%m-%d")
+        years = (d2 - d1).days / 365.25
+    except (ValueError, TypeError):
+        years = max(len(equity_curve) - 1, 1) / 252.0
+    if years <= 0:
+        years = 1.0
+    annualized_return = (1 + total_return) ** (1.0 / years) - 1
 
     # Daily returns from equity curve
     equities = [e["equity"] for e in equity_curve]
