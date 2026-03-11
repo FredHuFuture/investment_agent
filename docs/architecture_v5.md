@@ -974,7 +974,8 @@ Monthly cost: **$0** (all data sources free). LLM costs ($5-10/mo) start at Task
 | Sprint 4.5 | 015.5 | FundamentalAgent enhancement (PEG, earnings growth, analyst rating) | +4 |
 | Sprint 7 | 018, 019 | CryptoAgent (7-factor), sector rotation + correlation | +29 |
 | Post-019 | Architect | Interactive chart system (signals, click-to-detail, slider), crypto support fixes | +0 (UI) |
-| **Total** | **19 tasks** | **13 packages, 7 CLIs, 9 tables** | **162 passed, 1 skipped** |
+| Backtest Validation | Architect | 6-ticker backtest (2020-2025), 3 bug fixes, comparison charts, CN/EN reports | +0 (data) |
+| **Total** | **19 tasks** | **14 packages, 7 CLIs, 9 tables** | **162 passed, 1 skipped** |
 
 ### In Progress / Planned
 
@@ -1069,10 +1070,56 @@ Features **added** that were not in v4:
 | Sector rotation matrix | 019 | 11-sector rotation scoring + portfolio modifier (applied post-aggregation) |
 | Portfolio correlation tracker | 019 | Pairwise correlation analysis with rolling window |
 | Interactive analysis charts | Architect | Walk-forward signals, click-to-detail panel, confidence slider, offline HTML |
+| Backtest comparison charts | Architect | 4-panel comparison, return-vs-risk scatter, equity curves, interactive HTML |
+| Backtest validation (6 tickers) | Architect | AAPL/MSFT/TSLA/NVDA/SPY/BTC 2020-2025, EN/CN reports |
 
 -----
 
-## 18. Architecture Decisions Log
+## 18. Backtest Validation Results (2020-2025)
+
+### 18.1 Configuration
+
+- **Agent**: TechnicalAgent only (PIT-safe)
+- **Period**: 2020-01-01 to 2025-12-31 (6 years, largely bull market)
+- **Config**: Full position (100%), no SL/TP, weekly rebalance
+- **Capital**: $100,000
+
+### 18.2 Summary
+
+| Ticker | Signal Return | B&H Return | Signal MaxDD | B&H MaxDD | DD Improvement | Sharpe | Win Rate |
+|--------|-------------|-----------|-------------|-----------|----------------|--------|----------|
+| AAPL | +123.6% | +263.7% | -33.2% | -33.4% | +0.2pp | 1.50 | 62.5% |
+| MSFT | +52.9% | +203.5% | -32.0% | -37.6% | +5.6pp | 0.95 | 28.6% |
+| TSLA | +591.6% | +1484.3% | -69.9% | -73.6% | +3.7pp | 1.87 | 33.3% |
+| NVDA | +2381.6% | +3026.8% | -57.5% | -66.4% | +8.9pp | 3.36 | 75.0% |
+| SPY | +74.3% | +111.5% | -18.7% | -34.1% | +15.4pp | 1.66 | 66.7% |
+| BTC | +1043.2% | +1128.2% | -40.7% | -76.6% | +35.9pp | 2.36 | 75.0% |
+
+### 18.3 Key Findings
+
+1. **Drawdown protection works**: All 6 tickers show reduced max drawdown vs buy-and-hold
+2. **BTC is best use case**: 92% of B&H return with half the drawdown (Sharpe 2.36)
+3. **SPY risk management**: MaxDD from -34.1% to -18.7% (+15.4pp improvement)
+4. **Total returns lag B&H in bull market**: Expected -- system holds cash during HOLD periods
+5. **Value proposition = risk management**, not return maximization
+
+### 18.4 Bugs Found & Fixed
+
+| Bug | Root Cause | Fix |
+|-----|-----------|-----|
+| BTC backtest 0 trades | Aggregator weight 0 for TechnicalAgent on crypto | Backtest engine auto-assigns equal weights |
+| Annualized return inflated | Equity curve entry count treated as trading days | Use actual calendar dates for year calculation |
+
+### 18.5 Artifacts
+
+- `data/backtest_report.html` -- Interactive HTML with 3 plotly charts
+- `data/backtest_results_2020_2025.md` -- English report with trade logs
+- `data/backtest_report_cn.md` -- Chinese report with analysis
+- `charts/backtest_comparison.py` -- Chart generator module
+
+-----
+
+## 19. Architecture Decisions Log
 
 | # | Decision | Rationale | Date |
 |---|----------|-----------|------|
@@ -1091,3 +1138,6 @@ Features **added** that were not in v4:
 | 13 | Interactive HTML charts (not plotly pio.to_html) | Full lifecycle control for click handlers, dynamic trace updates, slider | 2026-03-11 |
 | 14 | TechnicalAgent for walk-forward signals (all assets) | PIT-safe, no API calls, ~3-5s for 52 weekly dates; CryptoAgent too slow | 2026-03-11 |
 | 15 | BTC/ETH ticker auto-detection + YF mapping | yf.Ticker("BTC") returns Grayscale ETF, not Bitcoin; must map to BTC-USD | 2026-03-11 |
+| 16 | Backtest aggregator weight override | Production aggregator gives TechnicalAgent 0 weight for crypto; backtest needs equal-weight fallback | 2026-03-11 |
+| 17 | Annualized return from calendar dates | Using equity curve entry count as days is wrong for non-daily rebalance; use actual date span | 2026-03-11 |
+| 18 | Backtest value = drawdown protection | System doesn't beat B&H on returns in bull market; value is risk management | 2026-03-11 |

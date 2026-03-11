@@ -644,3 +644,40 @@ Implementation:
 - Sector modifier applied post-aggregation in pipeline.py (keeps aggregator pure)
 
 **Test Baseline:** 162 passed, 1 skipped (network), 0 failed. No new tests (UI changes only).
+
+---
+
+### [2026-03-11] Architect Session: Backtest Validation + GTM Review (FutureClaw)
+
+**Scope**: GTM critical review, batch backtest validation (6 tickers, 2020-2025), comparison charts.
+
+**GTM Review Findings:**
+- Real user = developer-investor (1-2% of retail), not general retail
+- True competitor is TradingView + Excel, not other AI tools
+- #1 blocker: no track record / validated results -> must run real backtests
+
+**Backtest Execution:**
+- Tickers: AAPL, MSFT, TSLA, NVDA, SPY, BTC (2020-01-01 to 2025-12-31)
+- Agent: TechnicalAgent only (PIT-safe)
+- Config: Full position, no SL/TP, weekly rebalance
+
+**Bugs Found & Fixed (3):**
+1. `backtesting/engine.py`: BTC backtest returned 0 trades. Root cause: aggregator assigns weight 0 to TechnicalAgent for crypto asset_type (only CryptoAgent has weight). Fix: backtest engine auto-assigns equal weights when requested agents are missing from default weights.
+2. `backtesting/metrics.py`: Annualized return inflated. Root cause: used equity_curve entry count as trading days (wrong for weekly rebalance -- 312 entries != 312 days). Fix: use actual calendar dates to compute year span.
+3. `data/backtest_results_2020_2025.md`: Buy-and-hold numbers recalculated with corrected price data.
+
+**Key Results:**
+- Signal timing reduced max drawdown on ALL 6 tickers vs buy-and-hold
+- BTC: +1043% return (vs +1128% B&H), MaxDD -40.7% (vs -76.6%) -- best risk/reward
+- SPY: MaxDD improved from -34.1% to -18.7% (+15.4pp)
+- Total returns lag B&H in bull market (expected -- cash idle during HOLD periods)
+
+**Artifacts Created:**
+- `charts/backtest_comparison.py` -- Chart generator (4-panel, scatter, equity curves)
+- `data/backtest_report.html` -- Interactive HTML report (3 plotly charts + summary table)
+- `data/backtest_results_2020_2025.md` -- English report with trade logs
+- `data/backtest_report_cn.md` -- Chinese report with detailed analysis
+- `data/backtest_data.json` -- Raw data for chart generation
+- `data/social_media_teaser.md` -- WeChat Moments copy (3 versions)
+
+**Test Baseline:** 162 passed, 1 skipped (network), 0 failed. No new tests (bug fixes only).
