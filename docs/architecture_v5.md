@@ -7,8 +7,10 @@
 | Document purpose | Forward-looking design spec | **Living architecture doc: actual state + roadmap** |
 | Phase 1 status | Planned | **COMPLETE (Tasks 001-011, 95 tests)** |
 | Sprint 3 status | Planned | **COMPLETE (Tasks 012-013, charts + backtesting)** |
-| Sprint 4 status | Planned | **COMPLETE (Task 014 daemon + 014.5 detail mode, 129 tests)** |
-| Agent design | 5 agents (incl LLM-based) | **3 rule-based agents implemented; 2 LLM agents deferred** |
+| Sprint 4 status | Planned | **COMPLETE (Task 014 daemon + 014.5 detail mode)** |
+| Sprint 4.5 status | N/A | **COMPLETE (Task 015.5 FundamentalAgent enhancement)** |
+| Sprint 7 status | Planned | **COMPLETE (Tasks 018-019, CryptoAgent + Sector/Correlation)** |
+| Agent design | 5 agents (incl LLM-based) | **4 rule-based agents implemented; 2 LLM agents deferred** |
 | Data schema | 8 tables (speculative) | **9 tables (actual, tested, in production)** |
 | Learning system | L1/L2/L3 planned | **Data collection in place; adaptation deferred to Sprint 5** |
 | Report format | Simple summary | **Standard + Detail mode (--detail flag)** |
@@ -97,6 +99,7 @@ investment_agent/
     technical.py               #   TechnicalAgent (rule-based, 17 metrics)
     fundamental.py             #   FundamentalAgent (rule-based, 20 metrics)
     macro.py                   #   MacroAgent (rule-based, 11 metrics)
+    crypto.py                  #   CryptoAgent (7-factor, crypto-native scoring)
 
   backtesting/                 # Walk-forward backtesting engine
     __init__.py
@@ -107,7 +110,7 @@ investment_agent/
 
   charts/                      # Plotly chart generators (pure functions)
     __init__.py
-    analysis_charts.py         #   create_price_chart(), create_agent_breakdown_chart()
+    analysis_charts.py         #   create_price_chart(), create_agent_breakdown_chart(), create_crypto_factor_chart(), add_signal_markers()
     portfolio_charts.py        #   create_allocation_chart(), create_sector_chart()
     tracking_charts.py         #   create_calibration_chart(), create_drift_scatter()
 
@@ -117,7 +120,7 @@ investment_agent/
     monitor_cli.py             #   check/alerts
     signal_cli.py              #   history/stats/calibration/agents
     backtest_cli.py            #   run (ticker + date range + config -> metrics)
-    charts_cli.py              #   analysis/portfolio/tracking/backtest
+    charts_cli.py              #   analysis (interactive HTML + signals)/portfolio/calibration/drift
     daemon_cli.py              #   start/run-once/status
     report.py                  #   Report formatter (standard + detail mode)
 
@@ -144,6 +147,8 @@ investment_agent/
     aggregator.py              #   SignalAggregator, AggregatedSignal
     pipeline.py                #   AnalysisPipeline (parallel agent execution)
     drift_analyzer.py          #   DriftAnalyzer (entry/return/hold drift)
+    sector.py                  #   Sector rotation matrix + get_sector_modifier()
+    correlation.py             #   Portfolio pairwise correlation tracker
 
   monitoring/                  # Position monitoring
     __init__.py
@@ -162,7 +167,7 @@ investment_agent/
     store.py                   #   SignalStore (persist + query signals)
     tracker.py                 #   SignalTracker (accuracy, calibration, agent perf)
 
-  tests/                       # 129 tests, 1 skipped (network)
+  tests/                       # 162 tests, 1 skipped (network)
     test_001_database.py       #   5 tests
     test_002_drift.py          #   5 tests
     test_003_portfolio.py      #   8 tests
@@ -178,6 +183,9 @@ investment_agent/
     test_012_charts.py         #   8 tests
     test_013_backtesting.py    #   12 tests
     test_014_daemon.py         #   10 tests
+    test_015_5_fundamental.py  #   4 tests
+    test_018_crypto_agent.py   #   14 tests
+    test_019_sector_correlation.py # 15 tests
 
   docs/
     architecture_v5.md         #   This document
@@ -404,6 +412,7 @@ class AgentOutput:
 | TechnicalAgent | All | 17: SMA 20/50/200, RSI, MACD (line/signal/hist), BB (upper/mid/lower), ATR, volume_ratio, trend/momentum/volatility/composite scores, weekly_trend_confirms | Sub-score weighted composite -> threshold mapping |
 | FundamentalAgent | Stock only | 20: P/E trailing/forward, P/B, EV/EBITDA, PEG ratio, ROE, profit_margin, debt_equity, current_ratio, FCF yield, revenue_growth, earnings_growth, analyst_rating, market_cap, dividend_yield, sector, pct_from_52w_high, value/quality/growth/composite scores | Value + quality + growth sub-scores -> composite |
 | MacroAgent | All | 11: VIX current/SMA20, treasury 10Y/2Y, yield_curve_spread, fed_funds_rate/trend, M2 YoY growth, regime, net_score, risk_on/off points | Point-based scoring -> regime classification |
+| CryptoAgent | BTC/ETH | 7 factors (34 sub-metrics): market_structure, momentum_trend, volatility_risk, liquidity_volume, macro_correlation, network_adoption, cycle_timing, composite_score | Weighted 7-factor composite: Market Structure 15%, Momentum 20%, Volatility 15%, Liquidity 10%, Macro 15%, Network 10%, Cycle 15% |
 
 **Planned agents (Task 017+):**
 - SentimentAgent: Web search + Claude API for news/catalyst evaluation
@@ -416,8 +425,8 @@ class AgentOutput:
 class SignalAggregator:
     DEFAULT_WEIGHTS = {
         "stock": {"TechnicalAgent": 0.30, "FundamentalAgent": 0.45, "MacroAgent": 0.25},
-        "btc":   {"TechnicalAgent": 0.45, "MacroAgent": 0.55},
-        "eth":   {"TechnicalAgent": 0.45, "MacroAgent": 0.55},
+        "btc":   {"CryptoAgent": 1.0},
+        "eth":   {"CryptoAgent": 1.0},
     }
 ```
 
@@ -445,8 +454,8 @@ class AnalysisPipeline:
 ```
 
 Agent selection by asset type:
-- stock: TechnicalAgent + FundamentalAgent + MacroAgent
-- btc/eth: TechnicalAgent + MacroAgent
+- stock: TechnicalAgent + FundamentalAgent + MacroAgent (weights 0.30/0.45/0.25)
+- btc/eth: CryptoAgent (weight 1.0)
 
 Graceful degradation: if FRED_API_KEY not set, MacroAgent skipped with warning (analysis continues with remaining agents).
 
@@ -857,18 +866,48 @@ All chart functions return `plotly.graph_objects.Figure`. Dark theme (`plotly_da
 |----------|---------|-------------|
 | `create_price_chart(ohlcv, ticker, indicators)` | analysis_charts | Candlestick + SMA + BB + RSI subplot |
 | `create_agent_breakdown_chart(agent_signals)` | analysis_charts | Horizontal bars (agent x confidence, color by signal) |
+| `create_crypto_factor_chart(crypto_output)` | analysis_charts | 7 horizontal bars for CryptoAgent factor scores |
+| `add_signal_markers(fig, signals, ohlcv, min_confidence)` | analysis_charts | BUY/SELL triangle markers on price chart |
 | `create_allocation_chart(portfolio)` | portfolio_charts | Pie chart (position weights + cash) |
 | `create_sector_chart(portfolio)` | portfolio_charts | Horizontal bar (sector exposure) |
 | `create_calibration_chart(calibration_data)` | tracking_charts | Confidence bucket vs win rate + ideal diagonal |
 | `create_drift_scatter(drift_data)` | tracking_charts | Expected vs actual return scatter + reference line |
 
-### 12.2 CLI
+### 12.2 Interactive Analysis HTML
+
+The `analysis` subcommand generates a single-page interactive HTML application:
+
+**Architecture:**
+- Price chart + agent breakdown chart rendered on one page via `Plotly.newPlot()` from JSON
+- Walk-forward TechnicalAgent signals computed at weekly intervals (PIT-safe, no API calls)
+- BUY/SELL triangle markers overlaid on price chart
+- Signal data embedded as `<script type="application/json">` for offline support
+- plotly.js bundled offline via `plotly.offline.get_plotlyjs()`
+
+**Interactive Features:**
+- **Confidence Threshold Slider**: 0-100% range, dynamically filters signal markers via `Plotly.restyle()`
+- **Click-to-Detail Panel**: 340px right-side panel populated on marker click with:
+  - Date + signal badge (BUY/SELL) + confidence %
+  - Sub-score bars (Trend, Momentum, Volatility) with visual bar chart
+  - Composite score
+  - Indicators table (RSI, MACD, Volume Ratio, Price, SMAs)
+  - Full reasoning text
+- **Crypto Support**: BTC/ETH auto-detected, 7-factor chart for CryptoAgent, ticker mapped to BTC-USD/ETH-USD
+
+**Walk-Forward Signal Generation:**
+- Uses TechnicalAgent only (applies to all asset types)
+- `HistoricalDataProvider` slices OHLCV at each date (no lookahead)
+- Default: weekly frequency, 2-year data with SMA200 warmup
+- Configurable: `--signal-freq daily|weekly|monthly`, `--min-confidence`, `--no-signals`
+
+### 12.3 CLI
 
 ```bash
-python -m cli.charts_cli analysis AAPL [--period 6mo]
+python -m cli.charts_cli analysis AAPL [--min-confidence 70] [--signal-freq weekly] [--no-signals]
+python -m cli.charts_cli analysis BTC     # auto-detects crypto, maps to BTC-USD
 python -m cli.charts_cli portfolio
-python -m cli.charts_cli tracking [--type calibration|drift]
-python -m cli.charts_cli backtest AAPL --start 2024-01-01 --end 2025-12-31
+python -m cli.charts_cli calibration [--lookback 100]
+python -m cli.charts_cli drift
 ```
 
 -----
@@ -932,7 +971,10 @@ Monthly cost: **$0** (all data sources free). LLM costs ($5-10/mo) start at Task
 | Phase 1 | 001-011 | DB, portfolio, 3 agents, pipeline, aggregator, drift, monitoring, signal tracking, CLI | 95 |
 | Sprint 3 | 012-013 | Charts (plotly), backtesting (walk-forward) | +20 |
 | Sprint 4 | 014, 014.5 | Monitoring daemon, analysis detail mode | +14 |
-| **Total** | **14 tasks** | **11 packages, 7 CLIs, 9 tables** | **129 passed, 1 skipped** |
+| Sprint 4.5 | 015.5 | FundamentalAgent enhancement (PEG, earnings growth, analyst rating) | +4 |
+| Sprint 7 | 018, 019 | CryptoAgent (7-factor), sector rotation + correlation | +29 |
+| Post-019 | Architect | Interactive chart system (signals, click-to-detail, slider), crypto support fixes | +0 (UI) |
+| **Total** | **19 tasks** | **13 packages, 7 CLIs, 9 tables** | **162 passed, 1 skipped** |
 
 ### In Progress / Planned
 
@@ -940,7 +982,7 @@ Monthly cost: **$0** (all data sources free). LLM costs ($5-10/mo) start at Task
 |--------|-------|-------|--------|
 | Sprint 5 | 015 + 016 | FastAPI backend + Adaptive weight (EWMA) | PLANNED |
 | Sprint 6 | 017 | LLM integration (Claude API): SentimentAgent + catalyst scanner | PLANNED |
-| Sprint 7 | 018+ | React frontend | DEFERRED |
+| Sprint 8 | 020+ | React frontend | DEFERRED |
 
 ### Sprint 5: FastAPI + Adaptive Weights
 
@@ -967,9 +1009,9 @@ Monthly cost: **$0** (all data sources free). LLM costs ($5-10/mo) start at Task
 - Cost: ~$5-10/mo for typical usage (5 positions, daily scan)
 - Uses Anthropic SDK, structured output for reliable parsing
 
-### Sprint 7+: Frontend
+### Sprint 8+: Frontend
 
-**Task 018+ (React)**:
+**Task 020+ (React)**:
 - React + TypeScript + TanStack Query
 - Pages: /dashboard, /analyze/:ticker, /monitor, /performance, /backtest, /settings
 - Charts: reuse plotly figures from charts/ package via API
@@ -1022,6 +1064,11 @@ Features **added** that were not in v4:
 | Daemon job toggle | Architect patch | `--no-daily` / `--no-weekly` CLI flags |
 | Signal tracking & calibration | 011 | Accuracy stats, confidence calibration, agent performance |
 | daemon_runs audit table | 014 | Full job execution history with duration + result |
+| FundamentalAgent PEG/earnings/analyst | 015.5 | 3 new metrics + dividend yield scoring + equity weights rebalance |
+| CryptoAgent 7-factor model | 018 | Market structure, momentum, volatility, liquidity, macro, network, cycle |
+| Sector rotation matrix | 019 | 11-sector rotation scoring + portfolio modifier (applied post-aggregation) |
+| Portfolio correlation tracker | 019 | Pairwise correlation analysis with rolling window |
+| Interactive analysis charts | Architect | Walk-forward signals, click-to-detail panel, confidence slider, offline HTML |
 
 -----
 
@@ -1039,3 +1086,8 @@ Features **added** that were not in v4:
 | 8 | Detail mode via --detail flag | Data already in AgentOutput.metrics; display-only change | 2026-03-10 |
 | 9 | Daemon toggles (--no-daily/--no-weekly) | User should control which jobs run | 2026-03-10 |
 | 10 | Backtesting before LLM | Validate signal quality with rules first | 2026-03-10 |
+| 11 | CryptoAgent as single agent (weight 1.0) for btc/eth | Crypto-native 7-factor model covers all aspects; stock agents not applicable | 2026-03-11 |
+| 12 | Sector rotation modifier applied post-aggregation | Keeps agent scoring pure; sector context is portfolio-level concern | 2026-03-11 |
+| 13 | Interactive HTML charts (not plotly pio.to_html) | Full lifecycle control for click handlers, dynamic trace updates, slider | 2026-03-11 |
+| 14 | TechnicalAgent for walk-forward signals (all assets) | PIT-safe, no API calls, ~3-5s for 52 weekly dates; CryptoAgent too slow | 2026-03-11 |
+| 15 | BTC/ETH ticker auto-detection + YF mapping | yf.Ticker("BTC") returns Grayscale ETF, not Bitcoin; must map to BTC-USD | 2026-03-11 |

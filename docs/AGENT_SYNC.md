@@ -603,3 +603,44 @@ Architect improvement:
   - Should a CLI subcommand (e.g., `python -m cli.analyze_cli --correlation`) be added in this task or a follow-up to expose the correlation tracker?
   - The task spec mentioned modifying `engine/aggregator.py` to "accept optional sector_modifier in aggregation." I chose to apply the modifier in `pipeline.py` after aggregation instead, which keeps the aggregator pure (only combines agent signals) and the pipeline as the orchestrator. Is this acceptable?
   - Should `architecture_v5.md` be updated to reflect the sector rotation module and correlation tracker?
+
+### [2026-03-11] Architect Session: Interactive Chart System + Crypto Fixes (FutureClaw)
+
+**Scope**: Comprehensive crypto support audit + interactive chart system rewrite.
+
+**Issues Found (full codebase scan):**
+1. `charts_cli.py`: Raw "BTC" not mapped to "BTC-USD" for yfinance price fetch (showed Grayscale ETF ~$50 instead of Bitcoin ~$80K)
+2. `charts/analysis_charts.py`: No 7-factor chart for CryptoAgent (showed single "Crypto" bar)
+3. `cli/backtest_cli.py`: `_resolve_agents()` missing CryptoAgent, no asset_type awareness
+4. `backtesting/engine.py`: `_make_agent()` didn't handle CryptoAgent
+
+**Fixes Applied (4 files):**
+- `charts_cli.py`: Added `_CRYPTO_YF_MAP` for BTC->BTC-USD/ETH->ETH-USD + crypto factor chart routing + auto-detection
+- `charts/analysis_charts.py`: Added `create_crypto_factor_chart()` with 7 horizontal bars + `add_signal_markers()` + `_build_signal_hover()`
+- `cli/backtest_cli.py`: Added crypto auto-detection, `_resolve_agents()` takes asset_type, returns CryptoAgent for btc/eth
+- `backtesting/engine.py`: Added CryptoAgent case to `_make_agent()`
+
+**Interactive Chart System (major rewrite of charts_cli.py):**
+User requested: combined chart page, historical buy/sell signals, click-to-detail panel, adjustable threshold.
+
+Implementation:
+- Replaced `_save_combined_html` with `_save_interactive_html` -- generates full interactive HTML page
+- Charts rendered via `Plotly.newPlot()` from JSON (full lifecycle control)
+- JavaScript handles signal markers dynamically via `Plotly.addTraces`/`Plotly.restyle`
+- Walk-forward TechnicalAgent signals at weekly intervals (PIT-safe, no API calls, ~3-5s)
+- Confidence slider (0-100%) updates markers in real-time
+- Click on marker populates 340px right-side detail panel with sub-score bars, indicators table, reasoning
+- plotly.js bundled offline via `plotly.offline.get_plotlyjs()`
+- Dark theme CSS with flex layout
+
+**Bug Fixes:**
+- `hoverinfo:'skip'` changed to `'none'` -- 'skip' tells Plotly to ignore trace for ALL interactions (hover AND click)
+- Added `normDate()` for date comparison -- Plotly returns dates like "2024-01-15 00:00" vs our "2024-01-15"
+- Range selector moved from bottom (xaxis3, invisible white on dark) to top (xaxis) with dark styling
+
+**Architecture Decisions:**
+- TechnicalAgent for all walk-forward signals (PIT-safe, no API calls, universal)
+- Interactive HTML via JSON embedding (not pio.to_html) for full JS lifecycle control
+- Sector modifier applied post-aggregation in pipeline.py (keeps aggregator pure)
+
+**Test Baseline:** 162 passed, 1 skipped (network), 0 failed. No new tests (UI changes only).

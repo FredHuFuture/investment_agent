@@ -12,6 +12,9 @@ from backtesting.engine import Backtester
 from backtesting.models import BacktestConfig
 from db.database import DEFAULT_DB_PATH
 
+# Auto-detect crypto tickers (case-insensitive)
+_CRYPTO_TICKERS = {"BTC", "ETH", "BTC-USD", "ETH-USD"}
+
 _SEP = "=" * 64
 _THIN = "-" * 64
 
@@ -53,13 +56,16 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _resolve_agents(agents_str: str) -> list[str]:
+def _resolve_agents(agents_str: str, asset_type: str = "stock") -> list[str]:
     if agents_str.lower() == "all":
+        if asset_type in ("btc", "eth"):
+            return ["CryptoAgent"]
         return ["TechnicalAgent", "FundamentalAgent", "MacroAgent"]
     mapping = {
         "technical": "TechnicalAgent",
         "fundamental": "FundamentalAgent",
         "macro": "MacroAgent",
+        "crypto": "CryptoAgent",
     }
     result = []
     for part in agents_str.split(","):
@@ -68,7 +74,9 @@ def _resolve_agents(agents_str: str) -> list[str]:
             result.append(mapping[part])
         else:
             print(f"  Warning: unknown agent '{part}', skipping.")
-    return result or ["TechnicalAgent"]
+    if not result:
+        return ["CryptoAgent"] if asset_type in ("btc", "eth") else ["TechnicalAgent"]
+    return result
 
 
 def _print_report(result) -> None:
@@ -151,10 +159,20 @@ def _fmt(val) -> str:
 
 
 def _cmd_run(args) -> None:
-    agent_names = _resolve_agents(args.agents)
+    ticker_upper = args.ticker.upper()
+    asset_type = args.asset_type
+    if asset_type == "stock" and ticker_upper in _CRYPTO_TICKERS:
+        asset_type = "btc" if ticker_upper in ("BTC", "BTC-USD") else "eth"
+
+    # Map bare crypto tickers to yfinance symbols
+    if asset_type in ("btc", "eth"):
+        _CRYPTO_YF_MAP = {"BTC": "BTC-USD", "ETH": "ETH-USD"}
+        ticker_upper = _CRYPTO_YF_MAP.get(ticker_upper, ticker_upper)
+
+    agent_names = _resolve_agents(args.agents, asset_type)
     config = BacktestConfig(
-        ticker=args.ticker.upper(),
-        asset_type=args.asset_type,
+        ticker=ticker_upper,
+        asset_type=asset_type,
         start_date=args.start,
         end_date=args.end,
         initial_capital=args.capital,

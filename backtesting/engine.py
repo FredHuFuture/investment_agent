@@ -369,4 +369,7 @@ def _make_agent(agent_name: str, provider: HistoricalDataProvider):
             return MacroAgent(FredProvider(), YFinanceProvider())
         except Exception:
             return None
+    if agent_name == "CryptoAgent":
+        from agents.crypto import CryptoAgent
+        return CryptoAgent(provider)
     return None
