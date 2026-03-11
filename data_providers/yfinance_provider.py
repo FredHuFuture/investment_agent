@@ -125,6 +125,9 @@ class YFinanceProvider(DataProvider):
                 "industry": info.get("industry"),
                 "52w_high": _safe_float(info.get("fiftyTwoWeekHigh")),
                 "52w_low": _safe_float(info.get("fiftyTwoWeekLow")),
+                "pegRatio": _safe_float(info.get("pegRatio")),
+                "earningsGrowth": _safe_float(info.get("earningsGrowth")),
+                "recommendationMean": _safe_float(info.get("recommendationMean")),
             }
 
         return await asyncio.to_thread(_fetch)

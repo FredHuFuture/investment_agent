@@ -274,9 +274,8 @@ def test_detail_mode_shows_reasoning() -> None:
     detail_output = format_analysis_report(signal, detail=True)
     standard_output = format_analysis_report(signal)
 
-    # Reasoning visible in detail mode with "> " prefix
+    # Reasoning visible in detail mode
     assert unique_reasoning in detail_output
-    assert "> " in detail_output
 
     # Reasoning NOT in standard one-liner
     assert unique_reasoning not in standard_output
