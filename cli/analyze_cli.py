@@ -7,6 +7,9 @@ import sys
 from cli.report import format_analysis_json, format_analysis_report
 from engine.pipeline import AnalysisPipeline
 
+# Auto-detect crypto tickers (case-insensitive)
+_CRYPTO_TICKERS = {"BTC", "ETH", "BTC-USD", "ETH-USD"}
+
 # Windows: aiodns (used by aiohttp/ccxt) requires SelectorEventLoop,
 # not the default ProactorEventLoop.
 if sys.platform == "win32":
@@ -60,10 +63,17 @@ def _build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     parser = _build_parser()
     args = parser.parse_args()
+    ticker_upper = args.ticker.upper()
+
+    # Auto-detect asset_type if not explicitly set
+    asset_type = args.asset_type
+    if asset_type == "stock" and ticker_upper in _CRYPTO_TICKERS:
+        asset_type = "btc" if ticker_upper in ("BTC", "BTC-USD") else "eth"
+
     asyncio.run(
         _run_analysis(
-            ticker=args.ticker.upper(),
-            asset_type=args.asset_type,
+            ticker=ticker_upper,
+            asset_type=asset_type,
             json_output=args.json_output,
             detail=args.detail,
         )

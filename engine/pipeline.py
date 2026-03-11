@@ -46,6 +46,11 @@ class AnalysisPipeline:
         """
         pipeline_warnings: list[str] = []
 
+        # Map crypto tickers to yfinance format
+        if asset_type in ("btc", "eth"):
+            _CRYPTO_YF_MAP = {"BTC": "BTC-USD", "ETH": "ETH-USD"}
+            ticker = _CRYPTO_YF_MAP.get(ticker.upper(), ticker)
+
         # 1. Create providers
         primary_provider = get_provider(asset_type)
 
