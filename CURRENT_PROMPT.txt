@@ -2,44 +2,28 @@
 
 如果这是你所在 Session 的第一次对话，请先阅读 `docs/architecture_v4.md` 了解全局架构和业务背景。如果之前已经读过，请直接跳过，节约 Context。
 
-## 执行顺序
+## 执行: Task 014.5 (Analysis Detail Mode)
 
-### Step 1: Task 012 (CLI Chart Generation)
-请严格执行 `tasks/012_chart_generation.md` 的要求。
+请严格执行 `tasks/014_5_analysis_detail_mode.md` 的要求。
 
-**前提**: Tasks 001-011 已完成 (Phase 1 COMPLETE)。95 tests passed, 1 skipped。
-
-**提示**:
-- 阅读 `engine/pipeline.py` 了解 `AnalysisPipeline.analyze_ticker()` 返回的 `AggregatedSignal` 结构。
-- 阅读 `engine/aggregator.py` 了解 `AggregatedSignal` 的 `ticker_info`, `agent_signals`, `metrics` 字段。
-- 阅读 `agents/models.py` 了解 `AgentOutput` 结构 (signal, confidence, metrics dict)。
-- 阅读 `tracking/tracker.py` 了解 `compute_calibration_data()` 的输出格式。
-- 阅读 `cli/report.py` 了解现有的 report formatting pattern。
-- **重要**: 所有 chart 函数必须是 **纯函数** (接受数据输入，返回 plotly Figure，无 I/O)。
-- **重要**: Windows 兼容 — CLI 文件顶部需要 `asyncio.WindowsSelectorEventLoopPolicy`。
-- **重要**: yfinance 有 thread-safety lock (`_yfinance_lock`)，所有 yfinance 调用已串行化。
-- plotly 暗色主题: `template="plotly_dark"`。
-
-### Step 2: Task 013 (Backtesting Framework)
-完成 Task 012 后，请执行 `tasks/013_backtesting_framework.md`。
-
-**前提**: Task 012 已完成。
+**前提**: Tasks 001-014 已完成 (Sprint 4 in progress)。125 tests passed, 1 skipped。
 
 **提示**:
-- 阅读 `data_providers/yfinance_provider.py` 了解 `get_price_history()` 返回的 DataFrame 格式 (Open, High, Low, Close, Volume)。
-- 阅读 `agents/technical.py` 了解 TechnicalAgent 的 `analyze()` 方法。
-- 阅读 `engine/aggregator.py` 了解 `SignalAggregator.aggregate()` 的用法。
-- **关键**: `HistoricalDataProvider` 必须确保无 lookahead bias — `get_price_history()` 只返回 current_date 及之前的数据。
-- **关键**: 默认只用 `TechnicalAgent` 回测（PIT-safe）。用户可 opt-in 其他 agent 但需要 disclaimer。
-- **注意**: SMA200 需要 200+ 天数据，所以 fetch 数据时要从 start_date 前 300 天开始。
-- **注意**: `price_history_cache` 表用 `INSERT OR IGNORE` 处理重复。
-
-## 并行策略
-Task 012 和 Task 013 **顺序执行**。013 的 `--chart` flag 依赖 012 的 chart functions。先做 012 确保 plotly charts 可用，再做 013。
+- 阅读 `cli/report.py` 了解现有的 `format_analysis_report()` 和 `_format_agent_detail()` -- 你需要扩展它们。
+- 阅读 `cli/analyze_cli.py` 了解现有的 CLI 参数结构 -- 你只需要加 `--detail` / `-d` flag。
+- 阅读 `agents/models.py` 了解 `AgentOutput` 的完整字段: `metrics` (dict), `reasoning` (str), `warnings` (list)。
+- 阅读 `engine/aggregator.py` 了解 `AggregatedSignal.metrics` 中已有的聚合透明度数据: `weights_used`, `agent_contributions`, `raw_score`, `consensus_score`。
+- **重要**: `format_analysis_report(signal, detail=False)` 签名必须向后兼容 -- 现有调用方不受影响。
+- **重要**: 不要改变 standard mode 的任何输出 -- detail=False 的行为完全不变。
+- **重要**: 不要用 em dash, 用 ASCII `--`。Windows CMD 会乱码。
+- **重要**: Skip None/missing metrics -- 不要显示 "N/A" 垃圾。
+- **重要**: Reasoning 文本用 `> ` prefix 和 6 空格缩进，wrap at ~58 chars。
+- 测试加在 `tests/test_009_cli_report.py` 中，4 个新测试。
+- 不需要新文件，不需要新依赖，不需要数据层变更。纯展示层改动。
 
 ## 通用完成步骤
-每个 Task 完成后：
+Task 完成后：
 1. 必须在 `docs/AGENT_SYNC.md` 中进行书面汇报！
 2. 必须执行 `git add .` 和 `git commit -m "..."` 提交你的所有修改！不需要推送到远端。
 
-> **注意**: 所有测试必须通过 (`pytest tests/ -v`)。当前基线: 95 passed, 1 skipped, 0 failed。
+> **注意**: 所有测试必须通过 (`pytest tests/ -v`)。当前基线: 125 passed, 1 skipped, 0 failed。

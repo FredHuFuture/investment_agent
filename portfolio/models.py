@@ -18,6 +18,9 @@ class Position:
     original_analysis_id: int | None = None
     expected_return_pct: float | None = None
     expected_hold_days: int | None = None
+    thesis_text: str | None = None
+    target_price: float | None = None
+    stop_loss: float | None = None
 
     @property
     def market_value(self) -> float:
@@ -51,7 +54,7 @@ class Position:
 
     @classmethod
     def from_db_row(cls, row: tuple) -> "Position":
-        return cls(
+        pos = cls(
             ticker=row[0],
             asset_type=row[1],
             quantity=float(row[2]),
@@ -63,6 +66,12 @@ class Position:
             expected_return_pct=row[8],
             expected_hold_days=row[9],
         )
+        # Extended columns from LEFT JOIN with positions_thesis
+        if len(row) > 10:
+            pos.thesis_text = row[10]
+            pos.target_price = float(row[11]) if row[11] is not None else None
+            pos.stop_loss = float(row[12]) if row[12] is not None else None
+        return pos
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -77,6 +86,9 @@ class Position:
             "original_analysis_id": self.original_analysis_id,
             "expected_return_pct": self.expected_return_pct,
             "expected_hold_days": self.expected_hold_days,
+            "thesis_text": self.thesis_text,
+            "target_price": self.target_price,
+            "stop_loss": self.stop_loss,
             "market_value": self.market_value,
             "cost_basis": self.cost_basis,
             "unrealized_pnl": self.unrealized_pnl,

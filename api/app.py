@@ -6,6 +6,9 @@ import sys
 from contextlib import asynccontextmanager
 from typing import Any
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -78,6 +81,7 @@ def create_app(db_path: str = str(DEFAULT_DB_PATH)) -> FastAPI:
     from api.routes.daemon import router as daemon_router
     from api.routes.portfolio import router as portfolio_router
     from api.routes.signals import router as signals_router
+    from api.routes.summary import router as summary_router
     from api.routes.weights import router as weights_router
 
     app.include_router(analyze_router, prefix="/analyze", tags=["analysis"])
@@ -86,6 +90,7 @@ def create_app(db_path: str = str(DEFAULT_DB_PATH)) -> FastAPI:
     app.include_router(backtest_router, prefix="/backtest", tags=["backtesting"])
     app.include_router(signals_router, prefix="/signals", tags=["signals"])
     app.include_router(daemon_router, prefix="/daemon", tags=["daemon"])
+    app.include_router(summary_router, prefix="/summary", tags=["summary"])
     app.include_router(weights_router, tags=["weights"])
 
     return app

@@ -274,6 +274,87 @@ async def run_weekly_revaluation(
         }
 
 
+async def run_weekly_summary(
+    db_path: str = str(DEFAULT_DB_PATH),
+    logger: logging.Logger | None = None,
+) -> dict[str, Any]:
+    """Generate a weekly portfolio summary using Claude API.
+
+    Runs every Sunday at 6pm. Only runs if ANTHROPIC_API_KEY is set;
+    logs a warning and records a 'skipped' run otherwise.
+    Never raises -- all exceptions are caught, logged, and recorded.
+    """
+    import os
+
+    if logger is None:
+        logger = logging.getLogger("investment_daemon")
+
+    started_at = datetime.now(timezone.utc).isoformat()
+    t0 = time.monotonic()
+
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        reason = "ANTHROPIC_API_KEY not set -- skipping weekly summary"
+        logger.warning(reason)
+        await _record_daemon_run(
+            db_path=db_path,
+            job_name="weekly_summary",
+            status="skipped",
+            started_at=started_at,
+            duration_ms=0,
+            result_json=json.dumps({"reason": reason}),
+        )
+        return {"status": "skipped", "reason": reason}
+
+    try:
+        from agents.summary_agent import SummaryAgent, save_summary
+
+        agent = SummaryAgent(api_key=api_key)
+        context = await SummaryAgent.build_context(db_path)
+        result = await agent.generate_summary(context)
+        await save_summary(db_path, result)
+
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        logger.info(
+            "Weekly summary generated -- %d positions, cost $%.4f",
+            len(result.positions_covered),
+            result.cost_usd,
+        )
+
+        await _record_daemon_run(
+            db_path=db_path,
+            job_name="weekly_summary",
+            status="success",
+            started_at=started_at,
+            duration_ms=duration_ms,
+            result_json=json.dumps({
+                "positions_covered": len(result.positions_covered),
+                "input_tokens": result.input_tokens,
+                "output_tokens": result.output_tokens,
+                "cost_usd": result.cost_usd,
+            }),
+        )
+        return {
+            "status": "success",
+            "positions_covered": result.positions_covered,
+            "cost_usd": result.cost_usd,
+        }
+
+    except Exception as exc:
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        err_msg = str(exc)
+        logger.error("Weekly summary failed: %s", err_msg, exc_info=True)
+        await _record_daemon_run(
+            db_path=db_path,
+            job_name="weekly_summary",
+            status="error",
+            started_at=started_at,
+            duration_ms=duration_ms,
+            error_message=err_msg,
+        )
+        return {"status": "error", "error": err_msg}
+
+
 async def run_catalyst_scan_stub(
     db_path: str = str(DEFAULT_DB_PATH),
     logger: logging.Logger | None = None,

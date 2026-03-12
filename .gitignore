@@ -1,3 +1,37 @@
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
 .pytest_cache/
+venv/
+.venv/
+*.log
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Data (contains personal portfolio — never commit)
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/*.json
+data/*.html
+
+# IDE & tools
+.claude/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Frontend
+node_modules/
+frontend/dist/
+
+# Internal workflow (not for public)
+CURRENT_PROMPT.txt

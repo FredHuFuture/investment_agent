@@ -28,6 +28,8 @@ async def run_backtest(body: BacktestRequest, db_path: str = Depends(get_db_path
         position_size_pct=body.position_size_pct,
         stop_loss_pct=body.stop_loss_pct,
         take_profit_pct=body.take_profit_pct,
+        buy_threshold=body.buy_threshold,
+        sell_threshold=body.sell_threshold,
     )
     try:
         backtester = Backtester(config)
@@ -49,8 +51,19 @@ async def run_backtest(body: BacktestRequest, db_path: str = Depends(get_db_path
             "pnl_pct": t.pnl_pct,
             "exit_reason": t.exit_reason,
             "holding_days": t.holding_days,
+            "confidence": t.confidence,
         }
         for t in result.trades
+    ]
+    # Strip nested agent_signals from signals_log to keep payload small
+    signals_log = [
+        {
+            "date": s["date"],
+            "signal": s["signal"],
+            "confidence": s["confidence"],
+            "raw_score": s.get("raw_score", 0.0),
+        }
+        for s in result.agent_signals_log
     ]
     return {
         "data": {
@@ -58,6 +71,7 @@ async def run_backtest(body: BacktestRequest, db_path: str = Depends(get_db_path
             "trades": trades_list,
             "trades_count": len(result.trades),
             "equity_curve": result.equity_curve,
+            "signals_log": signals_log,
         },
         "warnings": result.warnings,
     }

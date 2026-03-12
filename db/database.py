@@ -256,6 +256,22 @@ async def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
             """
         )
 
+        # Task 026: portfolio summaries (Claude weekly review)
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS portfolio_summaries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                summary_text TEXT NOT NULL,
+                generated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                model TEXT NOT NULL,
+                input_tokens INTEGER DEFAULT 0,
+                output_tokens INTEGER DEFAULT 0,
+                cost_usd REAL DEFAULT 0.0,
+                positions_covered TEXT NOT NULL
+            );
+            """
+        )
+
         await conn.commit()
 
     return path

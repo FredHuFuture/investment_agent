@@ -128,7 +128,7 @@ export interface BacktestResult {
   metrics: BacktestMetrics;
   trades: BacktestTrade[];
   trades_count: number;
-  equity_curve: Array<{ date: string; equity: number }>;
+  equity_curve: Array<{ date: string; equity: number; price?: number }>;
   signals_log: SignalLogEntry[];
 }
 

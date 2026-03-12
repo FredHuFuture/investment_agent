@@ -13,6 +13,11 @@ from monitoring.models import Alert
 from monitoring.store import AlertStore
 from portfolio.manager import PortfolioManager
 
+# Crypto ticker mapping: bare symbols -> yfinance format.
+# Without this, "BTC" resolves to Grayscale Bitcoin Mini Trust ETF (~$31)
+# instead of "BTC-USD" (actual Bitcoin ~$70K+).
+_CRYPTO_YF_MAP = {"BTC": "BTC-USD", "ETH": "ETH-USD"}
+
 
 class PortfolioMonitor:
     """One-shot portfolio health check.
@@ -47,7 +52,8 @@ class PortfolioMonitor:
                 # Fetch current price
                 try:
                     provider = get_provider(position.asset_type)
-                    current_price = await provider.get_current_price(position.ticker)
+                    yf_ticker = _CRYPTO_YF_MAP.get(position.ticker.upper(), position.ticker)
+                    current_price = await provider.get_current_price(yf_ticker)
                     if current_price is None or current_price <= 0:
                         raise ValueError(f"Invalid price returned: {current_price}")
                 except Exception as exc:

@@ -18,6 +18,16 @@ class PortfolioManager:
         self._connection = None
         self._db_path = Path(db)
 
+    @staticmethod
+    async def _ensure_thesis_text_column(conn: aiosqlite.Connection) -> None:
+        """Ensure positions_thesis has a thesis_text column (lightweight migration)."""
+        info = await (await conn.execute("PRAGMA table_info(positions_thesis);")).fetchall()
+        existing = {row[1] for row in info}
+        if "thesis_text" not in existing:
+            await conn.execute(
+                "ALTER TABLE positions_thesis ADD COLUMN thesis_text TEXT;"
+            )
+
     async def _with_conn(self, func):
         if self._connection is not None:
             return await func(self._connection)
@@ -38,6 +48,11 @@ class PortfolioManager:
         entry_date: str,
         sector: str | None = None,
         industry: str | None = None,
+        thesis_text: str | None = None,
+        expected_return_pct: float | None = None,
+        expected_hold_days: int | None = None,
+        target_price: float | None = None,
+        stop_loss: float | None = None,
     ) -> int:
         async def _op(conn: aiosqlite.Connection) -> int:
             existing = await (
@@ -49,6 +64,38 @@ class PortfolioManager:
             if existing:
                 raise ValueError(f"Position for ticker '{ticker}' already exists.")
 
+            # Check if any thesis field is provided
+            has_thesis = any(
+                v is not None
+                for v in (thesis_text, expected_return_pct, expected_hold_days, target_price, stop_loss)
+            )
+
+            thesis_id: int | None = None
+            effective_return_pct = expected_return_pct
+            if has_thesis:
+                # Auto-compute expected_return_pct from target_price if not given
+                if effective_return_pct is None and target_price is not None and avg_cost > 0:
+                    effective_return_pct = (target_price - avg_cost) / avg_cost
+
+                await self._ensure_thesis_text_column(conn)
+                thesis_cursor = await conn.execute(
+                    """
+                    INSERT INTO positions_thesis (
+                        ticker, asset_type, expected_signal, expected_confidence,
+                        expected_entry_price, expected_target_price,
+                        expected_return_pct, expected_stop_loss, expected_hold_days,
+                        thesis_text
+                    )
+                    VALUES (?, ?, 'BUY', 0.7, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        ticker, asset_type, avg_cost, target_price,
+                        effective_return_pct, stop_loss, expected_hold_days,
+                        thesis_text,
+                    ),
+                )
+                thesis_id = int(thesis_cursor.lastrowid)
+
             cursor = await conn.execute(
                 """
                 INSERT INTO active_positions (
@@ -58,11 +105,17 @@ class PortfolioManager:
                     avg_cost,
                     sector,
                     industry,
-                    entry_date
+                    entry_date,
+                    original_analysis_id,
+                    expected_return_pct,
+                    expected_hold_days
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (ticker, asset_type, quantity, avg_cost, sector, industry, entry_date),
+                (
+                    ticker, asset_type, quantity, avg_cost, sector, industry,
+                    entry_date, thesis_id, effective_return_pct, expected_hold_days,
+                ),
             )
             await conn.commit()
             return int(cursor.lastrowid)
@@ -118,22 +171,27 @@ class PortfolioManager:
 
     async def get_position(self, ticker: str) -> Position | None:
         async def _op(conn: aiosqlite.Connection) -> Position | None:
+            await self._ensure_thesis_text_column(conn)
             row = await (
                 await conn.execute(
                     """
                     SELECT
-                        ticker,
-                        asset_type,
-                        quantity,
-                        avg_cost,
-                        sector,
-                        industry,
-                        entry_date,
-                        original_analysis_id,
-                        expected_return_pct,
-                        expected_hold_days
-                    FROM active_positions
-                    WHERE ticker = ?
+                        ap.ticker,
+                        ap.asset_type,
+                        ap.quantity,
+                        ap.avg_cost,
+                        ap.sector,
+                        ap.industry,
+                        ap.entry_date,
+                        ap.original_analysis_id,
+                        ap.expected_return_pct,
+                        ap.expected_hold_days,
+                        pt.thesis_text,
+                        pt.expected_target_price,
+                        pt.expected_stop_loss
+                    FROM active_positions ap
+                    LEFT JOIN positions_thesis pt ON ap.original_analysis_id = pt.id
+                    WHERE ap.ticker = ?
                     """,
                     (ticker,),
                 )
@@ -144,24 +202,95 @@ class PortfolioManager:
 
         return await self._with_conn(_op)
 
+    async def get_thesis(self, ticker: str) -> dict[str, Any] | None:
+        """Get thesis data for a position. Returns None if no thesis recorded."""
+        async def _op(conn: aiosqlite.Connection) -> dict[str, Any] | None:
+            await self._ensure_thesis_text_column(conn)
+            row = await (
+                await conn.execute(
+                    """
+                    SELECT
+                        pt.id,
+                        pt.ticker,
+                        pt.expected_signal,
+                        pt.expected_confidence,
+                        pt.expected_entry_price,
+                        pt.expected_target_price,
+                        pt.expected_return_pct,
+                        pt.expected_stop_loss,
+                        pt.expected_hold_days,
+                        pt.thesis_text,
+                        pt.created_at,
+                        ap.entry_date
+                    FROM active_positions ap
+                    JOIN positions_thesis pt ON ap.original_analysis_id = pt.id
+                    WHERE ap.ticker = ?
+                    """,
+                    (ticker,),
+                )
+            ).fetchone()
+            if row is None:
+                return None
+
+            from datetime import date as date_cls
+            entry_date_str = row[11]
+            hold_days_elapsed: int | None = None
+            hold_drift_days: int | None = None
+            expected_hold_days = row[8]
+            if entry_date_str:
+                try:
+                    entry = date_cls.fromisoformat(entry_date_str)
+                    hold_days_elapsed = (date_cls.today() - entry).days
+                    if expected_hold_days is not None:
+                        hold_drift_days = hold_days_elapsed - int(expected_hold_days)
+                except ValueError:
+                    pass
+
+            expected_return_pct = float(row[6]) if row[6] is not None else None
+            expected_entry_price = float(row[4])
+            # Compute return_drift_pct would require current price; leave as None here
+            return {
+                "thesis_id": row[0],
+                "ticker": row[1],
+                "expected_signal": row[2],
+                "expected_confidence": float(row[3]),
+                "expected_entry_price": expected_entry_price,
+                "expected_target_price": float(row[5]) if row[5] is not None else None,
+                "expected_return_pct": expected_return_pct,
+                "expected_stop_loss": float(row[7]) if row[7] is not None else None,
+                "expected_hold_days": int(expected_hold_days) if expected_hold_days is not None else None,
+                "thesis_text": row[9],
+                "created_at": row[10],
+                "hold_days_elapsed": hold_days_elapsed,
+                "hold_drift_days": hold_drift_days,
+                "return_drift_pct": None,  # requires current price
+            }
+
+        return await self._with_conn(_op)
+
     async def get_all_positions(self) -> list[Position]:
         async def _op(conn: aiosqlite.Connection) -> list[Position]:
+            await self._ensure_thesis_text_column(conn)
             rows = await (
                 await conn.execute(
                     """
                     SELECT
-                        ticker,
-                        asset_type,
-                        quantity,
-                        avg_cost,
-                        sector,
-                        industry,
-                        entry_date,
-                        original_analysis_id,
-                        expected_return_pct,
-                        expected_hold_days
-                    FROM active_positions
-                    ORDER BY ticker ASC
+                        ap.ticker,
+                        ap.asset_type,
+                        ap.quantity,
+                        ap.avg_cost,
+                        ap.sector,
+                        ap.industry,
+                        ap.entry_date,
+                        ap.original_analysis_id,
+                        ap.expected_return_pct,
+                        ap.expected_hold_days,
+                        pt.thesis_text,
+                        pt.expected_target_price,
+                        pt.expected_stop_loss
+                    FROM active_positions ap
+                    LEFT JOIN positions_thesis pt ON ap.original_analysis_id = pt.id
+                    ORDER BY ap.ticker ASC
                     """
                 )
             ).fetchall()
@@ -240,22 +369,27 @@ class PortfolioManager:
 
     async def load_portfolio(self) -> Portfolio:
         async def _op(conn: aiosqlite.Connection) -> Portfolio:
+            await self._ensure_thesis_text_column(conn)
             rows = await (
                 await conn.execute(
                     """
                     SELECT
-                        ticker,
-                        asset_type,
-                        quantity,
-                        avg_cost,
-                        sector,
-                        industry,
-                        entry_date,
-                        original_analysis_id,
-                        expected_return_pct,
-                        expected_hold_days
-                    FROM active_positions
-                    ORDER BY ticker ASC
+                        ap.ticker,
+                        ap.asset_type,
+                        ap.quantity,
+                        ap.avg_cost,
+                        ap.sector,
+                        ap.industry,
+                        ap.entry_date,
+                        ap.original_analysis_id,
+                        ap.expected_return_pct,
+                        ap.expected_hold_days,
+                        pt.thesis_text,
+                        pt.expected_target_price,
+                        pt.expected_stop_loss
+                    FROM active_positions ap
+                    LEFT JOIN positions_thesis pt ON ap.original_analysis_id = pt.id
+                    ORDER BY ap.ticker ASC
                     """
                 )
             ).fetchall()
@@ -281,7 +415,7 @@ class PortfolioManager:
             crypto_value = sum(
                 value
                 for position, value in zip(positions, effective_values)
-                if position.asset_type in {"btc", "eth"}
+                if position.asset_type in {"btc", "eth", "crypto"}
             )
 
             if total_value > 0:
@@ -295,9 +429,11 @@ class PortfolioManager:
 
             sector_values: dict[str, float] = {}
             for position, value in zip(positions, effective_values):
-                if position.asset_type != "stock" or not position.sector:
-                    continue
-                sector_values[position.sector] = sector_values.get(position.sector, 0.0) + value
+                if position.asset_type == "stock":
+                    label = position.sector if position.sector else "Other"
+                    sector_values[label] = sector_values.get(label, 0.0) + value
+                elif position.asset_type in {"btc", "eth", "crypto"}:
+                    sector_values["Crypto"] = sector_values.get("Crypto", 0.0) + value
 
             if total_value > 0:
                 sector_breakdown = {
@@ -320,6 +456,55 @@ class PortfolioManager:
             )
 
         return await self._with_conn(_op)
+
+    def recompute_with_prices(self, portfolio: Portfolio) -> Portfolio:
+        """Recompute portfolio totals using market_value (requires current_price set)."""
+        positions = portfolio.positions
+        effective_values = [
+            p.market_value if p.current_price > 0 else p.cost_basis
+            for p in positions
+        ]
+        total_positions_value = sum(effective_values)
+        total_value = total_positions_value + portfolio.cash
+
+        stock_value = sum(
+            v for p, v in zip(positions, effective_values) if p.asset_type == "stock"
+        )
+        crypto_value = sum(
+            v for p, v in zip(positions, effective_values) if p.asset_type in {"btc", "eth", "crypto"}
+        )
+
+        if total_value > 0:
+            stock_exposure_pct = stock_value / total_value
+            crypto_exposure_pct = crypto_value / total_value
+            cash_pct = portfolio.cash / total_value
+        else:
+            stock_exposure_pct = crypto_exposure_pct = cash_pct = 0.0
+
+        sector_values: dict[str, float] = {}
+        for p, v in zip(positions, effective_values):
+            if p.asset_type == "stock":
+                label = p.sector if p.sector else "Other"
+                sector_values[label] = sector_values.get(label, 0.0) + v
+            elif p.asset_type in {"btc", "eth", "crypto"}:
+                sector_values["Crypto"] = sector_values.get("Crypto", 0.0) + v
+
+        sector_breakdown = (
+            {s: v / total_value for s, v in sector_values.items()} if total_value > 0 else {}
+        )
+
+        top_concentration = self._build_concentration(positions, effective_values, total_value)
+
+        return Portfolio(
+            positions=positions,
+            cash=portfolio.cash,
+            total_value=total_value,
+            stock_exposure_pct=stock_exposure_pct,
+            crypto_exposure_pct=crypto_exposure_pct,
+            cash_pct=cash_pct,
+            sector_breakdown=sector_breakdown,
+            top_concentration=top_concentration,
+        )
 
     def _build_concentration(
         self,

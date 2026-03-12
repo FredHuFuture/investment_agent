@@ -1,35 +1,81 @@
 """Portfolio management endpoints."""
 from __future__ import annotations
 
+import asyncio
+import logging
+
 from fastapi import APIRouter, Depends
 
-from api.deps import get_db_path
-from api.models import AddPositionRequest, ScaleRequest, SetCashRequest, SplitRequest
+from api.deps import get_db_path, map_ticker, resolve_asset_type
+from api.models import AddPositionRequest, ScaleRequest, SetCashRequest, SplitRequest, ThesisResponse
+from data_providers.factory import get_provider
 from portfolio.manager import PortfolioManager
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 
+async def _fetch_price(ticker: str, asset_type: str) -> tuple[str, float]:
+    """Fetch current price for a single position."""
+    try:
+        provider = get_provider(asset_type)
+        yf_ticker = map_ticker(ticker, asset_type)
+        price = await provider.get_current_price(yf_ticker)
+        return ticker, price
+    except Exception as exc:
+        logger.warning("Failed to fetch price for %s: %s", ticker, exc)
+        return ticker, 0.0
+
+
 @router.get("")
 async def get_portfolio(db_path: str = Depends(get_db_path)):
-    """Return the current portfolio with positions and allocations."""
+    """Return the current portfolio with live prices."""
     mgr = PortfolioManager(db_path)
     portfolio = await mgr.load_portfolio()
-    return {"data": portfolio.to_dict(), "warnings": []}
+
+    # Fetch live prices for all positions in parallel
+    warnings: list[str] = []
+    if portfolio.positions:
+        results = await asyncio.gather(
+            *[_fetch_price(p.ticker, p.asset_type) for p in portfolio.positions]
+        )
+        price_map = dict(results)
+        for pos in portfolio.positions:
+            price = price_map.get(pos.ticker, 0.0)
+            if price > 0:
+                pos.current_price = price
+            else:
+                warnings.append(f"Could not fetch price for {pos.ticker}")
+
+        # Recompute totals using market values now that we have prices
+        portfolio = mgr.recompute_with_prices(portfolio)
+
+    return {"data": portfolio.to_dict(), "warnings": warnings}
 
 
 @router.post("/positions")
 async def add_position(body: AddPositionRequest, db_path: str = Depends(get_db_path)):
     """Add a new position to the portfolio."""
+    ticker = body.ticker.upper()
+    asset_type = resolve_asset_type(ticker, body.asset_type)
+    # Normalize crypto tickers to yfinance format for DB consistency
+    ticker = map_ticker(ticker, asset_type)
+
     mgr = PortfolioManager(db_path)
     pos_id = await mgr.add_position(
-        ticker=body.ticker.upper(),
-        asset_type=body.asset_type,
+        ticker=ticker,
+        asset_type=asset_type,
         quantity=body.quantity,
         avg_cost=body.avg_cost,
         entry_date=body.entry_date,
         sector=body.sector,
         industry=body.industry,
+        thesis_text=body.thesis_text,
+        expected_return_pct=body.expected_return_pct,
+        expected_hold_days=body.expected_hold_days,
+        target_price=body.target_price,
+        stop_loss=body.stop_loss,
     )
     return {"data": {"id": pos_id}, "warnings": []}
 
@@ -72,3 +118,23 @@ async def apply_split(body: SplitRequest, db_path: str = Depends(get_db_path)):
     mgr = PortfolioManager(db_path)
     await mgr.apply_split(body.ticker.upper(), body.ratio)
     return {"data": {"applied": True, "ticker": body.ticker.upper(), "ratio": body.ratio}, "warnings": []}
+
+
+@router.get("/positions/{ticker}/thesis")
+async def get_thesis(ticker: str, db_path: str = Depends(get_db_path)):
+    """Get thesis data and drift summary for a position."""
+    mgr = PortfolioManager(db_path)
+    thesis = await mgr.get_thesis(ticker.upper())
+    if thesis is None:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": {
+                    "code": "NOT_FOUND",
+                    "message": f"No thesis found for '{ticker.upper()}'",
+                    "detail": None,
+                }
+            },
+        )
+    return {"data": thesis, "warnings": []}

@@ -341,7 +341,7 @@ class Backtester:
             # Record daily equity (mark-to-market)
             position_value = position["shares"] * current_price if position else 0.0
             equity = cash + position_value
-            equity_curve.append({"date": date_str, "equity": equity})
+            equity_curve.append({"date": date_str, "equity": equity, "price": current_price})
 
         # 4. Close remaining open position at last date
         if position is not None and rebalance_dates:
