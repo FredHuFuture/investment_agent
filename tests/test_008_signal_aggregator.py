@@ -51,7 +51,7 @@ class TestSignalAggregator:
         result = self.agg.aggregate(outputs, "AAPL", "stock")
 
         assert result.final_signal == Signal.BUY
-        assert result.final_confidence >= 80
+        assert result.final_confidence >= 60
         assert result.metrics["raw_score"] > 0.3
         assert result.metrics["buy_count"] == 3
         assert result.metrics["consensus_score"] == pytest.approx(1.0)

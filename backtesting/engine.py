@@ -203,23 +203,41 @@ class Backtester:
         equity_curve: list[dict] = []
         signals_log: list[dict] = []
 
-        # Build backtest-aware aggregator weights: ensure every requested
-        # agent has weight > 0 for the chosen asset_type.  The production
-        # aggregator may assign weight 0 to TechnicalAgent on crypto
-        # (since CryptoAgent is the default), but during backtesting we
-        # want to honour whichever agents the user selected.
+        # Build backtest-aware aggregator weights: re-normalize to only the
+        # agents actually being used.  With unnormalized raw_score, a single
+        # TechnicalAgent at stock weight 0.30 would max out at raw_score=0.30,
+        # making the default buy_threshold(0.30) nearly unreachable.
         _bt_weights = dict(SignalAggregator.DEFAULT_WEIGHTS)
         at_key = cfg.asset_type or "stock"
         current = dict(_bt_weights.get(at_key, _bt_weights["stock"]))
-        missing = [a for a in agent_names if a not in current or current[a] == 0.0]
-        if missing:
-            # Equal-weight all requested agents so none is silently dropped
+
+        # Keep only weights for agents being used, re-normalize to sum=1.0
+        used_weights = {a: current.get(a, 0.0) for a in agent_names}
+        total_w = sum(used_weights.values())
+        if total_w > 0 and any(used_weights[a] > 0 for a in agent_names):
+            current = {a: w / total_w for a, w in used_weights.items()}
+        else:
+            # Fallback: equal-weight all requested agents
             equal_w = round(1.0 / len(agent_names), 4)
             current = {a: equal_w for a in agent_names}
         _bt_weights[at_key] = current
-        aggregator = SignalAggregator(weights=_bt_weights)
+        aggregator = SignalAggregator(
+            weights=_bt_weights,
+            buy_threshold=cfg.buy_threshold,
+            sell_threshold=cfg.sell_threshold,
+        )
 
-        for date in rebalance_dates:
+        # Build set of rebalance dates for O(1) lookup
+        rebalance_set = {d.normalize() for d in rebalance_dates}
+
+        # Iterate ALL trading days for daily mark-to-market equity curve,
+        # but only run agents / execute trades on rebalance dates.
+        all_trading_days = sorted(
+            d for d in full_data.index
+            if pd.Timestamp(cfg.start_date) <= d <= pd.Timestamp(cfg.end_date)
+        )
+
+        for date in all_trading_days:
             date_str = str(date.date())
 
             # Get current close price
@@ -228,87 +246,100 @@ class Backtester:
                 continue
             current_price = float(full_data.loc[mask, "Close"].iloc[-1])
 
-            # Check stop-loss / take-profit on open position
-            if position is not None:
-                entry_price = position["entry_price"]
-                pnl_pct = (current_price - entry_price) / entry_price
+            is_rebalance = date.normalize() in rebalance_set
 
-                exit_reason = None
-                if cfg.stop_loss_pct is not None and pnl_pct <= -cfg.stop_loss_pct:
-                    exit_reason = "stop_loss"
-                    exit_price = entry_price * (1 - cfg.stop_loss_pct)
-                elif cfg.take_profit_pct is not None and pnl_pct >= cfg.take_profit_pct:
-                    exit_reason = "take_profit"
-                    exit_price = entry_price * (1 + cfg.take_profit_pct)
+            if is_rebalance:
+                # Check stop-loss / take-profit on open position
+                if position is not None:
+                    entry_price = position["entry_price"]
+                    pnl_pct = (current_price - entry_price) / entry_price
 
-                if exit_reason:
-                    trade = _close_trade(position, exit_price, date_str, exit_reason)
+                    exit_reason = None
+                    if cfg.stop_loss_pct is not None and pnl_pct <= -cfg.stop_loss_pct:
+                        exit_reason = "stop_loss"
+                        exit_price = entry_price * (1 - cfg.stop_loss_pct)
+                    elif cfg.take_profit_pct is not None and pnl_pct >= cfg.take_profit_pct:
+                        exit_reason = "take_profit"
+                        exit_price = entry_price * (1 + cfg.take_profit_pct)
+
+                    if exit_reason:
+                        trade = _close_trade(position, exit_price, date_str, exit_reason)
+                        trades.append(trade)
+                        cash += position["shares"] * exit_price
+                        position = None
+                        current_price = exit_price  # use exit price for equity calc this bar
+
+                # Run agents to get signal
+                provider = HistoricalDataProvider(full_data, date_str)
+                agent_input = AgentInput(ticker=cfg.ticker, asset_type=cfg.asset_type)
+
+                agent_outputs: list[AgentOutput] = []
+                for agent_name in agent_names:
+                    try:
+                        agent = _make_agent(agent_name, provider)
+                        if agent is not None:
+                            out = await agent.analyze(agent_input)
+                            agent_outputs.append(out)
+                    except Exception as exc:
+                        warnings.append(f"{agent_name} failed on {date_str}: {exc}")
+
+                # Aggregate signals
+                agg: AggregatedSignal = aggregator.aggregate(
+                    agent_outputs, cfg.ticker, cfg.asset_type
+                )
+                final_signal = agg.final_signal
+                confidence = agg.final_confidence
+
+                # Use agent's own confidence when single agent
+                # (aggregated confidence degenerates to constant ±90% with 1 agent)
+                log_confidence = (
+                    agent_outputs[0].confidence
+                    if len(agent_outputs) == 1
+                    else confidence
+                )
+
+                signals_log.append({
+                    "date": date_str,
+                    "signal": final_signal.value,
+                    "confidence": log_confidence,
+                    "raw_score": agg.metrics.get("raw_score", 0.0),
+                    "agent_signals": [
+                        {
+                            "agent": o.agent_name,
+                            "signal": o.signal.value,
+                            "confidence": o.confidence,
+                        }
+                        for o in agent_outputs
+                    ],
+                })
+
+                # Trade logic
+                position_value = position["shares"] * current_price if position else 0.0
+
+                if final_signal == Signal.BUY and position is None:
+                    trade_value = cash * cfg.position_size_pct
+                    shares = trade_value / current_price
+                    cost = shares * current_price
+                    if cost <= cash:
+                        position = {
+                            "entry_date": date_str,
+                            "entry_price": current_price,
+                            "shares": shares,
+                            "signal": final_signal.value,
+                            "confidence": confidence,
+                        }
+                        cash -= cost
+                        position_value = shares * current_price
+
+                elif final_signal == Signal.SELL and position is not None:
+                    trade = _close_trade(position, current_price, date_str, "signal_sell")
                     trades.append(trade)
-                    cash += position["shares"] * exit_price
+                    cash += position["shares"] * current_price
                     position = None
-                    current_price = exit_price  # use exit price for equity calc this bar
+                    position_value = 0.0
 
-            # Run agents to get signal
-            provider = HistoricalDataProvider(full_data, date_str)
-            agent_input = AgentInput(ticker=cfg.ticker, asset_type=cfg.asset_type)
-
-            agent_outputs: list[AgentOutput] = []
-            for agent_name in agent_names:
-                try:
-                    agent = _make_agent(agent_name, provider)
-                    if agent is not None:
-                        out = await agent.analyze(agent_input)
-                        agent_outputs.append(out)
-                except Exception as exc:
-                    warnings.append(f"{agent_name} failed on {date_str}: {exc}")
-
-            # Aggregate signals
-            agg: AggregatedSignal = aggregator.aggregate(
-                agent_outputs, cfg.ticker, cfg.asset_type
-            )
-            final_signal = agg.final_signal
-            confidence = agg.final_confidence
-
-            signals_log.append({
-                "date": date_str,
-                "signal": final_signal.value,
-                "confidence": confidence,
-                "raw_score": agg.metrics.get("raw_score", 0.0),
-                "agent_signals": [
-                    {
-                        "agent": o.agent_name,
-                        "signal": o.signal.value,
-                        "confidence": o.confidence,
-                    }
-                    for o in agent_outputs
-                ],
-            })
-
-            # Trade logic
+            # Record daily equity (mark-to-market)
             position_value = position["shares"] * current_price if position else 0.0
-
-            if final_signal == Signal.BUY and position is None:
-                trade_value = cash * cfg.position_size_pct
-                shares = trade_value / current_price
-                cost = shares * current_price
-                if cost <= cash:
-                    position = {
-                        "entry_date": date_str,
-                        "entry_price": current_price,
-                        "shares": shares,
-                        "signal": final_signal.value,
-                        "confidence": confidence,
-                    }
-                    cash -= cost
-                    position_value = shares * current_price
-
-            elif final_signal == Signal.SELL and position is not None:
-                trade = _close_trade(position, current_price, date_str, "signal_sell")
-                trades.append(trade)
-                cash += position["shares"] * current_price
-                position = None
-                position_value = 0.0
-
             equity = cash + position_value
             equity_curve.append({"date": date_str, "equity": equity})
 

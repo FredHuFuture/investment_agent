@@ -102,8 +102,16 @@ class SignalAggregator:
                 warnings=["No agent produced a signal."],
             )
 
-        weights = self._weights.get(asset_type, self._weights["stock"])
+        raw_weights = self._weights.get(asset_type, self._weights["stock"])
         warnings: list[str] = []
+
+        # Re-normalize weights to only agents present in outputs, so that
+        # running fewer agents (e.g. single TechnicalAgent) still produces
+        # raw_score in the full [-1, 1] range at 100% confidence.
+        present = {o.agent_name for o in agent_outputs}
+        used_raw = {k: v for k, v in raw_weights.items() if k in present and v > 0}
+        total_raw = sum(used_raw.values())
+        weights = {k: v / total_raw for k, v in used_raw.items()} if total_raw > 0 else raw_weights
 
         # --- Weighted sum computation ---
         total_weight = 0.0
@@ -125,7 +133,11 @@ class SignalAggregator:
                 "weighted_contribution": round(signal_value * agent_weight * confidence_factor, 4),
             }
 
-        raw_score = weighted_sum / total_weight if total_weight > 0 else 0.0
+        # Use unnormalized weighted_sum so that agent confidence affects the
+        # score and buy/sell thresholds remain meaningful.  With the old
+        # normalization (weighted_sum / total_weight), a single agent always
+        # produced raw_score = ±1.0, making thresholds irrelevant.
+        raw_score = weighted_sum
 
         # --- Signal determination ---
         bt = self._buy_threshold

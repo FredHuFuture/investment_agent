@@ -105,9 +105,8 @@ def compute_metrics(
         "calmar_ratio": round(calmar, 3) if calmar is not None else None,
         "win_rate": round(win_rate, 4) if win_rate is not None else None,
         "profit_factor": (
-            float("inf") if profit_factor == float("inf")
-            else round(profit_factor, 3) if profit_factor is not None
-            else None
+            None if profit_factor is None or profit_factor == float("inf")
+            else round(profit_factor, 3)
         ),
         "avg_win_pct": round(avg_win * 100, 2) if avg_win is not None else None,
         "avg_loss_pct": round(avg_loss * 100, 2) if avg_loss is not None else None,

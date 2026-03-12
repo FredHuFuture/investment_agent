@@ -18,6 +18,8 @@ class BacktestConfig:
     position_size_pct: float = 0.10          # 10% of capital per trade
     stop_loss_pct: float | None = 0.10       # 10% stop loss
     take_profit_pct: float | None = 0.20     # 20% take profit
+    buy_threshold: float = 0.30              # aggregator buy threshold
+    sell_threshold: float = -0.30            # aggregator sell threshold
 
 
 @dataclass
