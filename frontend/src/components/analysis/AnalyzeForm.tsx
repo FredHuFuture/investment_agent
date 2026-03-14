@@ -1,14 +1,34 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface Props {
   onAnalyze: (ticker: string, assetType: string, adaptiveWeights: boolean) => void;
   loading?: boolean;
+  initialTicker?: string;
+  initialAssetType?: string;
 }
 
-export default function AnalyzeForm({ onAnalyze, loading }: Props) {
-  const [ticker, setTicker] = useState("");
-  const [assetType, setAssetType] = useState("stock");
+export default function AnalyzeForm({
+  onAnalyze,
+  loading,
+  initialTicker = "",
+  initialAssetType = "stock",
+}: Props) {
+  const [ticker, setTicker] = useState(initialTicker);
+  const [assetType, setAssetType] = useState(initialAssetType);
   const [adaptive, setAdaptive] = useState(false);
+
+  // Sync with parent-provided initial ticker
+  useEffect(() => {
+    if (initialTicker && !ticker) {
+      setTicker(initialTicker);
+    }
+  }, [initialTicker]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (initialAssetType) {
+      setAssetType(initialAssetType);
+    }
+  }, [initialAssetType]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

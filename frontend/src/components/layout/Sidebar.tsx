@@ -121,8 +121,7 @@ const NAV_ICONS: Record<string, () => JSX.Element> = {
 };
 
 const links = [
-  { to: "/", label: "Dashboard" },
-  { to: "/analyze", label: "Analysis" },
+  { to: "/", label: "Analysis" },
   { to: "/portfolio", label: "Portfolio" },
   { to: "/backtest", label: "Backtest" },
   { to: "/signals", label: "Signals" },
@@ -131,36 +130,67 @@ const links = [
   { to: "/daemon", label: "Daemon" },
 ];
 
-export default function Sidebar() {
+interface Props {
+  collapsed: boolean;
+  onToggle: () => void;
+}
+
+export default function Sidebar({ collapsed, onToggle }: Props) {
   return (
-    <aside className="w-56 shrink-0 bg-gray-900/80 border-r border-gray-800/40 flex flex-col backdrop-blur-sm">
-      {/* Logo */}
-      <div className="px-5 pt-5 pb-4">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
-            <svg
-              className="w-4.5 h-4.5 text-white"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-            </svg>
+    <aside
+      className={`shrink-0 bg-gray-900/80 border-r border-gray-800/40 flex flex-col backdrop-blur-sm transition-all duration-200 ${
+        collapsed ? "w-16" : "w-56"
+      }`}
+    >
+      {/* Header: logo + toggle */}
+      <div className={`flex items-center ${collapsed ? "justify-center px-2 pt-4 pb-3" : "px-4 pt-4 pb-3"}`}>
+        {!collapsed && (
+          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
+              <svg
+                className="w-4.5 h-4.5 text-white"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+              </svg>
+            </div>
+            <span className="text-[15px] font-semibold text-white tracking-tight truncate">
+              Investment Agent
+            </span>
           </div>
-          <span className="text-[15px] font-semibold text-white tracking-tight">
-            Investment Agent
-          </span>
-        </div>
+        )}
+        <button
+          onClick={onToggle}
+          className={`p-1.5 rounded-md text-gray-500 hover:text-gray-300 hover:bg-gray-800/50 transition-colors ${
+            collapsed ? "" : "ml-1 shrink-0"
+          }`}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          <svg
+            className={`w-4 h-4 transition-transform duration-200 ${collapsed ? "rotate-180" : ""}`}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M11 17l-5-5 5-5" />
+            <path d="M18 17l-5-5 5-5" />
+          </svg>
+        </button>
       </div>
 
       {/* Divider */}
-      <div className="mx-4 border-b border-gray-800/50" />
+      <div className={`border-b border-gray-800/50 ${collapsed ? "mx-2" : "mx-4"}`} />
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 pt-4 space-y-0.5">
+      <nav className={`flex-1 pt-3 space-y-0.5 ${collapsed ? "px-2" : "px-3"}`}>
         {links.map((l) => {
           const IconComponent = NAV_ICONS[l.label];
           return (
@@ -168,9 +198,13 @@ export default function Sidebar() {
               key={l.to}
               to={l.to}
               end={l.to === "/"}
+              title={collapsed ? l.label : undefined}
               className={({ isActive }) =>
                 [
-                  "group flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150",
+                  "group flex items-center rounded-lg text-[13px] font-medium transition-all duration-150",
+                  collapsed
+                    ? "justify-center px-0 py-2.5"
+                    : "gap-3 px-3 py-2",
                   isActive
                     ? "bg-blue-500/15 text-blue-400"
                     : "text-gray-500 hover:text-gray-200 hover:bg-gray-800/40",
@@ -180,7 +214,7 @@ export default function Sidebar() {
               {({ isActive }) => (
                 <>
                   <span
-                    className={`transition-colors duration-150 ${
+                    className={`transition-colors duration-150 shrink-0 ${
                       isActive
                         ? "text-blue-400"
                         : "text-gray-600 group-hover:text-gray-400"
@@ -188,7 +222,7 @@ export default function Sidebar() {
                   >
                     {IconComponent && <IconComponent />}
                   </span>
-                  {l.label}
+                  {!collapsed && <span>{l.label}</span>}
                 </>
               )}
             </NavLink>
@@ -196,10 +230,12 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Bottom spacer */}
-      <div className="px-5 py-3 text-[10px] text-gray-700 text-center">
-        v4 · Phase 2
-      </div>
+      {/* Footer */}
+      {!collapsed && (
+        <div className="px-5 py-3 text-[10px] text-gray-700 text-center">
+          v4 · Phase 2
+        </div>
+      )}
     </aside>
   );
 }

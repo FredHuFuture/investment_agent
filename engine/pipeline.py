@@ -159,3 +159,96 @@ class AnalysisPipeline:
                 signal.metrics["pre_sector_confidence"] = pre_confidence
 
         return signal
+
+    async def analyze_ticker_custom(
+        self,
+        ticker: str,
+        asset_type: str,
+        custom_weights: dict[str, dict[str, float]],
+        portfolio: Portfolio | None = None,
+    ) -> AggregatedSignal:
+        """Run analysis with user-specified agent weights.
+
+        Same flow as analyze_ticker but uses provided weights instead of
+        default/adaptive weights.
+        """
+        pipeline_warnings: list[str] = []
+
+        if asset_type in ("btc", "eth"):
+            _CRYPTO_YF_MAP = {"BTC": "BTC-USD", "ETH": "ETH-USD"}
+            ticker = _CRYPTO_YF_MAP.get(ticker.upper(), ticker)
+
+        primary_provider = get_provider(asset_type)
+
+        agents: list[BaseAgent] = []
+        if asset_type in ("btc", "eth"):
+            agents.append(CryptoAgent(primary_provider))
+        else:
+            agents.append(TechnicalAgent(primary_provider))
+            if asset_type == "stock":
+                agents.append(FundamentalAgent(primary_provider))
+            try:
+                fred_provider = FredProvider()
+                vix_provider = YFinanceProvider()
+                agents.append(MacroAgent(fred_provider, vix_provider))
+            except Exception as exc:
+                pipeline_warnings.append(f"MacroAgent skipped: {exc}")
+
+        agent_input = AgentInput(
+            ticker=ticker, asset_type=asset_type, portfolio=portfolio,
+        )
+
+        async def _fetch_ticker_info() -> dict:
+            info: dict = {}
+            try:
+                price = await primary_provider.get_current_price(ticker)
+                info["current_price"] = price
+            except Exception:
+                pass
+            try:
+                stats = await primary_provider.get_key_stats(ticker)
+                info.update(stats)
+            except Exception:
+                pass
+            return info
+
+        all_tasks = [agent.analyze(agent_input) for agent in agents]
+        all_tasks.append(_fetch_ticker_info())  # type: ignore[arg-type]
+        results = await asyncio.gather(*all_tasks, return_exceptions=True)
+
+        ticker_info_result = results[-1]
+        agent_results = results[:-1]
+
+        ticker_info: dict = {}
+        if isinstance(ticker_info_result, dict):
+            ticker_info = ticker_info_result
+        elif isinstance(ticker_info_result, Exception):
+            pipeline_warnings.append(f"Ticker info fetch failed: {ticker_info_result}")
+
+        agent_outputs: list[AgentOutput] = []
+        for i, result in enumerate(agent_results):
+            if isinstance(result, Exception):
+                pipeline_warnings.append(f"{agents[i].name} failed: {result}")
+            else:
+                agent_outputs.append(result)
+
+        aggregator = SignalAggregator(weights=custom_weights)
+        signal = aggregator.aggregate(agent_outputs, ticker, asset_type)
+
+        signal.ticker_info = ticker_info
+        signal.warnings.extend(pipeline_warnings)
+
+        if asset_type not in ("btc", "eth"):
+            sector = ticker_info.get("sector")
+            regime_str = signal.regime.value if signal.regime else "NEUTRAL"
+            modifier = get_sector_modifier(sector, regime_str)
+            if modifier != 0:
+                pre_confidence = signal.final_confidence
+                signal.final_confidence = max(
+                    30.0, min(90.0, signal.final_confidence + modifier)
+                )
+                signal.metrics["sector_modifier"] = modifier
+                signal.metrics["sector_name"] = sector
+                signal.metrics["pre_sector_confidence"] = pre_confidence
+
+        return signal

@@ -40,7 +40,7 @@ export default function DataTable<T>({ columns, data, keyFn }: Props<T>) {
 
   return (
     <div className="overflow-x-auto rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50">
-      <table className="w-full text-sm">
+      <table className="w-full text-sm table-auto">
         <thead>
           <tr className="border-b border-gray-800/50 bg-gray-900/30">
             {columns.map((col) => (

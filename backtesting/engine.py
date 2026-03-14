@@ -358,6 +358,7 @@ class Backtester:
             # Update last equity curve entry
             if equity_curve:
                 equity_curve[-1]["equity"] = cash
+                equity_curve[-1]["price"] = last_price
 
         # 5. Compute metrics
         metrics = compute_metrics(trades, equity_curve, cfg.initial_capital)

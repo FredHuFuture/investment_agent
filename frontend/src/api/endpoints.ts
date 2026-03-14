@@ -13,6 +13,7 @@ import type {
   DaemonStatus,
   ThesisResponse,
   SummaryResponse,
+  OhlcvPoint,
 } from "./types";
 
 // Portfolio
@@ -50,6 +51,26 @@ export const analyzeTicker = (
 ) =>
   apiGet<AnalysisResult>(
     `/analyze/${ticker}?asset_type=${assetType}&adaptive_weights=${adaptiveWeights}`,
+  );
+
+export const analyzeTickerCustom = (
+  ticker: string,
+  assetType: string,
+  weights: Record<string, number>,
+) =>
+  apiPost<AnalysisResult>(`/analyze/${ticker}`, {
+    ticker,
+    asset_type: assetType,
+    weights,
+  });
+
+export const getPriceHistory = (
+  ticker: string,
+  assetType = "stock",
+  period = "1y",
+) =>
+  apiGet<OhlcvPoint[]>(
+    `/analyze/${ticker}/price-history?asset_type=${assetType}&period=${period}`,
   );
 
 // Backtest

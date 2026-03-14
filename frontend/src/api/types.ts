@@ -47,6 +47,18 @@ export interface Portfolio {
 }
 
 // ---------------------------------------------------------------------------
+// Price History (OHLCV)
+// ---------------------------------------------------------------------------
+export interface OhlcvPoint {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+// ---------------------------------------------------------------------------
 // Analysis
 // ---------------------------------------------------------------------------
 export interface AgentSignal {
