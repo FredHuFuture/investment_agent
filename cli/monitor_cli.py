@@ -15,10 +15,10 @@ if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 _SEVERITY_ICONS = {
-    "CRITICAL": "🔴",
-    "HIGH": "🟠",
-    "WARNING": "🟡",
-    "INFO": "🔵",
+    "CRITICAL": "[!!]",
+    "HIGH": "[! ]",
+    "WARNING": "[* ]",
+    "INFO": "[i ]",
 }
 
 
@@ -67,11 +67,11 @@ def _cmd_check(db_path: str) -> None:
                     f"  {icon} {alert['severity']:<10} {alert['ticker']} -- {alert['alert_type']}"
                 )
                 print(f"     {alert['message']}")
-                print(f"     → {alert['recommended_action']}")
+                print(f"     -> {alert['recommended_action']}")
                 print()
         else:
             print()
-            print("  ✅ All positions healthy")
+            print("  [OK] All positions healthy")
 
         if result["snapshot_saved"]:
             print("  Portfolio snapshot saved.")
@@ -80,7 +80,7 @@ def _cmd_check(db_path: str) -> None:
             print()
             print("  Warnings:")
             for w in result["warnings"]:
-                print(f"    ⚠ {w}")
+                print(f"    [!] {w}")
 
         print("=" * 64)
 

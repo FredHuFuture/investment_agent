@@ -198,7 +198,7 @@ def _print_report(result) -> None:
         print(_SEP)
         print("  WARNINGS:")
         for w in result.warnings:
-            print(f"    ⚠ {w}")
+            print(f"    [!] {w}")
         print()
 
     print(_SEP)

@@ -8,12 +8,16 @@
 | Phase 1 status | Planned | **COMPLETE (Tasks 001-011, 95 tests)** |
 | Sprint 3 status | Planned | **COMPLETE (Tasks 012-013, charts + backtesting)** |
 | Sprint 4 status | Planned | **COMPLETE (Task 014 daemon + 014.5 detail mode)** |
-| Sprint 4.5 status | N/A | **COMPLETE (Task 015.5 FundamentalAgent enhancement)** |
-| Sprint 7 status | Planned | **COMPLETE (Tasks 018-019, CryptoAgent + Sector/Correlation)** |
-| Agent design | 5 agents (incl LLM-based) | **4 rule-based agents implemented; 2 LLM agents deferred** |
+| Sprint 4.5 status | N/A | **COMPLETE (Task 015.5 FundamentalAgent enhancement + Tasks 018-019 CryptoAgent + Sector/Correlation)** |
+| Sprint 5 status | Planned | **COMPLETE (Tasks 020-021, adaptive weights + batch backtesting)** |
+| Sprint 6 status | Planned | **COMPLETE (Task 022, FastAPI REST API -- 22 endpoints)** |
+| Sprint 7 status | Planned | **COMPLETE (Tasks 023-026, React frontend + thesis tracking + SummaryAgent)** |
+| Agent design | 5 agents (incl LLM-based) | **5 agents: 4 rule-based + 1 LLM-based (SummaryAgent)** |
 | Data schema | 8 tables (speculative) | **9 tables (actual, tested, in production)** |
-| Learning system | L1/L2/L3 planned | **Data collection in place; adaptation deferred to Sprint 5** |
+| Learning system | L1/L2/L3 planned | **L1 COMPLETE: EWMA weight adaptation + Sharpe-based optimizer** |
 | Report format | Simple summary | **Standard + Detail mode (--detail flag)** |
+| API layer | Not planned | **COMPLETE: FastAPI + 8 route modules + Pydantic v2** |
+| Frontend | Not planned | **COMPLETE: React 18 + TypeScript + Tailwind + Recharts, 7 pages** |
 
 -----
 
@@ -53,6 +57,18 @@ Core moat: Expected vs Actual ROI dual-track + thesis accountability feedback lo
 
 ```
 +-----------------------------------------------------------------------+
+|                      React Frontend (Vite + TypeScript)                |
+|  7 pages: Portfolio, Analyze, Backtest, Signals, Monitoring,          |
+|           Weights, Daemon  |  36 components  |  Tailwind + Recharts   |
++---------------------------+-------------------------------------------+
+                            | /api proxy (localhost:3000 -> :8000)
++---------------------------v-------------------------------------------+
+|                      FastAPI REST API Layer                            |
+|  22 endpoints across 8 route modules  |  Pydantic v2 validation      |
+|  CORS  |  Error handlers  |  Lifespan DB init                        |
++--------+----------+-----------+-----------+-----------+---------------+
+         |          |           |           |           |
++--------+----------+-----------+-----------+-----------+---------------+
 |                         CLI Layer                                      |
 | analyze_cli  portfolio_cli  monitor_cli  signal_cli  daemon_cli       |
 | backtest_cli  charts_cli                                              |
@@ -65,8 +81,9 @@ Core moat: Expected vs Actual ROI dual-track + thesis accountability feedback lo
          |          |           |           |      +---+---------+
     +----v----------v-----------v-----------v----------v---------+
     |                     Engine Layer                            |
-    | Agents (Technical, Fundamental, Macro)                     |
-    | SignalAggregator | DriftAnalyzer | SignalComparator         |
+    | Agents (Technical, Fundamental, Macro, Crypto, Summary)    |
+    | SignalAggregator | DriftAnalyzer | WeightAdapter            |
+    | SignalComparator | SectorRotation | CorrelationTracker      |
     +--------+--------------------------------------------------+
              |
     +--------v--------------------------------------------------+
@@ -83,8 +100,9 @@ Tech stack:
 - **Store**: SQLite (WAL mode, aiosqlite, single-file, zero-ops)
 - **Charts**: plotly (dark theme, HTML export)
 - **Scheduler**: APScheduler 3.x (cron-based async daemon)
-- **Frontend**: React + TypeScript (Phase 3, not started)
-- **LLM**: Claude API via Anthropic SDK (Phase 3, Task 017)
+- **API**: FastAPI + uvicorn + Pydantic v2
+- **Frontend**: React 18 + Vite + TypeScript + Tailwind CSS + Recharts
+- **LLM**: Claude API via Anthropic SDK (SummaryAgent, optional dependency)
 
 -----
 
@@ -100,6 +118,21 @@ investment_agent/
     fundamental.py             #   FundamentalAgent (rule-based, 20 metrics)
     macro.py                   #   MacroAgent (rule-based, 11 metrics)
     crypto.py                  #   CryptoAgent (7-factor, crypto-native scoring)
+    summary_agent.py           #   SummaryAgent (Claude API, weekly portfolio review)
+
+  api/                         # FastAPI REST API
+    app.py                     #   App factory, CORS, lifespan, error handlers
+    models.py                  #   Pydantic v2 request/response schemas
+    deps.py                    #   Shared dependencies (crypto detection, ticker mapping)
+    routes/
+      portfolio.py             #   /portfolio, /portfolio/positions, /portfolio/cash, etc.
+      analyze.py               #   /analyze/{ticker}, /analyze/{ticker}/price-history
+      alerts.py                #   /alerts
+      signals.py               #   /signals/history, /signals/accuracy, /signals/agents, /signals/calibration
+      backtest.py              #   /backtest, /backtest/batch
+      daemon.py                #   /daemon/status, /daemon/run-once
+      weights.py               #   /weights
+      summary.py               #   /summary/generate, /summary/latest
 
   backtesting/                 # Walk-forward backtesting engine
     __init__.py
@@ -107,6 +140,7 @@ investment_agent/
     data_slicer.py             #   HistoricalDataProvider (no lookahead bias)
     engine.py                  #   Backtester.run_backtest()
     metrics.py                 #   Sharpe, Sortino, max drawdown, Calmar, win rate, profit factor
+    batch_runner.py            #   BatchRunner (multi-ticker x multi-agent sweep with caching)
 
   charts/                      # Plotly chart generators (pure functions)
     __init__.py
@@ -147,6 +181,7 @@ investment_agent/
     aggregator.py              #   SignalAggregator, AggregatedSignal
     pipeline.py                #   AnalysisPipeline (parallel agent execution)
     drift_analyzer.py          #   DriftAnalyzer (entry/return/hold drift)
+    weight_adapter.py          #   WeightAdapter (EWMA + Sharpe-based adaptive weights)
     sector.py                  #   Sector rotation matrix + get_sector_modifier()
     correlation.py             #   Portfolio pairwise correlation tracker
 
@@ -167,32 +202,31 @@ investment_agent/
     store.py                   #   SignalStore (persist + query signals)
     tracker.py                 #   SignalTracker (accuracy, calibration, agent perf)
 
-  tests/                       # 162 tests, 1 skipped (network)
-    test_001_database.py       #   5 tests
-    test_002_drift.py          #   5 tests
-    test_003_portfolio.py      #   8 tests
-    test_004_data_providers.py #   8 tests
-    test_005_technical_agent.py#   8 tests
-    test_006_fundamental.py    #   8 tests
-    test_007_macro_agent.py    #   9 tests
-    test_008_aggregator.py     #   8 tests
-    test_008_5_drift_enhancements.py # 7 tests
-    test_009_cli_report.py     #   12 tests (8 original + 4 detail mode)
-    test_010_monitoring.py     #   11 tests
-    test_011_signal_tracking.py#   10 tests
-    test_012_charts.py         #   8 tests
-    test_013_backtesting.py    #   12 tests
-    test_014_daemon.py         #   10 tests
-    test_015_5_fundamental.py  #   4 tests
-    test_018_crypto_agent.py   #   14 tests
-    test_019_sector_correlation.py # 15 tests
+  tests/                       # 216 tests, 1 skipped (network)
+    test_001 - test_026        #   26 test files covering all packages
+                               #   DB, drift, portfolio, providers, 4 agents,
+                               #   pipeline, aggregator, report, monitoring,
+                               #   signal tracking, charts, backtesting,
+                               #   daemon, sector/correlation, weight adapter,
+                               #   batch runner, API, thesis tracking, summary agent
+
+  frontend/                    # React frontend (Vite + TypeScript)
+    src/
+      pages/                   #   7 pages: Portfolio, Analyze, Backtest, Signals,
+                               #            Monitoring, Weights, Daemon
+      components/              #   36 components organized by feature area
+      api/                     #   client.ts, endpoints.ts, types.ts
+      hooks/                   #   useApi.ts
+    vite.config.ts             #   Port 3000, /api proxy -> localhost:8000
 
   docs/
     architecture_v5.md         #   This document
     AGENT_SYNC.md              #   Dev agent communication log
-    DEVELOPER_INSTRUCTIONS.md  #   Dev guidelines
-  tasks/                       #   Task specs (001-014.5)
+    USAGE_GUIDE.md             #   User-facing usage instructions
+  tasks/                       #   Task specs (001-026)
   data/                        #   SQLite DB + daemon logs (gitignored)
+  demo.py                      #   7-step feature demo script (temp DB)
+  seed.py                      #   Seed script for demo data
   pyproject.toml               #   Project config
 ```
 
@@ -414,7 +448,9 @@ class AgentOutput:
 | MacroAgent | All | 11: VIX current/SMA20, treasury 10Y/2Y, yield_curve_spread, fed_funds_rate/trend, M2 YoY growth, regime, net_score, risk_on/off points | Point-based scoring -> regime classification |
 | CryptoAgent | BTC/ETH | 7 factors (34 sub-metrics): market_structure, momentum_trend, volatility_risk, liquidity_volume, macro_correlation, network_adoption, cycle_timing, composite_score | Weighted 7-factor composite: Market Structure 15%, Momentum 20%, Volatility 15%, Liquidity 10%, Macro 15%, Network 10%, Cycle 15% |
 
-**Planned agents (Task 017+):**
+| SummaryAgent | All | Portfolio-level: per-position thesis review, divergence detection, hold duration check | Claude API natural language evaluation, cost-tracked |
+
+**Planned agents (future):**
 - SentimentAgent: Web search + Claude API for news/catalyst evaluation
 - OnChainAgent: BTC-specific on-chain metrics (Phase 3)
 - ValidationAgent: Cross-agent logic consistency check
@@ -920,23 +956,27 @@ requires-python = ">=3.11"
 dependencies = [
     "aiosqlite>=0.19",         # Async SQLite
     "yfinance>=0.2",           # Stock + crypto prices
-    "ccxt>=4.0",               # Crypto exchange data (Phase 2)
     "fredapi>=0.5",            # FRED macro data
     "pandas>=2.0",             # Data manipulation
-    "pandas-ta>=0.4.67b0",     # Technical indicators (pre-release pin)
+    "pandas-ta>=0.4.25b0",     # Technical indicators (pre-release pin)
     "httpx>=0.27",             # Async HTTP
     "plotly>=5.0",             # Chart generation
     "apscheduler>=3.10,<4.0",  # Daemon scheduler (3.x only, not 4.x alpha)
+    "fastapi>=0.115",          # REST API framework
+    "uvicorn[standard]>=0.30", # ASGI server
+    "python-dotenv>=1.0",      # .env file loading
 ]
 
 [project.optional-dependencies]
+llm = ["anthropic>=0.42"]     # Claude API for SummaryAgent
+exchange = ["ccxt>=4.0"]      # Crypto exchange data (Phase 2)
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
 ]
 ```
 
-Monthly cost: **$0** (all data sources free). LLM costs ($5-10/mo) start at Task 017.
+Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude API, optional dependency).
 
 -----
 
@@ -971,53 +1011,20 @@ Monthly cost: **$0** (all data sources free). LLM costs ($5-10/mo) start at Task
 | Phase 1 | 001-011 | DB, portfolio, 3 agents, pipeline, aggregator, drift, monitoring, signal tracking, CLI | 95 |
 | Sprint 3 | 012-013 | Charts (plotly), backtesting (walk-forward) | +20 |
 | Sprint 4 | 014, 014.5 | Monitoring daemon, analysis detail mode | +14 |
-| Sprint 4.5 | 015.5 | FundamentalAgent enhancement (PEG, earnings growth, analyst rating) | +4 |
-| Sprint 7 | 018, 019 | CryptoAgent (7-factor), sector rotation + correlation | +29 |
-| Post-019 | Architect | Interactive chart system (signals, click-to-detail, slider), crypto support fixes | +0 (UI) |
-| Backtest Validation | Architect | 6-ticker backtest (2020-2025), 3 bug fixes, comparison charts, CN/EN reports | +0 (data) |
-| **Total** | **19 tasks** | **14 packages, 7 CLIs, 9 tables** | **162 passed, 1 skipped** |
+| Sprint 4.5 | 015.5, 018-019 | FundamentalAgent enhancement, CryptoAgent (7-factor), sector rotation + correlation | +33 |
+| Post-019 | Architect | Interactive chart system, crypto support fixes, 6-ticker backtest validation | +0 (UI/data) |
+| Sprint 5 | 020-021 | Adaptive weight optimizer (EWMA + Sharpe-based), batch backtest runner | +16 |
+| Sprint 6 | 022 | FastAPI REST API (22 endpoints, 8 route modules, Pydantic v2) | +10 |
+| Sprint 7 | 023-026 | React frontend (7 pages, 36 components), thesis tracking, SummaryAgent | +28 |
+| **Total** | **26 tasks** | **71 source files, 9 CLIs, 22 API endpoints, 7 UI pages, 9 tables** | **216 passed, 1 skipped** |
 
-### In Progress / Planned
+### Planned
 
-| Sprint | Tasks | Focus | Status |
-|--------|-------|-------|--------|
-| Sprint 5 | 015 + 016 | FastAPI backend + Adaptive weight (EWMA) | PLANNED |
-| Sprint 6 | 017 | LLM integration (Claude API): SentimentAgent + catalyst scanner | PLANNED |
-| Sprint 8 | 020+ | React frontend | DEFERRED |
-
-### Sprint 5: FastAPI + Adaptive Weights
-
-**Task 015 (FastAPI Backend)**:
-- REST API wrapping existing CLI functionality
-- Endpoints: `/analyze/{ticker}`, `/portfolio`, `/alerts`, `/signals`, `/backtest`
-- WebSocket for daemon status push
-- Serves data to future React frontend
-- No new business logic -- pure API layer over existing engine
-
-**Task 016 (Regime-Aware Weight Adaptation)**:
-- EWMA tracking of agent accuracy by regime
-- `agent_performance` table stores rolling win_rate per agent/asset/regime
-- SignalAggregator reads learned weights instead of DEFAULT_WEIGHTS
-- Cold start: 10 signals minimum, uses defaults below threshold
-- Enable via config flag (off by default until sufficient signal history)
-
-### Sprint 6: LLM Integration
-
-**Task 017 (Claude API)**:
-- SentimentAgent: web search + Claude for news/catalyst evaluation
-- Catalyst scanner: activate daemon's 4-hour catalyst scan job
-- ValidationAgent: cross-check agent logic consistency
-- Cost: ~$5-10/mo for typical usage (5 positions, daily scan)
-- Uses Anthropic SDK, structured output for reliable parsing
-
-### Sprint 8+: Frontend
-
-**Task 020+ (React)**:
-- React + TypeScript + TanStack Query
-- Pages: /dashboard, /analyze/:ticker, /monitor, /performance, /backtest, /settings
-- Charts: reuse plotly figures from charts/ package via API
-- Tailwind CSS styling
-- Optional Phase 4: Tauri wrapper for desktop app
+| Sprint | Focus | Status |
+|--------|-------|--------|
+| Sprint 8 | SentimentAgent (news/catalyst eval via Claude) + catalyst scanner daemon job | PLANNED |
+| Sprint 9 | Portfolio-aware analysis (concentration limits, correlation checks, position sizing) | PLANNED |
+| Sprint 10+ | Alert dispatcher (email/Slack), OnChainAgent, desktop app (Tauri) | DEFERRED |
 
 -----
 
@@ -1039,20 +1046,26 @@ Monthly cost: **$0** (all data sources free). LLM costs ($5-10/mo) start at Task
 
 ## 17. v4 -> v5 Gap Summary
 
-Features spec'd in v4 that are **deferred** (not cancelled):
+Features spec'd in v4 that are **still deferred** (not cancelled):
 
 | v4 Section | Feature | Deferred To | Rationale |
 |-----------|---------|-------------|-----------|
-| 4.4 | Portfolio-Aware Analysis (overlay, constraints) | Sprint 5 | Need live prices + FastAPI first |
-| 6.4 | Catalyst Scanner (LLM news eval) | Sprint 6 (Task 017) | Requires Claude API integration |
-| 6.6 | Alert Dispatcher (email, push) | Sprint 6+ | SQLite-only sufficient for Phase 1 |
-| 8.1 | SentimentAgent | Sprint 6 (Task 017) | LLM-dependent |
+| 4.4 | Portfolio-Aware Analysis (overlay, constraints) | Sprint 9 | Core analysis works; this is optimization |
+| 6.4 | Catalyst Scanner (LLM news eval) | Sprint 8 | Claude API available; SentimentAgent next |
+| 6.6 | Alert Dispatcher (email, push) | Sprint 10+ | SQLite-only sufficient for now |
+| 8.1 | SentimentAgent | Sprint 8 | Next LLM integration priority |
 | 8.1 | OnChainAgent | Phase 3 | Binance geo-restriction, lower priority |
-| 9.2 | ValidationAgent | Sprint 6 (Task 017) | LLM-dependent |
-| 10 | L1 Weight Adaptation | Sprint 5 (Task 016) | Need sufficient signal history |
-| 10 | L2 Regime Switching | Sprint 5 (Task 016) | Paired with adaptive weights |
+| 9.2 | ValidationAgent | Sprint 8+ | LLM-dependent |
+| 10 | L2 Regime Switching | Sprint 9 | L1 done; L2 needs more signal history |
 | 10 | L3 Reasoning Self-Optimize | Phase 4+ | Lowest priority, LLM-dependent |
-| 12 | React Frontend | Sprint 7+ | Backend API required first |
+
+Features spec'd in v4 that have been **delivered**:
+
+| v4 Section | Feature | Delivered In |
+|-----------|---------|-------------|
+| 10 | L1 Weight Adaptation | Sprint 5 (Task 020-021) -- EWMA + Sharpe-based optimizer |
+| 12 | React Frontend | Sprint 7 (Task 023-026) -- 7 pages, 36 components |
+| N/A | FastAPI Backend | Sprint 6 (Task 022) -- 22 endpoints, Pydantic v2 |
 
 Features **added** that were not in v4:
 
@@ -1072,6 +1085,13 @@ Features **added** that were not in v4:
 | Interactive analysis charts | Architect | Walk-forward signals, click-to-detail panel, confidence slider, offline HTML |
 | Backtest comparison charts | Architect | 4-panel comparison, return-vs-risk scatter, equity curves, interactive HTML |
 | Backtest validation (6 tickers) | Architect | AAPL/MSFT/TSLA/NVDA/SPY/BTC 2020-2025, EN/CN reports |
+| Adaptive weight optimizer | 020 | EWMA accuracy smoothing + Sharpe-based weight computation + threshold grid search |
+| Batch backtest runner | 021 | Multi-ticker x multi-agent sweep with shared price cache + error isolation |
+| FastAPI REST API | 022 | 22 endpoints, 8 route modules, Pydantic v2, CORS, error handling |
+| React frontend | 023-024 | 7 pages, 36 components, Vite + TypeScript + Tailwind + Recharts |
+| Thesis tracking | 025 | Expected vs actual ROI dual-track with position-level thesis |
+| SummaryAgent | 026 | Claude-powered weekly portfolio review with thesis divergence detection |
+| Demo script | Architect | 7-step feature demo (demo.py) with temp DB |
 
 -----
 

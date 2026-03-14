@@ -6,7 +6,7 @@
 
 Tracks your thesis, monitors positions, tells you when reality diverges from your plan.
 
-[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue)](https://python.org) [![License MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE) [![Tests 217 passing](https://img.shields.io/badge/Tests-217_passing-brightgreen)](#) [![FastAPI](https://img.shields.io/badge/API-FastAPI-009688)](http://localhost:8000/docs)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue)](https://python.org) [![License MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE) [![Tests 216 passing](https://img.shields.io/badge/Tests-216_passing-brightgreen)](#) [![FastAPI](https://img.shields.io/badge/API-FastAPI-009688)](http://localhost:8000/docs)
 
 [Live Site](https://investment-agent.dev) · [Architecture](docs/architecture_v5.md) · [API Docs (local)](http://localhost:8000/docs)
 
@@ -216,7 +216,7 @@ investment_agent/
   charts/           # Plotly interactive chart generators
   cli/              # CLI entry points
   db/               # SQLite with WAL mode (9 tables)
-  tests/            # 217 tests
+  tests/            # 216 tests
 ```
 
 ## Tech Stack

@@ -35,16 +35,17 @@ def _make_price_df(
     """Generate synthetic OHLCV DataFrame for crypto testing."""
     np.random.seed(42)
     dates = pd.bdate_range(end=pd.Timestamp.now(), periods=n_days, freq="B")
-    returns = np.random.normal(trend, volatility, n_days)
+    n = len(dates)  # may differ from n_days on weekends (pandas 3.x)
+    returns = np.random.normal(trend, volatility, n)
     prices = [start_price]
     for r in returns[1:]:
         prices.append(prices[-1] * (1 + r))
     prices = np.array(prices)
     # Add high/low spread
-    highs = prices * (1 + np.abs(np.random.normal(0, 0.01, n_days)))
-    lows = prices * (1 - np.abs(np.random.normal(0, 0.01, n_days)))
-    opens = prices * (1 + np.random.normal(0, 0.005, n_days))
-    volumes = np.random.uniform(base_volume * 0.5, base_volume * 1.5, n_days)
+    highs = prices * (1 + np.abs(np.random.normal(0, 0.01, n)))
+    lows = prices * (1 - np.abs(np.random.normal(0, 0.01, n)))
+    opens = prices * (1 + np.random.normal(0, 0.005, n))
+    volumes = np.random.uniform(base_volume * 0.5, base_volume * 1.5, n)
 
     return pd.DataFrame(
         {
@@ -215,7 +216,7 @@ def test_market_structure_scoring() -> None:
 def test_momentum_multi_timeframe() -> None:
     """Momentum scoring: bullish trend produces positive scores."""
     # Strong uptrend
-    price_df_bull = _make_price_df(n_days=252, start_price=30000, trend=0.003, volatility=0.015)
+    price_df_bull = _make_price_df(n_days=255, start_price=30000, trend=0.003, volatility=0.015)
     provider = MockCryptoProvider(price_df=price_df_bull)
     agent = CryptoAgent(provider)
 
@@ -229,7 +230,7 @@ def test_momentum_multi_timeframe() -> None:
     assert metrics_bull["sma_200"] is not None
 
     # Strong downtrend
-    price_df_bear = _make_price_df(n_days=252, start_price=60000, trend=-0.003, volatility=0.015)
+    price_df_bear = _make_price_df(n_days=255, start_price=60000, trend=-0.003, volatility=0.015)
     close_bear = price_df_bear["Close"]
     score_bear, metrics_bear = agent._score_momentum_trend(close_bear, [])
 

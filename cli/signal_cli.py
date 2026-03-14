@@ -79,19 +79,19 @@ def _cmd_stats(db_path: str, lookback: int) -> None:
         for sig, d in stats["by_signal"].items():
             if d["count"] > 0:
                 wr_s = f"{d['win_rate']:.1%}" if d["win_rate"] is not None else "N/A"
-                print(f"    {sig:<6} {d['count']} signals → {wr_s} win rate")
+                print(f"    {sig:<6} {d['count']} signals ->{wr_s} win rate")
         print()
         print("  By Asset Type:")
         for asset, d in stats["by_asset_type"].items():
             if d["count"] > 0:
                 wr_s = f"{d['win_rate']:.1%}" if d["win_rate"] is not None else "N/A"
-                print(f"    {asset:<8} {d['count']} signals → {wr_s} win rate")
+                print(f"    {asset:<8} {d['count']} signals ->{wr_s} win rate")
         print()
         print("  By Regime:")
         for regime, d in stats["by_regime"].items():
             if d["count"] > 0:
                 wr_s = f"{d['win_rate']:.1%}" if d["win_rate"] is not None else "N/A"
-                print(f"    {regime:<12} {d['count']} signals → {wr_s} win rate")
+                print(f"    {regime:<12} {d['count']} signals ->{wr_s} win rate")
         print("=" * 64)
 
     asyncio.run(_run())
@@ -123,7 +123,7 @@ def _cmd_calibration(db_path: str, lookback: int, min_bucket: int) -> None:
         print("    Delta > 0: under-confident (good -- conservative)")
         print("    Delta < 0: over-confident (bad -- predictions too rosy)")
         print()
-        print(f"  ⚠ Buckets with < {min_bucket} samples excluded.")
+        print(f"  [!] Buckets with < {min_bucket} samples excluded.")
         print("=" * 64)
 
     asyncio.run(_run())

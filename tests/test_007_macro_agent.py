@@ -13,13 +13,14 @@ from data_providers.base import DataProvider
 
 def _mock_vix_data(vix_value: float, num_days: int = 60) -> pd.DataFrame:
     dates = pd.date_range(end=datetime.now(timezone.utc), periods=num_days, freq="B")
+    n = len(dates)  # may differ from num_days on weekends (pandas 3.x)
     data = pd.DataFrame(
         {
-            "Open": [vix_value] * num_days,
-            "High": [vix_value] * num_days,
-            "Low": [vix_value] * num_days,
-            "Close": [vix_value] * num_days,
-            "Volume": [1_000_000] * num_days,
+            "Open": [vix_value] * n,
+            "High": [vix_value] * n,
+            "Low": [vix_value] * n,
+            "Close": [vix_value] * n,
+            "Volume": [1_000_000] * n,
         },
         index=dates,
     )
