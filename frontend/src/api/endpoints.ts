@@ -17,6 +17,8 @@ import type {
   SummaryResponse,
   OhlcvPoint,
   CatalystData,
+  PortfolioImpact,
+  CorrelationEntry,
 } from "./types";
 
 // Portfolio
@@ -90,6 +92,25 @@ export async function getCatalysts(
     `/analyze/${ticker}/catalysts?asset_type=${assetType}`,
   );
   return res;
+}
+
+export async function getPositionSize(
+  ticker: string,
+  assetType = "stock",
+  targetAllocationPct = 0.05,
+) {
+  return apiGet<PortfolioImpact>(
+    `/analyze/${ticker}/position-size?asset_type=${assetType}&target_allocation_pct=${targetAllocationPct}`,
+  );
+}
+
+export async function getCorrelation(
+  ticker: string,
+  assetType = "stock",
+) {
+  return apiGet<CorrelationEntry[]>(
+    `/analyze/${ticker}/correlation?asset_type=${assetType}`,
+  );
 }
 
 // Backtest

@@ -3,6 +3,7 @@ import MetricCard from "../shared/MetricCard";
 import AgentBreakdown from "./AgentBreakdown";
 import CatalystPanel from "./CatalystPanel";
 import KeyMetricsPanel from "./KeyMetricsPanel";
+import PortfolioImpactPanel from "./PortfolioImpactPanel";
 import PriceHistoryChart from "./PriceHistoryChart";
 import type { AnalysisResult as AnalysisResultType } from "../../api/types";
 
@@ -62,6 +63,9 @@ export default function AnalysisResult({ data }: { data: AnalysisResultType }) {
 
       {/* News & Catalysts */}
       <CatalystPanel ticker={data.ticker} assetType={data.asset_type} />
+
+      {/* Portfolio Impact Preview */}
+      <PortfolioImpactPanel ticker={data.ticker} assetType={data.asset_type} />
 
       {/* Agent Breakdown */}
       <div>

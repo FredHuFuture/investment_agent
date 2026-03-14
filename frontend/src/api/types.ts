@@ -113,6 +113,7 @@ export interface AnalysisResult {
   metrics: AnalysisMetrics;
   warnings: string[];
   ticker_info: Record<string, unknown>;
+  portfolio_impact?: PortfolioImpact;
 }
 
 // ---------------------------------------------------------------------------
@@ -272,6 +273,32 @@ export interface SentimentResult {
 export interface CatalystData {
   headlines: NewsHeadline[];
   sentiment: SentimentResult | null;
+}
+
+// ---------------------------------------------------------------------------
+// Portfolio Impact / Position Sizing
+// ---------------------------------------------------------------------------
+export interface PortfolioImpact {
+  ticker: string;
+  current_sector_pct: number;
+  projected_sector_pct: number;
+  sector: string | null;
+  concentration_warning: string | null;
+  correlated_positions: Array<{ ticker: string; correlation: number }>;
+  correlation_warning: string | null;
+  suggested_quantity: number | null;
+  suggested_allocation_pct: number;
+  max_position_pct: number;
+  before_exposure: Record<string, number>;
+  after_exposure: Record<string, number>;
+}
+
+export interface CorrelationEntry {
+  ticker: string;
+  existing_ticker: string;
+  correlation: number;
+  period_days: number;
+  warning: string | null;
 }
 
 // ---------------------------------------------------------------------------

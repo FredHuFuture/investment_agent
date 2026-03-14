@@ -1,7 +1,7 @@
 # Investment Analysis Agent -- Product & Technical Roadmap
 
 **Last updated:** 2026-03-14
-**Current state:** Sprint 10 complete (269 tests, 78 source files, 28 API endpoints, 9 pages, 6 agents)
+**Current state:** Sprint 11 complete (287 tests, 81 source files, 31 API endpoints, 9 pages, 6 agents)
 
 ---
 
@@ -25,8 +25,9 @@ The Investment Analysis Agent is a self-hosted, multi-agent portfolio analysis a
 | Sprint 8 | Lifecycle | Close position, realized P&L, signal auto-resolution, position history | +12 |
 | **Sprint 9** | **Dashboard + Workflow** | **Dashboard home, analyze-to-add flow, thesis editing, alert management, position detail page** | **+11** |
 | **Sprint 10** | **SentimentAgent + Catalyst Scanner** | **SentimentAgent (Claude API), WebNewsProvider (Google RSS), aggregator integration, catalyst scanner daemon, news feed UI** | **+30** |
+| **Sprint 11** | **Portfolio-Aware Analysis** | **Concentration check, correlation analysis, position sizing, portfolio impact preview UI** | **+18** |
 
-**Total: 269 tests, 0 failures**
+**Total: 287 tests, 0 failures**
 
 ---
 
@@ -81,10 +82,10 @@ The Investment Analysis Agent is a self-hosted, multi-agent portfolio analysis a
 
 | Task | Description | Scope |
 |------|-------------|-------|
-| 11.1 Concentration Check | Warn if new position would exceed 40% sector concentration | Engine |
-| 11.2 Correlation Analysis | Warn if new position rho > 0.8 with existing holdings | Engine |
-| 11.3 Position Sizing | Suggest position size based on portfolio constraints and risk | Engine |
-| 11.4 Impact Preview | Show before/after exposure impact in analysis report | CLI + Frontend |
+| 11.1 Concentration Check | Warn if new position would exceed 40% sector concentration | Engine | DONE |
+| 11.2 Correlation Analysis | Warn if new position rho > 0.8 with existing holdings | Engine | DONE |
+| 11.3 Position Sizing | Suggest position size based on portfolio constraints and risk | Engine + API | DONE |
+| 11.4 Impact Preview | Show before/after exposure impact in analysis report | Frontend | DONE |
 
 **Technical work:**
 - Pass `Portfolio` object to `AgentInput` (currently `None`)
@@ -132,12 +133,12 @@ The Investment Analysis Agent is a self-hosted, multi-agent portfolio analysis a
 
 ## Key Metrics to Track
 
-| Metric | Current (Sprint 9) | Sprint 10 Target | Sprint 12 Target |
+| Metric | Current (Sprint 11) | Sprint 12 Target | Sprint 13 Target |
 |--------|---------------------|------------------|------------------|
-| Test count | 269 | 290+ | 320+ |
-| API endpoints | 28 | 32+ | 35+ |
-| Frontend pages | 9 | 10+ | 10+ |
-| Agents | 6 (+ SentimentAgent) | 6 | 7+ |
+| Test count | 287 | 310+ | 340+ |
+| API endpoints | 31 | 35+ | 38+ |
+| Frontend pages | 9 | 10+ | 11+ |
+| Agents | 6 | 6 | 7+ |
 | Signal accuracy (resolved) | TBD | Baseline established | > 55% win rate |
 | Daily active use | Dashboard available | Daily dashboard check | Automated alerts |
 

@@ -8,12 +8,151 @@ is computed via pandas for each ticker pair.
 """
 
 import asyncio
+import logging
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
 from data_providers.base import DataProvider
+
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Sprint 11.2 -- Candidate vs. existing-holdings correlation
+# ---------------------------------------------------------------------------
+
+@dataclass
+class CorrelationResult:
+    """Correlation between a candidate ticker and an existing position."""
+    ticker: str
+    existing_ticker: str
+    correlation: float  # Pearson correlation coefficient
+    period_days: int
+    warning: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ticker": self.ticker,
+            "existing_ticker": self.existing_ticker,
+            "correlation": round(self.correlation, 4),
+            "period_days": self.period_days,
+            "warning": self.warning,
+        }
+
+
+async def compute_correlations(
+    candidate_ticker: str,
+    existing_tickers: list[str],
+    provider: DataProvider,
+    period: str = "6mo",
+    threshold: float = 0.80,
+) -> list[CorrelationResult]:
+    """Compute Pearson correlation between candidate and each existing ticker.
+
+    Returns list of CorrelationResult for all existing tickers, with warning
+    set if |correlation| > threshold.
+    """
+    if not existing_tickers:
+        return []
+
+    # Fetch candidate price history
+    try:
+        candidate_df = await provider.get_price_history(
+            candidate_ticker, period=period, interval="1d"
+        )
+    except Exception as exc:
+        logger.warning(
+            "Failed to fetch price history for candidate %s: %s",
+            candidate_ticker,
+            exc,
+        )
+        return []
+
+    if candidate_df is None or candidate_df.empty or "Close" not in candidate_df.columns:
+        logger.warning("No Close data for candidate %s", candidate_ticker)
+        return []
+
+    candidate_close = candidate_df["Close"].dropna()
+
+    results: list[CorrelationResult] = []
+
+    for existing_ticker in existing_tickers:
+        try:
+            existing_df = await provider.get_price_history(
+                existing_ticker, period=period, interval="1d"
+            )
+        except Exception as exc:
+            logger.warning(
+                "Failed to fetch price history for %s: %s", existing_ticker, exc
+            )
+            continue
+
+        if existing_df is None or existing_df.empty or "Close" not in existing_df.columns:
+            logger.warning("No Close data for %s — skipping", existing_ticker)
+            continue
+
+        existing_close = existing_df["Close"].dropna()
+
+        # Align by date (inner join on index)
+        combined = pd.DataFrame(
+            {"candidate": candidate_close, "existing": existing_close}
+        ).dropna()
+
+        if len(combined) < 2:
+            logger.warning(
+                "Insufficient overlapping data between %s and %s — skipping",
+                candidate_ticker,
+                existing_ticker,
+            )
+            continue
+
+        # Compute daily returns and Pearson correlation
+        returns = combined.pct_change().dropna()
+
+        if len(returns) < 2:
+            logger.warning(
+                "Insufficient return data between %s and %s — skipping",
+                candidate_ticker,
+                existing_ticker,
+            )
+            continue
+
+        correlation = float(returns["candidate"].corr(returns["existing"]))
+
+        if np.isnan(correlation):
+            continue
+
+        period_days = len(returns)
+
+        warning: str | None = None
+        if abs(correlation) > threshold:
+            warning = (
+                f"High correlation ({correlation:.2f}) between "
+                f"{candidate_ticker} and {existing_ticker} — "
+                f"portfolio diversification risk"
+            )
+
+        results.append(
+            CorrelationResult(
+                ticker=candidate_ticker,
+                existing_ticker=existing_ticker,
+                correlation=correlation,
+                period_days=period_days,
+                warning=warning,
+            )
+        )
+
+    # Sort by absolute correlation descending
+    results.sort(key=lambda r: abs(r.correlation), reverse=True)
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Original pairwise portfolio correlation (pre-Sprint 11.2)
+# ---------------------------------------------------------------------------
 
 
 async def calculate_portfolio_correlations(

@@ -159,6 +159,24 @@ class AnalysisPipeline:
         signal.ticker_info = ticker_info
         signal.warnings.extend(pipeline_warnings)
 
+        # 6b. Portfolio concentration overlay
+        if portfolio is not None and ticker_info.get("current_price"):
+            from engine.portfolio_overlay import compute_portfolio_impact
+
+            sector = ticker_info.get("sector")
+            impact = compute_portfolio_impact(
+                ticker=ticker,
+                asset_type=asset_type,
+                current_price=ticker_info["current_price"],
+                portfolio=portfolio,
+                sector=sector,
+            )
+            signal.portfolio_impact = impact.to_dict()
+            if impact.concentration_warning:
+                signal.warnings.append(impact.concentration_warning)
+            if impact.correlation_warning:
+                signal.warnings.append(impact.correlation_warning)
+
         # 7. Apply sector rotation modifier (stocks only, not crypto)
         if asset_type not in ("btc", "eth"):
             sector = ticker_info.get("sector")
@@ -267,6 +285,24 @@ class AnalysisPipeline:
 
         signal.ticker_info = ticker_info
         signal.warnings.extend(pipeline_warnings)
+
+        # Portfolio concentration overlay
+        if portfolio is not None and ticker_info.get("current_price"):
+            from engine.portfolio_overlay import compute_portfolio_impact
+
+            sector = ticker_info.get("sector")
+            impact = compute_portfolio_impact(
+                ticker=ticker,
+                asset_type=asset_type,
+                current_price=ticker_info["current_price"],
+                portfolio=portfolio,
+                sector=sector,
+            )
+            signal.portfolio_impact = impact.to_dict()
+            if impact.concentration_warning:
+                signal.warnings.append(impact.concentration_warning)
+            if impact.correlation_warning:
+                signal.warnings.append(impact.correlation_warning)
 
         if asset_type not in ("btc", "eth"):
             sector = ticker_info.get("sector")

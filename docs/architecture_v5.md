@@ -1019,7 +1019,8 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 | Sprint 8 | 027 | Close position lifecycle, realized P&L, signal auto-resolution, position history | +12 |
 | Sprint 9 | 028-032 | Dashboard home page, analyze-to-add flow, thesis editing, alert management, position detail page | +11 |
 | Sprint 10 | 033-037 | SentimentAgent (Claude API), WebNewsProvider, aggregator integration, catalyst scanner, news feed UI | +30 |
-| **Total** | **37 tasks** | **78 source files, 9 CLIs, 28 API endpoints, 9 UI pages, 9 tables** | **269 passed, 1 skipped** |
+| Sprint 11 | 038-041 | Concentration check, correlation analysis, position sizing, portfolio impact preview UI | +18 |
+| **Total** | **41 tasks** | **81 source files, 9 CLIs, 31 API endpoints, 9 UI pages, 9 tables** | **287 passed, 1 skipped** |
 
 ### Planned
 
@@ -1027,7 +1028,7 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 |--------|-------|----------|--------|
 | Sprint 9 | **Dashboard + Workflow** -- home dashboard, analyze-to-buy flow, thesis editing, alert management | P0 (usability) | **COMPLETE** |
 | Sprint 10 | **SentimentAgent** -- Claude-powered news/catalyst eval + daemon catalyst scanner | P1 (differentiation) | **COMPLETE** |
-| Sprint 11 | Portfolio-aware analysis (concentration limits, correlation checks, position sizing) | P2 (optimization) | PLANNED |
+| Sprint 11 | Portfolio-aware analysis (concentration limits, correlation checks, position sizing) | P2 (optimization) | **COMPLETE** |
 | Sprint 12+ | Alert dispatcher (email/Slack), OnChainAgent, desktop app (Tauri) | P3 (expansion) | DEFERRED |
 
 -----

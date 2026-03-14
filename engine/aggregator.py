@@ -26,6 +26,7 @@ class AggregatedSignal:
     metrics: dict[str, Any] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
     ticker_info: dict[str, Any] = field(default_factory=dict)
+    portfolio_impact: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -39,6 +40,7 @@ class AggregatedSignal:
             "metrics": self.metrics,
             "warnings": self.warnings,
             "ticker_info": self.ticker_info,
+            "portfolio_impact": self.portfolio_impact,
         }
 
 

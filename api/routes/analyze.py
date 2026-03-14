@@ -13,8 +13,10 @@ from api.deps import get_db_path, map_ticker, resolve_asset_type
 from data_providers.factory import get_provider
 from data_providers.web_news_provider import WebNewsProvider
 from agents.sentiment import SentimentAgent, parse_sentiment_response
+from engine.correlation import compute_correlations
 from engine.pipeline import AnalysisPipeline
 from engine.aggregator import SignalAggregator
+from portfolio.manager import PortfolioManager
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +122,55 @@ async def get_catalysts(
     }
 
 
+@router.get("/{ticker}/correlation")
+async def get_correlation(
+    ticker: str,
+    asset_type: Literal["stock", "btc", "eth"] = Query("stock"),
+    period: str = Query("6mo"),
+    threshold: float = Query(0.80),
+    db_path: str = Depends(get_db_path),
+):
+    """Compute correlation between ticker and current portfolio positions."""
+    asset_type = resolve_asset_type(ticker, asset_type)
+    yf_ticker = map_ticker(ticker, asset_type)
+
+    # Load portfolio from DB
+    mgr = PortfolioManager(db_path)
+    try:
+        portfolio = await mgr.load_portfolio()
+    except Exception as exc:
+        return JSONResponse(
+            status_code=502,
+            content={
+                "error": {
+                    "code": "UPSTREAM_ERROR",
+                    "message": f"Failed to load portfolio: {exc}",
+                    "detail": None,
+                }
+            },
+        )
+
+    # Get list of existing tickers (exclude the candidate itself)
+    existing_tickers = [
+        p.ticker for p in portfolio.positions if p.ticker != yf_ticker
+    ]
+
+    if not existing_tickers:
+        return {"data": [], "warnings": ["No existing portfolio positions to compare against."]}
+
+    provider = get_provider(asset_type)
+    results = await compute_correlations(
+        candidate_ticker=yf_ticker,
+        existing_tickers=existing_tickers,
+        provider=provider,
+        period=period,
+        threshold=threshold,
+    )
+
+    warnings = [r.warning for r in results if r.warning is not None]
+    return {"data": [r.to_dict() for r in results], "warnings": warnings}
+
+
 @router.get("/{ticker}/price-history")
 async def get_price_history(
     ticker: str,
@@ -155,6 +206,103 @@ async def get_price_history(
     return {"data": points, "warnings": []}
 
 
+@router.get("/{ticker}/position-size")
+async def get_position_size(
+    ticker: str,
+    asset_type: Literal["stock", "btc", "eth"] = Query("stock"),
+    target_allocation_pct: float = Query(0.05),
+    db_path: str = Depends(get_db_path),
+):
+    """Calculate suggested position size based on portfolio constraints."""
+    asset_type = resolve_asset_type(ticker, asset_type)
+    yf_ticker = map_ticker(ticker, asset_type)
+    warnings: list[str] = []
+
+    # 1. Load portfolio
+    pm = PortfolioManager(db_path)
+    portfolio = await pm.load_portfolio()
+
+    # 2. Fetch current price
+    provider = get_provider(asset_type)
+    try:
+        current_price = await provider.get_current_price(yf_ticker)
+    except Exception as exc:
+        return JSONResponse(
+            status_code=502,
+            content={
+                "error": {
+                    "code": "UPSTREAM_ERROR",
+                    "message": f"Failed to fetch price for {yf_ticker}: {exc}",
+                    "detail": None,
+                }
+            },
+        )
+
+    # 3. Get sector info for concentration check
+    sector: str | None = None
+    try:
+        stats = await provider.get_key_stats(yf_ticker)
+        sector = stats.get("sector")
+    except Exception:
+        warnings.append("Could not fetch sector info for concentration check.")
+
+    # 4. Compute portfolio impact
+    try:
+        from engine.portfolio_overlay import compute_portfolio_impact
+
+        impact = compute_portfolio_impact(
+            ticker=yf_ticker,
+            asset_type=asset_type,
+            current_price=current_price,
+            portfolio=portfolio,
+            sector=sector,
+            target_allocation_pct=target_allocation_pct,
+        )
+        return {"data": impact.to_dict(), "warnings": warnings}
+    except ImportError:
+        # portfolio_overlay not yet created by another agent -- return stub
+        warnings.append(
+            "portfolio_overlay module not available; returning stub response."
+        )
+        return {
+            "data": {
+                "ticker": yf_ticker,
+                "current_sector_pct": 0.0,
+                "projected_sector_pct": 0.0,
+                "sector": sector,
+                "concentration_warning": None,
+                "correlated_positions": [],
+                "correlation_warning": None,
+                "suggested_quantity": None,
+                "suggested_allocation_pct": target_allocation_pct,
+                "max_position_pct": 0.15,
+                "before_exposure": {
+                    "stock_pct": portfolio.stock_exposure_pct,
+                    "crypto_pct": portfolio.crypto_exposure_pct,
+                    "cash_pct": portfolio.cash_pct,
+                },
+                "after_exposure": {
+                    "stock_pct": portfolio.stock_exposure_pct,
+                    "crypto_pct": portfolio.crypto_exposure_pct,
+                    "cash_pct": portfolio.cash_pct,
+                },
+            },
+            "warnings": warnings,
+        }
+    except Exception as exc:
+        logger.warning("compute_portfolio_impact failed for %s: %s", yf_ticker, exc)
+        return JSONResponse(
+            status_code=502,
+            content={
+                "error": {
+                    "code": "UPSTREAM_ERROR",
+                    "message": str(exc),
+                    "detail": None,
+                }
+            },
+        )
+
+
 @router.get("/{ticker}")
 async def analyze_ticker(
     ticker: str,
@@ -166,9 +314,17 @@ async def analyze_ticker(
     asset_type = resolve_asset_type(ticker, asset_type)
     yf_ticker = map_ticker(ticker, asset_type)
 
+    # Load portfolio for concentration checks
+    portfolio = None
+    try:
+        mgr = PortfolioManager(db_path)
+        portfolio = await mgr.load_portfolio()
+    except Exception:
+        pass  # portfolio overlay is best-effort
+
     pipeline = AnalysisPipeline(db_path=db_path, use_adaptive_weights=adaptive_weights)
     try:
-        result = await pipeline.analyze_ticker(yf_ticker, asset_type)
+        result = await pipeline.analyze_ticker(yf_ticker, asset_type, portfolio=portfolio)
     except Exception as exc:
         return JSONResponse(
             status_code=502,
