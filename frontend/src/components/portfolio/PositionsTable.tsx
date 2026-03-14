@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import DataTable, { type Column } from "../shared/DataTable";
 import { formatCurrency, formatNumber, formatDate } from "../../lib/formatters";
 import type { Position } from "../../api/types";
@@ -27,7 +28,14 @@ export default function PositionsTable({ positions, onRemove, onClose }: Props) 
     {
       key: "ticker",
       header: "Ticker",
-      render: (r) => <span className="font-mono font-semibold text-white">{r.ticker}</span>,
+      render: (r) => (
+        <Link
+          to={`/portfolio/${r.ticker}`}
+          className="font-mono font-semibold text-white hover:text-blue-400 transition-colors"
+        >
+          {r.ticker}
+        </Link>
+      ),
       sortValue: (r) => r.ticker,
     },
     {

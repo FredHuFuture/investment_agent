@@ -1,10 +1,12 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
 import { getPortfolio, addPosition, removePosition, closePosition, getPositionHistory, getAlerts } from "../api/endpoints";
 import type { Portfolio, Alert, Position } from "../api/types";
 import MetricCard from "../components/shared/MetricCard";
 import PositionsTable from "../components/portfolio/PositionsTable";
 import AddPositionForm from "../components/portfolio/AddPositionForm";
+import type { AddPositionInitialValues } from "../components/portfolio/AddPositionForm";
 import AllocationChart from "../components/portfolio/AllocationChart";
 import ClosePositionModal from "../components/portfolio/ClosePositionModal";
 import ClosedPositionsTable from "../components/portfolio/ClosedPositionsTable";
@@ -120,6 +122,8 @@ const severityDotMap: Record<string, string> = {
 };
 
 export default function PortfolioPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const addFormRef = useRef<HTMLDivElement>(null);
   const { data, loading, error, warnings, refetch } = useApi<Portfolio>(
     () => getPortfolio(),
   );
@@ -129,6 +133,25 @@ export default function PortfolioPage() {
   const [breakdownMode, setBreakdownMode] = useState<BreakdownMode>("ticker");
   const [closingPosition, setClosingPosition] = useState<Position | null>(null);
   const [posTab, setPosTab] = useState<"open" | "closed">("open");
+
+  // Read query params for pre-fill from Analyze -> Add flow
+  const addInitialValues = useMemo<AddPositionInitialValues | undefined>(() => {
+    if (searchParams.get("add") !== "1") return undefined;
+    return {
+      ticker: searchParams.get("ticker") ?? undefined,
+      asset_type: searchParams.get("asset_type") ?? undefined,
+      avg_cost: searchParams.get("avg_cost") ?? undefined,
+    };
+  }, [searchParams]);
+
+  // Auto-scroll to the add form when arriving with ?add=1
+  useEffect(() => {
+    if (searchParams.get("add") === "1" && !loading && addFormRef.current) {
+      addFormRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      // Clear the query params so they don't persist on refetch
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, loading, setSearchParams]);
 
   // P&L computation
   const totalPnl = useMemo(() => {
@@ -357,11 +380,11 @@ export default function PortfolioPage() {
       )}
 
       {/* ── Add Position form ── */}
-      <div className="rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-5">
+      <div ref={addFormRef} className="rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-5">
         <h2 className="text-sm font-semibold text-gray-300 mb-4">
           Add Position
         </h2>
-        <AddPositionForm onAdd={handleAdd} loading={adding} />
+        <AddPositionForm onAdd={handleAdd} loading={adding} initialValues={addInitialValues} />
       </div>
 
       {/* ── Weekly Summary + Recent Alerts ── */}

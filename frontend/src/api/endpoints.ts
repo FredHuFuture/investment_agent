@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPut, apiDelete } from "./client";
+import { apiGet, apiPost, apiPut, apiPatch, apiDelete } from "./client";
 import type {
   Portfolio,
   Position,
@@ -131,15 +131,24 @@ export const getAgentPerformance = () =>
 export const getAlerts = (params?: {
   ticker?: string;
   severity?: string;
+  acknowledged?: number;
   limit?: number;
 }) => {
   const qs = new URLSearchParams();
   if (params?.ticker) qs.set("ticker", params.ticker);
   if (params?.severity) qs.set("severity", params.severity);
+  if (params?.acknowledged !== undefined)
+    qs.set("acknowledged", String(params.acknowledged));
   if (params?.limit) qs.set("limit", String(params.limit));
   const q = qs.toString();
   return apiGet<Alert[]>(`/alerts${q ? `?${q}` : ""}`);
 };
+export const acknowledgeAlert = (id: number) =>
+  apiPatch<{ id: number; acknowledged: number }>(
+    `/alerts/${id}/acknowledge`,
+  );
+export const deleteAlert = (id: number) =>
+  apiDelete<{ id: number; deleted: boolean }>(`/alerts/${id}`);
 export const runMonitorCheck = () =>
   apiPost<Record<string, unknown>>("/monitor/check");
 

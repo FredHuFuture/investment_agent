@@ -76,11 +76,36 @@ class AlertStore:
 
         return await self._with_conn(_op)
 
+    async def acknowledge_alert(self, alert_id: int) -> bool:
+        """Set acknowledged=1 for a single alert. Returns True if found."""
+        async def _op(conn: aiosqlite.Connection) -> bool:
+            cursor = await conn.execute(
+                "UPDATE monitoring_alerts SET acknowledged = 1 WHERE id = ?",
+                (alert_id,),
+            )
+            await conn.commit()
+            return cursor.rowcount > 0
+
+        return await self._with_conn(_op)
+
+    async def delete_alert(self, alert_id: int) -> bool:
+        """Delete a single alert by id. Returns True if found."""
+        async def _op(conn: aiosqlite.Connection) -> bool:
+            cursor = await conn.execute(
+                "DELETE FROM monitoring_alerts WHERE id = ?",
+                (alert_id,),
+            )
+            await conn.commit()
+            return cursor.rowcount > 0
+
+        return await self._with_conn(_op)
+
     async def get_recent_alerts(
         self,
         ticker: str | None = None,
         limit: int = 20,
         severity: str | None = None,
+        acknowledged: int | None = None,
     ) -> list[dict[str, Any]]:
         """Query recent alerts, optionally filtered by ticker/severity.
 
@@ -96,6 +121,9 @@ class AlertStore:
             if severity is not None:
                 conditions.append("severity = ?")
                 params.append(severity)
+            if acknowledged is not None:
+                conditions.append("acknowledged = ?")
+                params.append(acknowledged)
             where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
             params.append(limit)
             rows = await (

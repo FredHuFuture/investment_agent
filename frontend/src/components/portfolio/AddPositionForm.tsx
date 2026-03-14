@@ -1,4 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+export interface AddPositionInitialValues {
+  ticker?: string;
+  asset_type?: string;
+  avg_cost?: string;
+}
 
 interface Props {
   onAdd: (data: {
@@ -14,16 +20,24 @@ interface Props {
     stop_loss?: number;
   }) => Promise<void> | void;
   loading?: boolean;
+  initialValues?: AddPositionInitialValues;
 }
 
-export default function AddPositionForm({ onAdd, loading }: Props) {
-  const [ticker, setTicker] = useState("");
-  const [assetType, setAssetType] = useState("stock");
+export default function AddPositionForm({ onAdd, loading, initialValues }: Props) {
+  const [ticker, setTicker] = useState(initialValues?.ticker ?? "");
+  const [assetType, setAssetType] = useState(initialValues?.asset_type ?? "stock");
   const [quantity, setQuantity] = useState("");
-  const [avgCost, setAvgCost] = useState("");
+  const [avgCost, setAvgCost] = useState(initialValues?.avg_cost ?? "");
   const [entryDate, setEntryDate] = useState(
     new Date().toISOString().slice(0, 10),
   );
+
+  // Pre-fill fields when initialValues changes (e.g. from query params)
+  useEffect(() => {
+    if (initialValues?.ticker) setTicker(initialValues.ticker);
+    if (initialValues?.asset_type) setAssetType(initialValues.asset_type);
+    if (initialValues?.avg_cost) setAvgCost(initialValues.avg_cost);
+  }, [initialValues?.ticker, initialValues?.asset_type, initialValues?.avg_cost]);
 
   // Thesis fields
   const [thesisOpen, setThesisOpen] = useState(false);

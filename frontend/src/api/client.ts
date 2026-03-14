@@ -54,6 +54,13 @@ export async function apiPut<T>(
   return request<T>("PUT", path, body);
 }
 
+export async function apiPatch<T>(
+  path: string,
+  body?: unknown,
+): Promise<Envelope<T>> {
+  return request<T>("PATCH", path, body);
+}
+
 export async function apiDelete<T>(path: string): Promise<Envelope<T>> {
   return request<T>("DELETE", path);
 }

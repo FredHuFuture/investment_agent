@@ -121,7 +121,8 @@ const NAV_ICONS: Record<string, () => JSX.Element> = {
 };
 
 const links = [
-  { to: "/", label: "Analysis" },
+  { to: "/", label: "Dashboard" },
+  { to: "/analyze", label: "Analysis" },
   { to: "/portfolio", label: "Portfolio" },
   { to: "/backtest", label: "Backtest" },
   { to: "/signals", label: "Signals" },

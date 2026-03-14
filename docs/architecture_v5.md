@@ -1016,14 +1016,15 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 | Sprint 5 | 020-021 | Adaptive weight optimizer (EWMA + Sharpe-based), batch backtest runner | +16 |
 | Sprint 6 | 022 | FastAPI REST API (22 endpoints, 8 route modules, Pydantic v2) | +10 |
 | Sprint 7 | 023-026 | React frontend (7 pages, 36 components), thesis tracking, SummaryAgent | +28 |
-| **Total** | **26 tasks** | **71 source files, 9 CLIs, 22 API endpoints, 7 UI pages, 9 tables** | **216 passed, 1 skipped** |
+| Sprint 8 | 027 | Close position lifecycle, realized P&L, signal auto-resolution, position history | +12 |
+| Sprint 9 | 028-032 | Dashboard home page, analyze-to-add flow, thesis editing, alert management, position detail page | +11 |
+| **Total** | **32 tasks** | **74 source files, 9 CLIs, 27 API endpoints, 9 UI pages, 9 tables** | **239 passed, 1 skipped** |
 
 ### Planned
 
 | Sprint | Focus | Priority | Status |
 |--------|-------|----------|--------|
-| Sprint 8 | **Investment Lifecycle Loop** -- close positions, record outcomes, realized P&L, feedback loop | P0 (core product gap) | PLANNED |
-| Sprint 9 | **Dashboard + Workflow** -- home dashboard, analyze-to-buy flow, thesis editing, alert management | P0 (usability) | PLANNED |
+| Sprint 9 | **Dashboard + Workflow** -- home dashboard, analyze-to-buy flow, thesis editing, alert management | P0 (usability) | **COMPLETE** |
 | Sprint 10 | **SentimentAgent** -- Claude-powered news/catalyst eval + daemon catalyst scanner | P1 (differentiation) | PLANNED |
 | Sprint 11 | Portfolio-aware analysis (concentration limits, correlation checks, position sizing) | P2 (optimization) | PLANNED |
 | Sprint 12+ | Alert dispatcher (email/Slack), OnChainAgent, desktop app (Tauri) | P3 (expansion) | DEFERRED |

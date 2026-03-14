@@ -344,3 +344,120 @@ async def test_thesis_fields_optional(client: httpx.AsyncClient):
     assert data["expected_hold_days"] is None
     assert data["expected_target_price"] is None
     assert data["expected_stop_loss"] is None
+
+
+# ---------------------------------------------------------------------------
+# 9. test_update_existing_thesis
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_update_existing_thesis(db_path: str):
+    """update_thesis updates fields on an existing thesis row."""
+    mgr = PortfolioManager(db_path)
+    await mgr.add_position(
+        ticker="AAPL",
+        asset_type="stock",
+        quantity=100,
+        avg_cost=186.0,
+        entry_date="2026-01-15",
+        thesis_text="Original thesis",
+        expected_return_pct=0.18,
+        expected_hold_days=60,
+        target_price=220.0,
+        stop_loss=170.0,
+    )
+
+    result = await mgr.update_thesis(
+        ticker="AAPL",
+        thesis_text="Updated thesis text",
+        target_price=240.0,
+        stop_loss=175.0,
+        expected_hold_days=90,
+    )
+
+    assert result["thesis_text"] == "Updated thesis text"
+    assert result["expected_target_price"] == 240.0
+    assert result["expected_stop_loss"] == 175.0
+    assert result["expected_hold_days"] == 90
+    # expected_return_pct auto-computed: (240 - 186) / 186
+    assert result["expected_return_pct"] is not None
+    assert abs(result["expected_return_pct"] - (240.0 - 186.0) / 186.0) < 1e-6
+
+    # Verify the position itself was also synced
+    pos = await mgr.get_position("AAPL")
+    assert pos is not None
+    assert pos.expected_hold_days == 90
+
+
+# ---------------------------------------------------------------------------
+# 10. test_create_thesis_on_position_without_one
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_create_thesis_on_position_without_one(db_path: str):
+    """update_thesis creates a new thesis row when position had none."""
+    mgr = PortfolioManager(db_path)
+    await mgr.add_position(
+        ticker="MSFT",
+        asset_type="stock",
+        quantity=50,
+        avg_cost=415.0,
+        entry_date="2026-02-01",
+        sector="Technology",
+    )
+
+    # Confirm no thesis exists
+    thesis_before = await mgr.get_thesis("MSFT")
+    assert thesis_before is None
+
+    result = await mgr.update_thesis(
+        ticker="MSFT",
+        thesis_text="Cloud dominance play",
+        target_price=500.0,
+        expected_hold_days=120,
+    )
+
+    assert result["ticker"] == "MSFT"
+    assert result["thesis_text"] == "Cloud dominance play"
+    assert result["expected_target_price"] == 500.0
+    assert result["expected_hold_days"] == 120
+    # expected_return_pct auto-computed: (500 - 415) / 415
+    assert result["expected_return_pct"] is not None
+    assert abs(result["expected_return_pct"] - (500.0 - 415.0) / 415.0) < 1e-6
+
+    # Verify position is now linked
+    pos = await mgr.get_position("MSFT")
+    assert pos is not None
+    assert pos.original_analysis_id is not None
+    assert pos.thesis_text == "Cloud dominance play"
+
+
+# ---------------------------------------------------------------------------
+# 11. test_update_thesis_auto_computes_return_pct
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_update_thesis_auto_computes_return_pct(db_path: str):
+    """When target_price is given without expected_return_pct, return_pct is auto-computed."""
+    mgr = PortfolioManager(db_path)
+    await mgr.add_position(
+        ticker="GOOG",
+        asset_type="stock",
+        quantity=20,
+        avg_cost=150.0,
+        entry_date="2026-03-01",
+        thesis_text="Search moat",
+        expected_return_pct=0.10,
+        target_price=165.0,
+    )
+
+    # Update with a new target_price but no explicit expected_return_pct
+    result = await mgr.update_thesis(
+        ticker="GOOG",
+        target_price=195.0,
+    )
+
+    # Auto-computed: (195 - 150) / 150 = 0.3
+    assert result["expected_return_pct"] is not None
+    assert abs(result["expected_return_pct"] - 0.3) < 1e-6
+    assert result["expected_target_price"] == 195.0

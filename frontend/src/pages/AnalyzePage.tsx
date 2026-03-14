@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { analyzeTicker, analyzeTickerCustom, getPortfolio } from "../api/endpoints";
 import type { AnalysisResult as AnalysisResultType } from "../api/types";
 import AnalyzeForm from "../components/analysis/AnalyzeForm";
@@ -12,6 +13,7 @@ const LS_TICKER_KEY = "lastAnalyzedTicker";
 const LS_ASSET_KEY = "lastAnalyzedAssetType";
 
 export default function AnalyzePage() {
+  const navigate = useNavigate();
   const [result, setResult] = useState<AnalysisResultType | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -141,6 +143,38 @@ export default function AnalyzePage() {
         <>
           <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/50 rounded-xl p-5">
             <AnalysisResultComponent data={result} />
+          </div>
+
+          {/* Add to Portfolio action */}
+          <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/50 rounded-xl p-5 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-300">
+                Like the analysis?
+              </h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Add {result.ticker} to your portfolio to start tracking it.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                const currentPrice =
+                  typeof result.ticker_info?.currentPrice === "number"
+                    ? result.ticker_info.currentPrice
+                    : typeof result.ticker_info?.current_price === "number"
+                      ? result.ticker_info.current_price
+                      : 0;
+                const params = new URLSearchParams({
+                  add: "1",
+                  ticker: result.ticker,
+                  asset_type: result.asset_type,
+                  avg_cost: String(currentPrice),
+                });
+                navigate(`/portfolio?${params.toString()}`);
+              }}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition-colors duration-150 shrink-0"
+            >
+              Add to Portfolio
+            </button>
           </div>
 
           {/* Weight adjuster */}

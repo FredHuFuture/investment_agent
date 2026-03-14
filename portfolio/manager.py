@@ -58,12 +58,12 @@ class PortfolioManager:
         async def _op(conn: aiosqlite.Connection) -> int:
             existing = await (
                 await conn.execute(
-                    "SELECT 1 FROM active_positions WHERE ticker = ?",
+                    "SELECT 1 FROM active_positions WHERE ticker = ? AND status = 'open'",
                     (ticker,),
                 )
             ).fetchone()
             if existing:
-                raise ValueError(f"Position for ticker '{ticker}' already exists.")
+                raise ValueError(f"An open position for ticker '{ticker}' already exists.")
 
             # Check if any thesis field is provided
             has_thesis = any(
@@ -333,6 +333,193 @@ class PortfolioManager:
 
         return await self._with_conn(_op)
 
+    async def update_thesis(
+        self,
+        ticker: str,
+        thesis_text: str | None = None,
+        target_price: float | None = None,
+        stop_loss: float | None = None,
+        expected_hold_days: int | None = None,
+        expected_return_pct: float | None = None,
+    ) -> dict[str, Any]:
+        """Update thesis fields for an existing position.
+
+        If no thesis row exists yet, create one.
+        Auto-computes expected_return_pct from target_price and avg_cost
+        when expected_return_pct is not explicitly provided.
+        """
+        async def _op(conn: aiosqlite.Connection) -> dict[str, Any]:
+            await self._ensure_thesis_text_column(conn)
+
+            # Fetch the active position
+            pos_row = await (
+                await conn.execute(
+                    """
+                    SELECT ticker, asset_type, avg_cost, original_analysis_id
+                    FROM active_positions
+                    WHERE ticker = ? AND status = 'open'
+                    """,
+                    (ticker,),
+                )
+            ).fetchone()
+            if pos_row is None:
+                raise ValueError(f"No open position found for ticker '{ticker}'.")
+
+            asset_type = pos_row[1]
+            avg_cost = float(pos_row[2])
+            thesis_id = pos_row[3]
+
+            # Auto-compute expected_return_pct from target_price if not provided
+            effective_return_pct = expected_return_pct
+            if effective_return_pct is None and target_price is not None and avg_cost > 0:
+                effective_return_pct = (target_price - avg_cost) / avg_cost
+
+            if thesis_id is not None:
+                # Update existing thesis row
+                updates: list[str] = []
+                params: list[Any] = []
+
+                if thesis_text is not None:
+                    updates.append("thesis_text = ?")
+                    params.append(thesis_text)
+                if target_price is not None:
+                    updates.append("expected_target_price = ?")
+                    params.append(target_price)
+                if stop_loss is not None:
+                    updates.append("expected_stop_loss = ?")
+                    params.append(stop_loss)
+                if expected_hold_days is not None:
+                    updates.append("expected_hold_days = ?")
+                    params.append(expected_hold_days)
+                if effective_return_pct is not None:
+                    updates.append("expected_return_pct = ?")
+                    params.append(effective_return_pct)
+
+                if updates:
+                    params.append(thesis_id)
+                    await conn.execute(
+                        f"UPDATE positions_thesis SET {', '.join(updates)} WHERE id = ?",
+                        params,
+                    )
+
+                # Also sync expected_return_pct / expected_hold_days on active_positions
+                pos_updates: list[str] = []
+                pos_params: list[Any] = []
+                if effective_return_pct is not None:
+                    pos_updates.append("expected_return_pct = ?")
+                    pos_params.append(effective_return_pct)
+                if expected_hold_days is not None:
+                    pos_updates.append("expected_hold_days = ?")
+                    pos_params.append(expected_hold_days)
+                if pos_updates:
+                    pos_updates.append("updated_at = CURRENT_TIMESTAMP")
+                    pos_params.append(ticker)
+                    await conn.execute(
+                        f"UPDATE active_positions SET {', '.join(pos_updates)} WHERE ticker = ?",
+                        pos_params,
+                    )
+            else:
+                # Create a new thesis row
+                thesis_cursor = await conn.execute(
+                    """
+                    INSERT INTO positions_thesis (
+                        ticker, asset_type, expected_signal, expected_confidence,
+                        expected_entry_price, expected_target_price,
+                        expected_return_pct, expected_stop_loss, expected_hold_days,
+                        thesis_text
+                    )
+                    VALUES (?, ?, 'BUY', 0.7, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        ticker, asset_type, avg_cost, target_price,
+                        effective_return_pct, stop_loss, expected_hold_days,
+                        thesis_text,
+                    ),
+                )
+                thesis_id = int(thesis_cursor.lastrowid)
+
+                # Link to active_positions
+                pos_updates_new: list[str] = ["original_analysis_id = ?"]
+                pos_params_new: list[Any] = [thesis_id]
+                if effective_return_pct is not None:
+                    pos_updates_new.append("expected_return_pct = ?")
+                    pos_params_new.append(effective_return_pct)
+                if expected_hold_days is not None:
+                    pos_updates_new.append("expected_hold_days = ?")
+                    pos_params_new.append(expected_hold_days)
+                pos_updates_new.append("updated_at = CURRENT_TIMESTAMP")
+                pos_params_new.append(ticker)
+                await conn.execute(
+                    f"UPDATE active_positions SET {', '.join(pos_updates_new)} WHERE ticker = ?",
+                    pos_params_new,
+                )
+
+            await conn.commit()
+
+            # Return the updated thesis via get_thesis
+            return await self._get_thesis_inner(conn, ticker)
+
+        return await self._with_conn(_op)
+
+    async def _get_thesis_inner(self, conn: aiosqlite.Connection, ticker: str) -> dict[str, Any]:
+        """Internal helper to fetch thesis data using an existing connection."""
+        await self._ensure_thesis_text_column(conn)
+        row = await (
+            await conn.execute(
+                """
+                SELECT
+                    pt.id,
+                    pt.ticker,
+                    pt.expected_signal,
+                    pt.expected_confidence,
+                    pt.expected_entry_price,
+                    pt.expected_target_price,
+                    pt.expected_return_pct,
+                    pt.expected_stop_loss,
+                    pt.expected_hold_days,
+                    pt.thesis_text,
+                    pt.created_at,
+                    ap.entry_date
+                FROM active_positions ap
+                JOIN positions_thesis pt ON ap.original_analysis_id = pt.id
+                WHERE ap.ticker = ?
+                """,
+                (ticker,),
+            )
+        ).fetchone()
+        if row is None:
+            return {}
+
+        entry_date_str = row[11]
+        hold_days_elapsed: int | None = None
+        hold_drift_days: int | None = None
+        expected_hold = row[8]
+        if entry_date_str:
+            try:
+                entry = date_cls.fromisoformat(entry_date_str)
+                hold_days_elapsed = (date_cls.today() - entry).days
+                if expected_hold is not None:
+                    hold_drift_days = hold_days_elapsed - int(expected_hold)
+            except ValueError:
+                pass
+
+        return {
+            "thesis_id": row[0],
+            "ticker": row[1],
+            "expected_signal": row[2],
+            "expected_confidence": float(row[3]),
+            "expected_entry_price": float(row[4]),
+            "expected_target_price": float(row[5]) if row[5] is not None else None,
+            "expected_return_pct": float(row[6]) if row[6] is not None else None,
+            "expected_stop_loss": float(row[7]) if row[7] is not None else None,
+            "expected_hold_days": int(expected_hold) if expected_hold is not None else None,
+            "thesis_text": row[9],
+            "created_at": row[10],
+            "hold_days_elapsed": hold_days_elapsed,
+            "hold_drift_days": hold_drift_days,
+            "return_drift_pct": None,  # requires current price
+        }
+
     async def get_thesis(self, ticker: str) -> dict[str, Any] | None:
         """Get thesis data for a position. Returns None if no thesis recorded."""
         async def _op(conn: aiosqlite.Connection) -> dict[str, Any] | None:
@@ -545,8 +732,11 @@ class PortfolioManager:
             ).fetchone()
             cash = float(cash_row[0]) if cash_row is not None else 0.0
 
-            # TODO: replace cost_basis with market_value when DataProvider is available.
-            effective_values = [position.cost_basis for position in positions]
+            # Use market_value when current_price is available, fall back to cost_basis.
+            effective_values = [
+                position.market_value if position.current_price > 0 else position.cost_basis
+                for position in positions
+            ]
             total_positions_value = sum(effective_values)
             total_value = total_positions_value + cash
 

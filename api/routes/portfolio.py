@@ -7,7 +7,7 @@ import logging
 from fastapi import APIRouter, Depends
 
 from api.deps import get_db_path, map_ticker, resolve_asset_type
-from api.models import AddPositionRequest, ClosePositionRequest, ScaleRequest, SetCashRequest, SplitRequest, ThesisResponse
+from api.models import AddPositionRequest, ClosePositionRequest, ScaleRequest, SetCashRequest, SplitRequest, ThesisResponse, UpdateThesisRequest
 from data_providers.factory import get_provider
 from portfolio.manager import PortfolioManager
 
@@ -169,3 +169,25 @@ async def get_thesis(ticker: str, db_path: str = Depends(get_db_path)):
             },
         )
     return {"data": thesis, "warnings": []}
+
+
+@router.put("/positions/{ticker}/thesis")
+async def update_thesis(ticker: str, body: UpdateThesisRequest, db_path: str = Depends(get_db_path)):
+    """Update thesis fields for an existing position."""
+    mgr = PortfolioManager(db_path)
+    try:
+        result = await mgr.update_thesis(
+            ticker=ticker.upper(),
+            thesis_text=body.thesis_text,
+            target_price=body.target_price,
+            stop_loss=body.stop_loss,
+            expected_hold_days=body.expected_hold_days,
+            expected_return_pct=body.expected_return_pct,
+        )
+    except ValueError as exc:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=404,
+            content={"error": {"code": "NOT_FOUND", "message": str(exc), "detail": None}},
+        )
+    return {"data": result, "warnings": []}

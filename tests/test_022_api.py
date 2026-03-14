@@ -16,6 +16,8 @@ from api.app import create_app
 from backtesting.models import BacktestConfig, BacktestResult, SimulatedTrade
 from db.database import init_db
 from engine.aggregator import AggregatedSignal
+from monitoring.models import Alert
+from monitoring.store import AlertStore
 
 
 # ---------------------------------------------------------------------------
@@ -60,6 +62,18 @@ def _mock_aggregated_signal(ticker: str = "AAPL") -> AggregatedSignal:
         reasoning="Test BUY signal",
         metrics={"raw_score": 0.45, "consensus_score": 1.0},
         warnings=["MacroAgent skipped: no FRED key"],
+    )
+
+
+def _make_alert(ticker: str = "AAPL", severity: str = "WARNING") -> Alert:
+    return Alert(
+        ticker=ticker,
+        alert_type="SIGNIFICANT_LOSS",
+        severity=severity,
+        message=f"{ticker} dropped 5%",
+        recommended_action="Review position",
+        current_price=140.0,
+        trigger_price=150.0,
     )
 
 
@@ -338,3 +352,89 @@ async def test_cors_headers(client: httpx.AsyncClient):
     assert resp.status_code == 200
     assert "access-control-allow-origin" in resp.headers
     assert resp.headers["access-control-allow-origin"] == "http://localhost:3000"
+
+
+# ---------------------------------------------------------------------------
+# 16. Acknowledge an alert
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_acknowledge_alert(client: httpx.AsyncClient, db_path: str):
+    store = AlertStore(db_path)
+    alert_id = await store.save_alert(_make_alert())
+
+    resp = await client.patch(f"/alerts/{alert_id}/acknowledge")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["id"] == alert_id
+    assert body["data"]["acknowledged"] == 1
+
+    # Verify via GET
+    resp = await client.get("/alerts")
+    alerts = resp.json()["data"]
+    matched = [a for a in alerts if a["id"] == alert_id]
+    assert len(matched) == 1
+    assert matched[0]["acknowledged"] is True
+
+
+@pytest.mark.asyncio
+async def test_acknowledge_alert_not_found(client: httpx.AsyncClient):
+    resp = await client.patch("/alerts/99999/acknowledge")
+    assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# 17. Delete an alert
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_delete_alert(client: httpx.AsyncClient, db_path: str):
+    store = AlertStore(db_path)
+    alert_id = await store.save_alert(_make_alert())
+
+    resp = await client.delete(f"/alerts/{alert_id}")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["id"] == alert_id
+    assert body["data"]["deleted"] is True
+
+    # Verify gone
+    resp = await client.get("/alerts")
+    alerts = resp.json()["data"]
+    assert all(a["id"] != alert_id for a in alerts)
+
+
+@pytest.mark.asyncio
+async def test_delete_alert_not_found(client: httpx.AsyncClient):
+    resp = await client.delete("/alerts/99999")
+    assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# 18. Filter alerts by acknowledged status
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_filter_alerts_by_acknowledged(client: httpx.AsyncClient, db_path: str):
+    store = AlertStore(db_path)
+    id1 = await store.save_alert(_make_alert("AAPL"))
+    id2 = await store.save_alert(_make_alert("MSFT"))
+
+    # Acknowledge only the first
+    await client.patch(f"/alerts/{id1}/acknowledge")
+
+    # Filter acknowledged=1
+    resp = await client.get("/alerts?acknowledged=1")
+    assert resp.status_code == 200
+    ack_alerts = resp.json()["data"]
+    assert all(a["acknowledged"] is True for a in ack_alerts)
+    assert any(a["id"] == id1 for a in ack_alerts)
+    assert all(a["id"] != id2 for a in ack_alerts)
+
+    # Filter acknowledged=0
+    resp = await client.get("/alerts?acknowledged=0")
+    assert resp.status_code == 200
+    unack_alerts = resp.json()["data"]
+    assert all(a["acknowledged"] is False for a in unack_alerts)
+    assert any(a["id"] == id2 for a in unack_alerts)
+    assert all(a["id"] != id1 for a in unack_alerts)

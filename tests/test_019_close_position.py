@@ -289,3 +289,44 @@ def test_trade_execution_recorded(tmp_path: Path) -> None:
             assert row[3] == "target_hit"
 
     asyncio.run(_run())
+
+
+# ---------------------------------------------------------------------------
+# Re-open position after closing (ticker UNIQUE constraint fix)
+# ---------------------------------------------------------------------------
+
+def test_reopen_position_after_close(tmp_path: Path) -> None:
+    """After closing a position for ticker X, adding a new position for
+    the same ticker X should succeed (no UNIQUE constraint violation)."""
+    async def _run() -> None:
+        db_file = tmp_path / "reopen.db"
+        mgr = await _create_manager(db_file)
+
+        # Open and close a position for AAPL
+        await mgr.add_position("AAPL", "stock", 100.0, 150.0, "2026-01-01")
+        await mgr.close_position("AAPL", exit_price=180.0, exit_date="2026-02-01")
+
+        # Re-open a new position for the same ticker
+        new_id = await mgr.add_position("AAPL", "stock", 50.0, 170.0, "2026-02-15")
+        assert new_id is not None
+
+        # The new position should be open and visible
+        open_positions = await mgr.get_all_positions()
+        assert len(open_positions) == 1
+        assert open_positions[0].ticker == "AAPL"
+        assert open_positions[0].quantity == 50.0
+        assert open_positions[0].avg_cost == 170.0
+        assert open_positions[0].status == "open"
+
+        # The closed position should still exist in closed list
+        closed = await mgr.get_closed_positions()
+        assert len(closed) == 1
+        assert closed[0].ticker == "AAPL"
+        assert closed[0].status == "closed"
+        assert closed[0].realized_pnl == pytest.approx(3000.0)
+
+        # Attempting to add a *second* open position for the same ticker should fail
+        with pytest.raises((ValueError, Exception)):
+            await mgr.add_position("AAPL", "stock", 10.0, 175.0, "2026-03-01")
+
+    asyncio.run(_run())

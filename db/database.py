@@ -22,6 +22,50 @@ async def _ensure_column(
         )
 
 
+async def _migrate_ticker_unique_to_partial(conn: aiosqlite.Connection) -> None:
+    """Replace the blanket UNIQUE on active_positions.ticker with a partial
+    unique index that only constrains *open* positions.
+
+    This allows re-opening a position for the same ticker after closing one.
+    The migration is idempotent: safe to run on every startup.
+    """
+    # Check whether the old blanket unique index still exists.
+    # SQLite auto-generates an index named "sqlite_autoindex_active_positions_1"
+    # for an inline UNIQUE constraint.  We look for any unique index on (ticker)
+    # that is NOT our new partial index.
+    rows = await (
+        await conn.execute(
+            "SELECT name FROM sqlite_master "
+            "WHERE type = 'index' AND tbl_name = 'active_positions' "
+            "AND name != 'idx_active_positions_ticker_open';"
+        )
+    ).fetchall()
+
+    for (idx_name,) in rows:
+        # Inspect each index to see if it covers exactly the ticker column
+        info = await (
+            await conn.execute(f"PRAGMA index_info(\"{idx_name}\");")
+        ).fetchall()
+        col_names = [r[2] for r in info]
+        if col_names == ["ticker"]:
+            # Check if this is a unique index
+            idx_list = await (
+                await conn.execute("PRAGMA index_list(active_positions);")
+            ).fetchall()
+            for il_row in idx_list:
+                if il_row[1] == idx_name and il_row[2] == 1:  # [2] = unique flag
+                    await conn.execute(f"DROP INDEX IF EXISTS \"{idx_name}\";")
+                    break
+
+    # Create the partial unique index (idempotent via IF NOT EXISTS)
+    await conn.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_active_positions_ticker_open
+        ON active_positions(ticker) WHERE status = 'open';
+        """
+    )
+
+
 async def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
     """Initialize SQLite database and required schema.
 
@@ -95,7 +139,7 @@ async def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
             """
             CREATE TABLE IF NOT EXISTS active_positions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                ticker TEXT NOT NULL UNIQUE,
+                ticker TEXT NOT NULL,
                 asset_type TEXT NOT NULL CHECK (asset_type IN ('stock', 'btc', 'eth')),
                 quantity REAL NOT NULL,
                 avg_cost REAL NOT NULL,
@@ -136,6 +180,10 @@ async def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
             ("realized_pnl", "REAL"),
         ]:
             await _ensure_column(conn, "active_positions", col, ctype)
+
+        # Migrate blanket UNIQUE(ticker) -> partial unique index on open positions only.
+        # This allows re-opening a position for the same ticker after closing one.
+        await _migrate_ticker_unique_to_partial(conn)
 
         await conn.execute(
             """

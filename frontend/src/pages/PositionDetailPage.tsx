@@ -1,0 +1,889 @@
+import { useMemo } from "react";
+import { useParams, Link } from "react-router-dom";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  ReferenceLine,
+} from "recharts";
+import { useApi } from "../hooks/useApi";
+import {
+  getPortfolio,
+  getPositionHistory,
+  getThesis,
+  getPriceHistory,
+  getSignalHistory,
+  getAlerts,
+} from "../api/endpoints";
+import type {
+  Portfolio,
+  Position,
+  ThesisResponse,
+  OhlcvPoint,
+  SignalHistoryEntry,
+  Alert,
+} from "../api/types";
+import LoadingSpinner from "../components/shared/LoadingSpinner";
+import ErrorAlert from "../components/shared/ErrorAlert";
+import EmptyState from "../components/shared/EmptyState";
+import MetricCard from "../components/shared/MetricCard";
+import { formatCurrency, formatDate } from "../lib/formatters";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+function pnlColor(v: number): string {
+  if (v > 0) return "text-emerald-400";
+  if (v < 0) return "text-red-400";
+  return "text-gray-400";
+}
+
+function statusBadge(status: string) {
+  const isOpen = status === "open";
+  return (
+    <span
+      className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
+        isOpen
+          ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+          : "bg-gray-500/15 text-gray-400 border border-gray-500/30"
+      }`}
+    >
+      {status.charAt(0).toUpperCase() + status.slice(1)}
+    </span>
+  );
+}
+
+function driftIndicator(actual: number | null, expected: number | null, higherIsBetter: boolean) {
+  if (actual == null || expected == null) return null;
+  const onTrack = higherIsBetter ? actual >= expected : actual <= expected;
+  return (
+    <span
+      className={`inline-block w-2 h-2 rounded-full ${
+        onTrack ? "bg-emerald-400" : "bg-red-400"
+      }`}
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Chart tooltip
+// ---------------------------------------------------------------------------
+interface PriceTTProps {
+  active?: boolean;
+  payload?: Array<{ value: number; payload: { date: string; close: number } }>;
+  label?: string;
+}
+
+function PriceTooltip({ active, payload, label }: PriceTTProps) {
+  if (!active || !payload?.length) return null;
+  const point = payload[0];
+  if (!point || point.value == null) return null;
+  const date = new Date(label ?? "").toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  return (
+    <div className="bg-gray-950/95 border border-gray-700/60 rounded px-2.5 py-1.5 text-[11px] shadow-2xl backdrop-blur-sm">
+      <div className="text-gray-500">{date}</div>
+      <div className="text-white font-semibold font-mono mt-0.5">
+        {formatCurrency(point.value)}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Severity helpers for alerts
+// ---------------------------------------------------------------------------
+const severityStyles: Record<string, string> = {
+  critical: "bg-red-500/15 text-red-400 border-red-500/30",
+  high: "bg-orange-500/15 text-orange-400 border-orange-500/30",
+  medium: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
+  low: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+  info: "bg-gray-500/15 text-gray-400 border-gray-500/30",
+};
+
+// ---------------------------------------------------------------------------
+// Main Page
+// ---------------------------------------------------------------------------
+export default function PositionDetailPage() {
+  const { ticker } = useParams<{ ticker: string }>();
+
+  // Fetch portfolio (open positions)
+  const portfolioApi = useApi<Portfolio>(() => getPortfolio());
+  // Fetch closed positions
+  const historyApi = useApi<Position[]>(() => getPositionHistory());
+  // Fetch thesis
+  const thesisApi = useApi<ThesisResponse>(
+    () => getThesis(ticker!),
+    [ticker],
+  );
+  // Fetch signals for this ticker
+  const signalsApi = useApi<SignalHistoryEntry[]>(
+    () => getSignalHistory({ ticker: ticker!, limit: 50 }),
+    [ticker],
+  );
+  // Fetch alerts for this ticker
+  const alertsApi = useApi<Alert[]>(
+    () => getAlerts({ ticker: ticker!, limit: 50 }),
+    [ticker],
+  );
+
+  // Find the position from either open or closed
+  const position = useMemo<Position | null>(() => {
+    if (portfolioApi.data) {
+      const found = portfolioApi.data.positions.find(
+        (p) => p.ticker.toLowerCase() === ticker?.toLowerCase(),
+      );
+      if (found) return found;
+    }
+    if (historyApi.data) {
+      const found = historyApi.data.find(
+        (p) => p.ticker.toLowerCase() === ticker?.toLowerCase(),
+      );
+      if (found) return found;
+    }
+    return null;
+  }, [portfolioApi.data, historyApi.data, ticker]);
+
+  // Fetch price history once we know asset_type
+  const assetType = position?.asset_type ?? "stock";
+  const priceApi = useApi<OhlcvPoint[]>(
+    () => getPriceHistory(ticker!, assetType, "1y"),
+    [ticker, assetType],
+  );
+
+  // Loading state
+  const loading = portfolioApi.loading || historyApi.loading;
+  if (loading) return <LoadingSpinner />;
+
+  // Error state
+  const error = portfolioApi.error || historyApi.error;
+  if (error) return <ErrorAlert message={error} />;
+
+  // Position not found
+  if (!position) {
+    return (
+      <div className="space-y-6">
+        <Link
+          to="/portfolio"
+          className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors"
+        >
+          <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+            <path
+              fillRule="evenodd"
+              d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z"
+              clipRule="evenodd"
+            />
+          </svg>
+          Back to Portfolio
+        </Link>
+        <EmptyState
+          message={`Position "${ticker}" not found.`}
+          hint="It may have been removed or the ticker is incorrect."
+        />
+      </div>
+    );
+  }
+
+  const isClosed = position.status === "closed";
+  const thesis = thesisApi.data;
+  const actualReturnPct = isClosed
+    ? position.realized_pnl != null && position.cost_basis > 0
+      ? (position.realized_pnl / position.cost_basis) * 100
+      : 0
+    : position.unrealized_pnl_pct * 100;
+
+  return (
+    <div className="space-y-6">
+      {/* ── Back link ── */}
+      <Link
+        to="/portfolio"
+        className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors"
+      >
+        <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+          <path
+            fillRule="evenodd"
+            d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z"
+            clipRule="evenodd"
+          />
+        </svg>
+        Back to Portfolio
+      </Link>
+
+      {/* ── Header ── */}
+      <div className="flex flex-wrap items-center gap-4">
+        <h1 className="text-2xl font-bold text-white font-mono">
+          {position.ticker}
+        </h1>
+        {statusBadge(position.status)}
+        <span className="text-sm text-gray-500">
+          {position.asset_type}
+        </span>
+        <span className="text-sm text-gray-500">
+          Entry: {formatDate(position.entry_date)}
+        </span>
+        <span className="text-sm text-gray-500">
+          {position.holding_days}d held
+        </span>
+      </div>
+
+      {/* ── P&L Summary ── */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <MetricCard
+          label="Cost Basis"
+          value={formatCurrency(position.cost_basis)}
+          sub={`${position.quantity} @ ${formatCurrency(position.avg_cost)}`}
+        />
+        {isClosed ? (
+          <>
+            <MetricCard
+              label="Exit Price"
+              value={
+                position.exit_price != null
+                  ? formatCurrency(position.exit_price)
+                  : "--"
+              }
+              sub={
+                position.exit_reason
+                  ? position.exit_reason.replace("_", " ")
+                  : undefined
+              }
+            />
+            <MetricCard
+              label="Realized P&L"
+              value={`${(position.realized_pnl ?? 0) >= 0 ? "+" : ""}${formatCurrency(position.realized_pnl ?? 0)}`}
+              sub={`${actualReturnPct >= 0 ? "+" : ""}${actualReturnPct.toFixed(1)}%`}
+              trend={(position.realized_pnl ?? 0) >= 0 ? "up" : "down"}
+            />
+            <MetricCard
+              label="Exit Date"
+              value={
+                position.exit_date ? formatDate(position.exit_date) : "--"
+              }
+              sub={`${position.holding_days}d held`}
+            />
+          </>
+        ) : (
+          <>
+            <MetricCard
+              label="Current Value"
+              value={formatCurrency(position.market_value)}
+              sub={`Price: ${formatCurrency(position.current_price)}`}
+            />
+            <MetricCard
+              label="Unrealized P&L"
+              value={`${position.unrealized_pnl >= 0 ? "+" : ""}${formatCurrency(position.unrealized_pnl)}`}
+              sub={`${position.unrealized_pnl_pct >= 0 ? "+" : ""}${(position.unrealized_pnl_pct * 100).toFixed(1)}%`}
+              trend={position.unrealized_pnl >= 0 ? "up" : "down"}
+            />
+            <MetricCard
+              label="Holding Period"
+              value={`${position.holding_days}d`}
+              sub={
+                position.expected_hold_days != null
+                  ? `Expected: ${position.expected_hold_days}d`
+                  : undefined
+              }
+            />
+          </>
+        )}
+      </div>
+
+      {/* ── Thesis vs Reality ── */}
+      <div className="rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-5">
+        <h2 className="text-sm font-semibold text-gray-300 mb-4">
+          Thesis vs Reality
+        </h2>
+
+        {!thesis && thesisApi.loading && (
+          <div className="flex justify-center py-8">
+            <LoadingSpinner />
+          </div>
+        )}
+
+        {thesisApi.error && (
+          <p className="text-gray-500 text-sm">
+            Could not load thesis data.
+          </p>
+        )}
+
+        {thesis && (
+          <div className="space-y-4">
+            {/* Thesis text */}
+            {thesis.thesis_text && (
+              <div>
+                <div className="text-[11px] font-medium uppercase tracking-wider text-gray-500 mb-1">
+                  Thesis
+                </div>
+                <p className="text-sm text-gray-300 leading-relaxed">
+                  {thesis.thesis_text}
+                </p>
+              </div>
+            )}
+
+            {/* Comparison grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-3">
+              {/* Expected vs Actual return */}
+              <div className="rounded-lg bg-gray-800/40 border border-gray-700/30 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] uppercase tracking-wider text-gray-500">
+                    Return
+                  </span>
+                  {driftIndicator(
+                    actualReturnPct,
+                    thesis.expected_return_pct != null
+                      ? thesis.expected_return_pct * 100
+                      : null,
+                    true,
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-500">Expected</span>
+                    <span className="text-gray-300 font-mono">
+                      {thesis.expected_return_pct != null
+                        ? `${(thesis.expected_return_pct * 100).toFixed(1)}%`
+                        : "--"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-500">Actual</span>
+                    <span className={`font-mono font-medium ${pnlColor(actualReturnPct)}`}>
+                      {actualReturnPct >= 0 ? "+" : ""}
+                      {actualReturnPct.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Hold days */}
+              <div className="rounded-lg bg-gray-800/40 border border-gray-700/30 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] uppercase tracking-wider text-gray-500">
+                    Hold Days
+                  </span>
+                  {driftIndicator(
+                    thesis.expected_hold_days != null
+                      ? thesis.expected_hold_days - thesis.hold_days_elapsed
+                      : null,
+                    thesis.expected_hold_days != null ? 0 : null,
+                    true,
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-500">Expected</span>
+                    <span className="text-gray-300 font-mono">
+                      {thesis.expected_hold_days != null
+                        ? `${thesis.expected_hold_days}d`
+                        : "--"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-500">Elapsed</span>
+                    <span
+                      className={`font-mono font-medium ${
+                        thesis.expected_hold_days != null &&
+                        thesis.hold_days_elapsed > thesis.expected_hold_days
+                          ? "text-red-400"
+                          : "text-gray-300"
+                      }`}
+                    >
+                      {thesis.hold_days_elapsed}d
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Target price */}
+              <div className="rounded-lg bg-gray-800/40 border border-gray-700/30 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] uppercase tracking-wider text-gray-500">
+                    Target Price
+                  </span>
+                  {!isClosed &&
+                    driftIndicator(
+                      position.current_price,
+                      thesis.target_price,
+                      true,
+                    )}
+                </div>
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-500">Target</span>
+                    <span className="text-gray-300 font-mono">
+                      {thesis.target_price != null
+                        ? formatCurrency(thesis.target_price)
+                        : "--"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-500">
+                      {isClosed ? "Exit" : "Current"}
+                    </span>
+                    <span className="text-gray-300 font-mono">
+                      {isClosed
+                        ? position.exit_price != null
+                          ? formatCurrency(position.exit_price)
+                          : "--"
+                        : formatCurrency(position.current_price)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Stop loss */}
+              <div className="rounded-lg bg-gray-800/40 border border-gray-700/30 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] uppercase tracking-wider text-gray-500">
+                    Stop Loss
+                  </span>
+                  {!isClosed &&
+                    thesis.stop_loss != null &&
+                    driftIndicator(
+                      position.current_price,
+                      thesis.stop_loss,
+                      true,
+                    )}
+                </div>
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-500">Stop</span>
+                    <span className="text-gray-300 font-mono">
+                      {thesis.stop_loss != null
+                        ? formatCurrency(thesis.stop_loss)
+                        : "--"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-500">
+                      {isClosed ? "Exit" : "Current"}
+                    </span>
+                    <span className="text-gray-300 font-mono">
+                      {isClosed
+                        ? position.exit_price != null
+                          ? formatCurrency(position.exit_price)
+                          : "--"
+                        : formatCurrency(position.current_price)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Drift summary */}
+            {(thesis.return_drift_pct != null || thesis.hold_drift_days != null) && (
+              <div className="flex flex-wrap gap-4 mt-2 pt-3 border-t border-gray-800/50">
+                {thesis.return_drift_pct != null && (
+                  <div className="text-xs">
+                    <span className="text-gray-500">Return drift: </span>
+                    <span
+                      className={`font-mono font-medium ${
+                        Math.abs(thesis.return_drift_pct * 100) > 10
+                          ? "text-red-400"
+                          : "text-gray-300"
+                      }`}
+                    >
+                      {thesis.return_drift_pct >= 0 ? "+" : ""}
+                      {(thesis.return_drift_pct * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                )}
+                {thesis.hold_drift_days != null && (
+                  <div className="text-xs">
+                    <span className="text-gray-500">Hold drift: </span>
+                    <span
+                      className={`font-mono font-medium ${
+                        thesis.hold_drift_days > 0 ? "text-red-400" : "text-gray-300"
+                      }`}
+                    >
+                      {thesis.hold_drift_days > 0 ? "+" : ""}
+                      {thesis.hold_drift_days}d
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!thesis.thesis_text &&
+              thesis.expected_return_pct == null &&
+              thesis.expected_hold_days == null &&
+              thesis.target_price == null &&
+              thesis.stop_loss == null && (
+                <p className="text-gray-500 text-sm">
+                  No thesis recorded for this position.
+                </p>
+              )}
+          </div>
+        )}
+
+        {!thesis && !thesisApi.loading && !thesisApi.error && (
+          <p className="text-gray-500 text-sm">
+            No thesis recorded for this position.
+          </p>
+        )}
+      </div>
+
+      {/* ── Price Chart ── */}
+      <div className="rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-5">
+        <h2 className="text-sm font-semibold text-gray-300 mb-4">
+          Price History
+        </h2>
+
+        {priceApi.loading && (
+          <div className="flex justify-center py-8">
+            <LoadingSpinner />
+          </div>
+        )}
+
+        {priceApi.error && (
+          <p className="text-gray-500 text-sm">
+            Could not load price data.
+          </p>
+        )}
+
+        {priceApi.data && priceApi.data.length > 0 && (
+          <PriceChart
+            data={priceApi.data}
+            entryPrice={position.avg_cost}
+            targetPrice={position.target_price}
+            stopLoss={position.stop_loss}
+          />
+        )}
+
+        {priceApi.data && priceApi.data.length === 0 && !priceApi.loading && (
+          <EmptyState message="No price history available." />
+        )}
+      </div>
+
+      {/* ── Linked Signals + Alert History ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Signals */}
+        <div className="rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-5">
+          <h2 className="text-sm font-semibold text-gray-300 mb-4">
+            Linked Signals
+          </h2>
+
+          {signalsApi.loading && (
+            <div className="flex justify-center py-8">
+              <LoadingSpinner />
+            </div>
+          )}
+
+          {signalsApi.error && (
+            <p className="text-gray-500 text-sm">
+              Could not load signals.
+            </p>
+          )}
+
+          {signalsApi.data && signalsApi.data.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm table-auto">
+                <thead>
+                  <tr className="border-b border-gray-800/50">
+                    <th className="px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 font-semibold">
+                      Date
+                    </th>
+                    <th className="px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 font-semibold">
+                      Signal
+                    </th>
+                    <th className="px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 font-semibold">
+                      Confidence
+                    </th>
+                    <th className="px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 font-semibold">
+                      Score
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {signalsApi.data.map((sig) => (
+                    <tr
+                      key={sig.id}
+                      className="border-b border-gray-800/30 hover:bg-gray-800/20 transition-colors"
+                    >
+                      <td className="px-3 py-2 whitespace-nowrap text-gray-500 text-xs">
+                        {formatDate(sig.created_at)}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        <span
+                          className={`px-2 py-0.5 rounded text-xs font-medium ${
+                            sig.final_signal === "BUY"
+                              ? "bg-emerald-500/15 text-emerald-400"
+                              : sig.final_signal === "SELL"
+                                ? "bg-red-500/15 text-red-400"
+                                : "bg-gray-500/15 text-gray-400"
+                          }`}
+                        >
+                          {sig.final_signal}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-gray-300 font-mono text-xs">
+                        {(sig.final_confidence * 100).toFixed(0)}%
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-gray-400 font-mono text-xs">
+                        {sig.consensus_score.toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            signalsApi.data &&
+            !signalsApi.loading && (
+              <EmptyState message="No signals found for this ticker." />
+            )
+          )}
+        </div>
+
+        {/* Alerts */}
+        <div className="rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-5">
+          <h2 className="text-sm font-semibold text-gray-300 mb-4">
+            Alert History
+          </h2>
+
+          {alertsApi.loading && (
+            <div className="flex justify-center py-8">
+              <LoadingSpinner />
+            </div>
+          )}
+
+          {alertsApi.error && (
+            <p className="text-gray-500 text-sm">
+              Could not load alerts.
+            </p>
+          )}
+
+          {alertsApi.data && alertsApi.data.length > 0 ? (
+            <div className="space-y-2">
+              {alertsApi.data.map((alert) => (
+                <div
+                  key={alert.id}
+                  className="rounded-lg bg-gray-800/30 border border-gray-700/30 p-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-medium border ${
+                            severityStyles[alert.severity] ??
+                            severityStyles.info
+                          }`}
+                        >
+                          {alert.severity.toUpperCase()}
+                        </span>
+                        <span className="text-[10px] text-gray-600">
+                          {alert.alert_type}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-300 leading-relaxed">
+                        {alert.message}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span className="text-[10px] text-gray-600">
+                        {formatDate(alert.created_at)}
+                      </span>
+                      <span
+                        className={`text-[10px] ${
+                          alert.acknowledged
+                            ? "text-emerald-500"
+                            : "text-yellow-500"
+                        }`}
+                      >
+                        {alert.acknowledged ? "Acked" : "Pending"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            alertsApi.data &&
+            !alertsApi.loading && (
+              <EmptyState message="No alerts found for this ticker." />
+            )
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Price chart sub-component
+// ---------------------------------------------------------------------------
+function PriceChart({
+  data,
+  entryPrice,
+  targetPrice,
+  stopLoss,
+}: {
+  data: OhlcvPoint[];
+  entryPrice: number;
+  targetPrice: number | null;
+  stopLoss: number | null;
+}) {
+  const chartData = useMemo(() => {
+    return data.map((d) => ({
+      date: d.date,
+      close: d.close,
+    }));
+  }, [data]);
+
+  // Compute domain
+  const domain = useMemo(() => {
+    const prices = chartData.map((d) => d.close);
+    const allPrices = [...prices, entryPrice];
+    if (targetPrice != null) allPrices.push(targetPrice);
+    if (stopLoss != null) allPrices.push(stopLoss);
+    const min = Math.min(...allPrices);
+    const max = Math.max(...allPrices);
+    const pad = (max - min) * 0.08 || max * 0.05;
+    return [Math.max(0, min - pad), max + pad] as [number, number];
+  }, [chartData, entryPrice, targetPrice, stopLoss]);
+
+  const lastPrice = chartData.length > 0 ? chartData[chartData.length - 1]!.close : 0;
+  const firstPrice = chartData.length > 0 ? chartData[0]!.close : 0;
+  const isUp = lastPrice >= firstPrice;
+  const lineColor = isUp ? "#22c55e" : "#ef4444";
+
+  return (
+    <div>
+      <div className="h-64">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart
+            data={chartData}
+            margin={{ top: 4, right: 0, left: 0, bottom: 0 }}
+          >
+            <XAxis
+              dataKey="date"
+              axisLine={false}
+              tickLine={false}
+              tick={{ fill: "#4b5563", fontSize: 10 }}
+              tickFormatter={(v: string) =>
+                new Date(v).toLocaleDateString("en-US", {
+                  month: "short",
+                  year: "2-digit",
+                })
+              }
+              minTickGap={40}
+            />
+            <YAxis
+              domain={domain}
+              orientation="right"
+              axisLine={false}
+              tickLine={false}
+              tick={{ fill: "#4b5563", fontSize: 10 }}
+              tickFormatter={(v: number) =>
+                v >= 1000
+                  ? `$${(v / 1000).toFixed(0)}k`
+                  : `$${v.toFixed(0)}`
+              }
+              width={52}
+            />
+            <Tooltip
+              content={<PriceTooltip />}
+              cursor={{
+                stroke: "#6b7280",
+                strokeWidth: 1,
+                strokeDasharray: "2 2",
+              }}
+            />
+
+            {/* Entry price reference */}
+            <ReferenceLine
+              y={entryPrice}
+              stroke="#60a5fa"
+              strokeDasharray="6 4"
+              label={{
+                value: `Entry $${entryPrice.toFixed(0)}`,
+                position: "left",
+                fill: "#60a5fa",
+                fontSize: 10,
+              }}
+            />
+
+            {/* Target price reference */}
+            {targetPrice != null && (
+              <ReferenceLine
+                y={targetPrice}
+                stroke="#22c55e"
+                strokeDasharray="4 4"
+                label={{
+                  value: `Target $${targetPrice.toFixed(0)}`,
+                  position: "left",
+                  fill: "#22c55e",
+                  fontSize: 10,
+                }}
+              />
+            )}
+
+            {/* Stop loss reference */}
+            {stopLoss != null && (
+              <ReferenceLine
+                y={stopLoss}
+                stroke="#ef4444"
+                strokeDasharray="4 4"
+                label={{
+                  value: `Stop $${stopLoss.toFixed(0)}`,
+                  position: "left",
+                  fill: "#ef4444",
+                  fontSize: 10,
+                }}
+              />
+            )}
+
+            <Line
+              type="monotone"
+              dataKey="close"
+              stroke={lineColor}
+              dot={false}
+              strokeWidth={1.5}
+              activeDot={{
+                r: 3,
+                fill: lineColor,
+                stroke: "#111827",
+                strokeWidth: 2,
+              }}
+              isAnimationActive={false}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Legend */}
+      <div className="mt-2 flex flex-wrap items-center gap-4 px-1">
+        <span className="flex items-center gap-1.5 text-[10px] text-gray-500">
+          <span
+            className="inline-block w-3 h-0.5 rounded"
+            style={{ backgroundColor: lineColor }}
+          />
+          Close Price
+        </span>
+        <span className="flex items-center gap-1.5 text-[10px] text-gray-500">
+          <span className="inline-block w-3 h-0.5 border-t border-dashed border-blue-400" />
+          Entry
+        </span>
+        {targetPrice != null && (
+          <span className="flex items-center gap-1.5 text-[10px] text-gray-500">
+            <span className="inline-block w-3 h-0.5 border-t border-dashed border-emerald-400" />
+            Target
+          </span>
+        )}
+        {stopLoss != null && (
+          <span className="flex items-center gap-1.5 text-[10px] text-gray-500">
+            <span className="inline-block w-3 h-0.5 border-t border-dashed border-red-400" />
+            Stop Loss
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -65,6 +65,15 @@ class ThesisResponse(BaseModel):
     return_drift_pct: float | None = None
 
 
+class UpdateThesisRequest(BaseModel):
+    """Update thesis fields for an existing position (all optional)."""
+    thesis_text: str | None = None
+    target_price: float | None = None
+    stop_loss: float | None = None
+    expected_hold_days: int | None = None
+    expected_return_pct: float | None = None
+
+
 class ClosePositionRequest(BaseModel):
     exit_price: float = Field(gt=0)
     exit_reason: Literal["manual", "target_hit", "stop_loss"] = "manual"

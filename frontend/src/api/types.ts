@@ -222,6 +222,7 @@ export interface Alert {
   alert_type: string;
   severity: string;
   message: string;
+  acknowledged: number;
   created_at: string;
 }
 

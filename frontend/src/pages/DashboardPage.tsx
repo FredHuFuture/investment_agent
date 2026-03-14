@@ -1,0 +1,243 @@
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useApi } from "../hooks/useApi";
+import { getPortfolio, getAlerts, getPositionHistory, runMonitorCheck } from "../api/endpoints";
+import type { Portfolio, Alert, Position } from "../api/types";
+import MetricCard from "../components/shared/MetricCard";
+import LoadingSpinner from "../components/shared/LoadingSpinner";
+import ErrorAlert from "../components/shared/ErrorAlert";
+import EmptyState from "../components/shared/EmptyState";
+import WarningsBanner from "../components/shared/WarningsBanner";
+import WeeklySummaryCard from "../components/summary/WeeklySummaryCard";
+import { formatCurrency } from "../lib/formatters";
+
+const severityDotMap: Record<string, string> = {
+  critical: "bg-red-400",
+  high: "bg-red-400",
+  medium: "bg-yellow-400",
+  low: "bg-emerald-400",
+  info: "bg-blue-400",
+};
+
+export default function DashboardPage() {
+  const navigate = useNavigate();
+  const { data, loading, error, warnings } = useApi<Portfolio>(
+    () => getPortfolio(),
+  );
+  const alertsApi = useApi<Alert[]>(() => getAlerts({ limit: 5 }));
+  const historyApi = useApi<Position[]>(() => getPositionHistory());
+  const [healthLoading, setHealthLoading] = useState(false);
+  const [healthMsg, setHealthMsg] = useState<string | null>(null);
+
+  // Unrealized P&L
+  const totalPnl = useMemo(() => {
+    if (!data) return { pnl: 0, pnlPct: 0, invested: 0 };
+    const positions = data.positions;
+    const invested = positions.reduce((s, p) => s + p.cost_basis, 0);
+    const pnl = positions.reduce((s, p) => s + p.unrealized_pnl, 0);
+    const pnlPct = invested > 0 ? (pnl / invested) * 100 : 0;
+    return { pnl, pnlPct, invested };
+  }, [data]);
+
+  // Realized P&L from closed positions
+  const totalRealizedPnl = useMemo(() => {
+    if (!historyApi.data) return 0;
+    return historyApi.data.reduce((s, p) => s + (p.realized_pnl ?? 0), 0);
+  }, [historyApi.data]);
+
+  async function handleHealthCheck() {
+    setHealthLoading(true);
+    setHealthMsg(null);
+    try {
+      await runMonitorCheck();
+      setHealthMsg("Health check complete.");
+    } catch (err) {
+      setHealthMsg(
+        err instanceof Error ? err.message : "Health check failed",
+      );
+    } finally {
+      setHealthLoading(false);
+    }
+  }
+
+  if (loading) return <LoadingSpinner />;
+  if (error) return <ErrorAlert message={error} />;
+  if (!data) return null;
+
+  const pnlTrend = totalPnl.pnl >= 0 ? ("up" as const) : ("down" as const);
+  const pnlSign = totalPnl.pnl >= 0 ? "+" : "";
+
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+      <WarningsBanner warnings={[...warnings, ...alertsApi.warnings]} />
+
+      {/* ── Top row: 4 metric cards ── */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <MetricCard
+          label="Portfolio Value"
+          value={formatCurrency(data.total_value)}
+          sub={`${data.positions.length} positions`}
+        />
+        <MetricCard
+          label="Unrealized P&L"
+          value={`${pnlSign}${formatCurrency(totalPnl.pnl)}`}
+          sub={`${pnlSign}${totalPnl.pnlPct.toFixed(1)}%`}
+          trend={pnlTrend}
+        />
+        <MetricCard
+          label="Realized P&L"
+          value={`${totalRealizedPnl >= 0 ? "+" : ""}${formatCurrency(totalRealizedPnl)}`}
+          sub={`${historyApi.data?.length ?? 0} closed`}
+          trend={totalRealizedPnl >= 0 ? "up" : "down"}
+        />
+        <MetricCard
+          label="Cash"
+          value={formatCurrency(data.cash)}
+          sub={`${(data.cash_pct * 100).toFixed(1)}% of portfolio`}
+        />
+      </div>
+
+      {/* ── Middle row: Open positions + Recent alerts ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        {/* Open positions mini-table (3/5) */}
+        <div className="lg:col-span-3 rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-5">
+          <h2 className="text-sm font-semibold text-gray-300 mb-3">
+            Open Positions
+          </h2>
+          {data.positions.length === 0 ? (
+            <EmptyState message="No open positions." />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-gray-500 text-xs uppercase tracking-wider border-b border-gray-800/50">
+                    <th className="text-left py-2 pr-4">Ticker</th>
+                    <th className="text-right py-2 px-4">Price</th>
+                    <th className="text-right py-2 px-4">P&L %</th>
+                    <th className="text-right py-2 pl-4">Days</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.positions.map((pos) => {
+                    const pnlPct = pos.unrealized_pnl_pct * 100;
+                    const pnlColor =
+                      pnlPct >= 0 ? "text-green-400" : "text-red-400";
+                    return (
+                      <tr
+                        key={pos.ticker}
+                        className="border-b border-gray-800/30 last:border-0"
+                      >
+                        <td className="py-2 pr-4 font-mono text-white font-medium">
+                          {pos.ticker}
+                        </td>
+                        <td className="py-2 px-4 text-right text-gray-300">
+                          {formatCurrency(pos.current_price)}
+                        </td>
+                        <td
+                          className={`py-2 px-4 text-right font-medium ${pnlColor}`}
+                        >
+                          {pnlPct >= 0 ? "+" : ""}
+                          {pnlPct.toFixed(1)}%
+                        </td>
+                        <td className="py-2 pl-4 text-right text-gray-400">
+                          {pos.holding_days}d
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Recent alerts (2/5) */}
+        <div className="lg:col-span-2 rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-gray-300">
+              Recent Alerts
+            </h2>
+            <button
+              onClick={() => navigate("/monitoring")}
+              className="text-xs text-blue-400 hover:text-blue-300 transition-colors duration-150"
+            >
+              View all
+            </button>
+          </div>
+          {alertsApi.loading ? (
+            <div className="flex items-center justify-center py-6">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-600 border-t-blue-400" />
+            </div>
+          ) : alertsApi.data && alertsApi.data.length > 0 ? (
+            <ul className="space-y-2">
+              {alertsApi.data.slice(0, 5).map((alert) => (
+                <li
+                  key={alert.id}
+                  className="flex items-start gap-2 text-sm"
+                >
+                  <span
+                    className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${
+                      severityDotMap[alert.severity] ?? "bg-gray-500"
+                    }`}
+                  />
+                  <div className="min-w-0">
+                    <span className="text-gray-300">
+                      {alert.ticker && (
+                        <span className="font-mono text-white mr-1">
+                          {alert.ticker}
+                        </span>
+                      )}
+                      {alert.message.length > 60
+                        ? alert.message.slice(0, 60) + "\u2026"
+                        : alert.message}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState message="No recent alerts." />
+          )}
+        </div>
+      </div>
+
+      {/* ── Bottom row: Quick actions + Weekly summary ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Quick actions */}
+        <div className="rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-5">
+          <h2 className="text-sm font-semibold text-gray-300 mb-4">
+            Quick Actions
+          </h2>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={() => navigate("/analyze")}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition-colors duration-150"
+            >
+              Analyze Ticker
+            </button>
+            <button
+              onClick={handleHealthCheck}
+              disabled={healthLoading}
+              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors duration-150"
+            >
+              {healthLoading ? "Running..." : "Run Health Check"}
+            </button>
+            <button
+              onClick={() => navigate("/signals")}
+              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium transition-colors duration-150"
+            >
+              View Signals
+            </button>
+          </div>
+          {healthMsg && (
+            <p className="mt-3 text-xs text-gray-400">{healthMsg}</p>
+          )}
+        </div>
+
+        {/* Weekly summary */}
+        <WeeklySummaryCard />
+      </div>
+    </div>
+  );
+}
