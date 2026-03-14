@@ -127,6 +127,16 @@ async def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
             ON trade_executions(thesis_id);
             """
         )
+        # Sprint 8: close-position lifecycle columns
+        for col, ctype in [
+            ("status", "TEXT NOT NULL DEFAULT 'open'"),
+            ("exit_price", "REAL"),
+            ("exit_date", "TEXT"),
+            ("exit_reason", "TEXT"),
+            ("realized_pnl", "REAL"),
+        ]:
+            await _ensure_column(conn, "active_positions", col, ctype)
+
         await conn.execute(
             """
             CREATE INDEX IF NOT EXISTS idx_active_positions_ticker

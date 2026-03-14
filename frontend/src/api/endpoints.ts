@@ -1,6 +1,8 @@
 import { apiGet, apiPost, apiPut, apiDelete } from "./client";
 import type {
   Portfolio,
+  Position,
+  ClosePositionResult,
   AnalysisResult,
   BacktestResult,
   BatchResponse,
@@ -42,6 +44,12 @@ export const applySplit = (ticker: string, ratio: number) =>
   apiPost<{ applied: boolean }>("/portfolio/split", { ticker, ratio });
 export const getThesis = (ticker: string) =>
   apiGet<ThesisResponse>(`/portfolio/positions/${ticker}/thesis`);
+export const closePosition = (
+  ticker: string,
+  body: { exit_price: number; exit_reason?: string; exit_date?: string },
+) => apiPost<ClosePositionResult>(`/portfolio/positions/${ticker}/close`, body);
+export const getPositionHistory = () =>
+  apiGet<Position[]>("/portfolio/history");
 
 // Analysis
 export const analyzeTicker = (

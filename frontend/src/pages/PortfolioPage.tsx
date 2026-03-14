@@ -1,11 +1,13 @@
 import { useState, useMemo } from "react";
 import { useApi } from "../hooks/useApi";
-import { getPortfolio, addPosition, removePosition, getAlerts } from "../api/endpoints";
+import { getPortfolio, addPosition, removePosition, closePosition, getPositionHistory, getAlerts } from "../api/endpoints";
 import type { Portfolio, Alert, Position } from "../api/types";
 import MetricCard from "../components/shared/MetricCard";
 import PositionsTable from "../components/portfolio/PositionsTable";
 import AddPositionForm from "../components/portfolio/AddPositionForm";
 import AllocationChart from "../components/portfolio/AllocationChart";
+import ClosePositionModal from "../components/portfolio/ClosePositionModal";
+import ClosedPositionsTable from "../components/portfolio/ClosedPositionsTable";
 import DashboardAlertsList from "../components/monitoring/DashboardAlertsList";
 import WeeklySummaryCard from "../components/summary/WeeklySummaryCard";
 import LoadingSpinner from "../components/shared/LoadingSpinner";
@@ -122,8 +124,11 @@ export default function PortfolioPage() {
     () => getPortfolio(),
   );
   const alertsApi = useApi<Alert[]>(() => getAlerts({ limit: 5 }));
+  const historyApi = useApi<Position[]>(() => getPositionHistory());
   const [adding, setAdding] = useState(false);
   const [breakdownMode, setBreakdownMode] = useState<BreakdownMode>("ticker");
+  const [closingPosition, setClosingPosition] = useState<Position | null>(null);
+  const [posTab, setPosTab] = useState<"open" | "closed">("open");
 
   // P&L computation
   const totalPnl = useMemo(() => {
@@ -185,6 +190,24 @@ export default function PortfolioPage() {
     }
   }
 
+  async function handleClose(data: {
+    exit_price: number;
+    exit_reason: string;
+    exit_date?: string;
+  }) {
+    if (!closingPosition) return;
+    await closePosition(closingPosition.ticker, data);
+    setClosingPosition(null);
+    refetch();
+    historyApi.refetch();
+  }
+
+  // Realized P&L from closed positions
+  const totalRealizedPnl = useMemo(() => {
+    if (!historyApi.data) return 0;
+    return historyApi.data.reduce((s, p) => s + (p.realized_pnl ?? 0), 0);
+  }, [historyApi.data]);
+
   if (loading) return <LoadingSpinner />;
   if (error) return <ErrorAlert message={error} />;
   if (!data) return null;
@@ -197,8 +220,8 @@ export default function PortfolioPage() {
       <h1 className="text-2xl font-bold text-white">Portfolio</h1>
       <WarningsBanner warnings={[...warnings, ...alertsApi.warnings]} />
 
-      {/* ── Stat cards row (from Dashboard) ── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* ── Stat cards row ── */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <MetricCard
           label="Portfolio Value"
           value={formatCurrency(data.total_value)}
@@ -209,6 +232,12 @@ export default function PortfolioPage() {
           value={`${pnlSign}${formatCurrency(totalPnl.pnl)}`}
           sub={`${pnlSign}${totalPnl.pnlPct.toFixed(1)}%`}
           trend={pnlTrend}
+        />
+        <MetricCard
+          label="Realized P&L"
+          value={`${totalRealizedPnl >= 0 ? "+" : ""}${formatCurrency(totalRealizedPnl)}`}
+          sub={`${historyApi.data?.length ?? 0} closed`}
+          trend={totalRealizedPnl >= 0 ? "up" : "down"}
         />
         <MetricCard
           label="Cash"
@@ -280,13 +309,51 @@ export default function PortfolioPage() {
         </div>
       </div>
 
-      {/* ── Positions Table ── */}
-      {data.positions.length === 0 ? (
-        <div className="rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-5">
-          <EmptyState message="No positions yet. Add one below." />
+      {/* ── Positions (tabbed: Open / Closed) ── */}
+      <div>
+        <div className="flex items-center gap-1 mb-3">
+          <button
+            onClick={() => setPosTab("open")}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${posTab === "open" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-200"}`}
+          >
+            Open ({data.positions.length})
+          </button>
+          <button
+            onClick={() => setPosTab("closed")}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${posTab === "closed" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-200"}`}
+          >
+            Closed ({historyApi.data?.length ?? 0})
+          </button>
         </div>
-      ) : (
-        <PositionsTable positions={data.positions} onRemove={handleRemove} />
+
+        {posTab === "open" ? (
+          data.positions.length === 0 ? (
+            <div className="rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-5">
+              <EmptyState message="No positions yet. Add one below." />
+            </div>
+          ) : (
+            <PositionsTable
+              positions={data.positions}
+              onRemove={handleRemove}
+              onClose={setClosingPosition}
+            />
+          )
+        ) : historyApi.data && historyApi.data.length > 0 ? (
+          <ClosedPositionsTable positions={historyApi.data} />
+        ) : (
+          <div className="rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-5">
+            <EmptyState message="No closed positions yet." />
+          </div>
+        )}
+      </div>
+
+      {/* Close Position Modal */}
+      {closingPosition && (
+        <ClosePositionModal
+          position={closingPosition}
+          onClose={() => setClosingPosition(null)}
+          onConfirm={handleClose}
+        />
       )}
 
       {/* ── Add Position form ── */}

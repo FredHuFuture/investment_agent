@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date as date_cls
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -133,6 +134,131 @@ class PortfolioManager:
 
         return await self._with_conn(_op)
 
+    async def close_position(
+        self,
+        ticker: str,
+        exit_price: float,
+        exit_reason: str = "manual",
+        exit_date: str | None = None,
+    ) -> dict[str, Any]:
+        """Close an open position: mark as closed, compute realized P&L, record trade."""
+        if exit_date is None:
+            exit_date = date_cls.today().isoformat()
+
+        async def _op(conn: aiosqlite.Connection) -> dict[str, Any]:
+            row = await (
+                await conn.execute(
+                    """
+                    SELECT ticker, asset_type, quantity, avg_cost,
+                           original_analysis_id, entry_date
+                    FROM active_positions
+                    WHERE ticker = ? AND status = 'open'
+                    """,
+                    (ticker,),
+                )
+            ).fetchone()
+            if row is None:
+                raise ValueError(f"No open position found for ticker '{ticker}'.")
+
+            quantity = float(row[2])
+            avg_cost = float(row[3])
+            thesis_id = row[4]
+            entry_date_str = row[5]
+            realized_pnl = (exit_price - avg_cost) * quantity
+
+            # Mark position as closed
+            await conn.execute(
+                """
+                UPDATE active_positions
+                SET status = 'closed',
+                    exit_price = ?,
+                    exit_date = ?,
+                    exit_reason = ?,
+                    realized_pnl = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE ticker = ? AND status = 'open'
+                """,
+                (exit_price, exit_date, exit_reason, realized_pnl, ticker),
+            )
+
+            # Record trade execution
+            if thesis_id is not None:
+                await conn.execute(
+                    """
+                    INSERT INTO trade_executions
+                        (thesis_id, action, quantity, executed_price, executed_at, reason)
+                    VALUES (?, 'SELL', ?, ?, ?, ?)
+                    """,
+                    (thesis_id, quantity, exit_price, exit_date, exit_reason),
+                )
+
+            # Auto-resolve linked signal
+            if thesis_id is not None:
+                return_pct = (exit_price - avg_cost) / avg_cost if avg_cost > 0 else 0.0
+                outcome = "WIN" if return_pct > 0 else "LOSS"
+                await conn.execute(
+                    """
+                    UPDATE signal_history
+                    SET outcome = ?,
+                        outcome_return_pct = ?,
+                        outcome_resolved_at = ?
+                    WHERE thesis_id = ? AND outcome = 'OPEN'
+                    """,
+                    (outcome, return_pct, exit_date, thesis_id),
+                )
+
+            await conn.commit()
+
+            return {
+                "ticker": ticker,
+                "quantity": quantity,
+                "avg_cost": avg_cost,
+                "exit_price": exit_price,
+                "exit_date": exit_date,
+                "exit_reason": exit_reason,
+                "realized_pnl": realized_pnl,
+                "return_pct": (exit_price - avg_cost) / avg_cost if avg_cost > 0 else 0.0,
+            }
+
+        return await self._with_conn(_op)
+
+    async def get_closed_positions(self) -> list[Position]:
+        """Return all closed positions."""
+        async def _op(conn: aiosqlite.Connection) -> list[Position]:
+            await self._ensure_thesis_text_column(conn)
+            rows = await (
+                await conn.execute(
+                    """
+                    SELECT
+                        ap.ticker,
+                        ap.asset_type,
+                        ap.quantity,
+                        ap.avg_cost,
+                        ap.sector,
+                        ap.industry,
+                        ap.entry_date,
+                        ap.original_analysis_id,
+                        ap.expected_return_pct,
+                        ap.expected_hold_days,
+                        pt.thesis_text,
+                        pt.expected_target_price,
+                        pt.expected_stop_loss,
+                        ap.status,
+                        ap.exit_price,
+                        ap.exit_date,
+                        ap.exit_reason,
+                        ap.realized_pnl
+                    FROM active_positions ap
+                    LEFT JOIN positions_thesis pt ON ap.original_analysis_id = pt.id
+                    WHERE ap.status = 'closed'
+                    ORDER BY ap.exit_date DESC
+                    """
+                )
+            ).fetchall()
+            return [Position.from_db_row(row) for row in rows]
+
+        return await self._with_conn(_op)
+
     async def update_position(self, ticker: str, **kwargs) -> bool:
         allowed_fields = {
             "quantity",
@@ -188,7 +314,12 @@ class PortfolioManager:
                         ap.expected_hold_days,
                         pt.thesis_text,
                         pt.expected_target_price,
-                        pt.expected_stop_loss
+                        pt.expected_stop_loss,
+                        ap.status,
+                        ap.exit_price,
+                        ap.exit_date,
+                        ap.exit_reason,
+                        ap.realized_pnl
                     FROM active_positions ap
                     LEFT JOIN positions_thesis pt ON ap.original_analysis_id = pt.id
                     WHERE ap.ticker = ?
@@ -287,9 +418,15 @@ class PortfolioManager:
                         ap.expected_hold_days,
                         pt.thesis_text,
                         pt.expected_target_price,
-                        pt.expected_stop_loss
+                        pt.expected_stop_loss,
+                        ap.status,
+                        ap.exit_price,
+                        ap.exit_date,
+                        ap.exit_reason,
+                        ap.realized_pnl
                     FROM active_positions ap
                     LEFT JOIN positions_thesis pt ON ap.original_analysis_id = pt.id
+                    WHERE ap.status = 'open'
                     ORDER BY ap.ticker ASC
                     """
                 )
@@ -386,9 +523,15 @@ class PortfolioManager:
                         ap.expected_hold_days,
                         pt.thesis_text,
                         pt.expected_target_price,
-                        pt.expected_stop_loss
+                        pt.expected_stop_loss,
+                        ap.status,
+                        ap.exit_price,
+                        ap.exit_date,
+                        ap.exit_reason,
+                        ap.realized_pnl
                     FROM active_positions ap
                     LEFT JOIN positions_thesis pt ON ap.original_analysis_id = pt.id
+                    WHERE ap.status = 'open'
                     ORDER BY ap.ticker ASC
                     """
                 )

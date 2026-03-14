@@ -85,6 +85,49 @@ async def _handle_remove(args: argparse.Namespace) -> None:
     await manager.remove_position(args.ticker)
 
 
+async def _handle_close(args: argparse.Namespace) -> None:
+    await init_db(args.db_path)
+    manager = PortfolioManager(args.db_path)
+    result = await manager.close_position(
+        ticker=args.ticker,
+        exit_price=args.exit_price,
+        exit_reason=args.reason,
+        exit_date=args.exit_date,
+    )
+    sign = "+" if result["realized_pnl"] >= 0 else ""
+    ret_sign = "+" if result["return_pct"] >= 0 else ""
+    print(f"Closed {result['ticker']}: {result['quantity']:.2f} shares")
+    print(f"  Entry: {_format_currency(result['avg_cost'])}  ->  Exit: {_format_currency(result['exit_price'])}")
+    print(f"  Realized P&L: {sign}{_format_currency(result['realized_pnl'])} ({ret_sign}{result['return_pct']*100:.1f}%)")
+    print(f"  Reason: {result['exit_reason']}  |  Date: {result['exit_date']}")
+
+
+async def _handle_history(args: argparse.Namespace) -> None:
+    await init_db(args.db_path)
+    manager = PortfolioManager(args.db_path)
+    closed = await manager.get_closed_positions()
+    if not closed:
+        print("No closed positions.")
+        return
+    print(f"{'Ticker':<8} {'Qty':>8} {'Entry':>10} {'Exit':>10} {'P&L':>12} {'Reason':<12} {'Date':<12}")
+    print("-" * 74)
+    total_pnl = 0.0
+    for p in closed:
+        pnl = p.realized_pnl or 0.0
+        total_pnl += pnl
+        sign = "+" if pnl >= 0 else ""
+        print(
+            f"{p.ticker:<8} {p.quantity:>8.2f} "
+            f"{_format_currency(p.avg_cost):>10} "
+            f"{_format_currency(p.exit_price or 0):>10} "
+            f"{sign}{_format_currency(pnl):>11} "
+            f"{(p.exit_reason or '-'):<12} {(p.exit_date or '-'):<12}"
+        )
+    print("-" * 74)
+    sign = "+" if total_pnl >= 0 else ""
+    print(f"Total Realized P&L: {sign}{_format_currency(total_pnl)}")
+
+
 async def _handle_show(args: argparse.Namespace) -> None:
     await init_db(args.db_path)
     manager = PortfolioManager(args.db_path)
@@ -131,7 +174,17 @@ def _build_parser() -> argparse.ArgumentParser:
     add_parser.add_argument("--industry")
     add_parser.set_defaults(func=_handle_add)
 
-    remove_parser = subparsers.add_parser("remove", help="Remove a position.")
+    close_parser = subparsers.add_parser("close", help="Close a position with exit details.")
+    close_parser.add_argument("--ticker", required=True)
+    close_parser.add_argument("--exit-price", required=True, type=float, dest="exit_price")
+    close_parser.add_argument("--reason", default="manual", choices=["manual", "target_hit", "stop_loss"])
+    close_parser.add_argument("--exit-date", dest="exit_date", default=None, help="YYYY-MM-DD (default: today)")
+    close_parser.set_defaults(func=_handle_close)
+
+    history_parser = subparsers.add_parser("history", help="Show closed positions.")
+    history_parser.set_defaults(func=_handle_history)
+
+    remove_parser = subparsers.add_parser("remove", help="Remove a position (no exit record).")
     remove_parser.add_argument("--ticker", required=True)
     remove_parser.set_defaults(func=_handle_remove)
 

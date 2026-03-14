@@ -21,6 +21,23 @@ export interface Position {
   expected_hold_days: number | null;
   target_price: number | null;
   stop_loss: number | null;
+  // Lifecycle fields (Sprint 8)
+  status: string;
+  exit_price: number | null;
+  exit_date: string | null;
+  exit_reason: string | null;
+  realized_pnl: number | null;
+}
+
+export interface ClosePositionResult {
+  ticker: string;
+  quantity: number;
+  avg_cost: number;
+  exit_price: number;
+  exit_date: string;
+  exit_reason: string;
+  realized_pnl: number;
+  return_pct: number;
 }
 
 export interface ThesisResponse {

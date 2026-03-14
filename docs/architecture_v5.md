@@ -1020,11 +1020,93 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 
 ### Planned
 
-| Sprint | Focus | Status |
-|--------|-------|--------|
-| Sprint 8 | SentimentAgent (news/catalyst eval via Claude) + catalyst scanner daemon job | PLANNED |
-| Sprint 9 | Portfolio-aware analysis (concentration limits, correlation checks, position sizing) | PLANNED |
-| Sprint 10+ | Alert dispatcher (email/Slack), OnChainAgent, desktop app (Tauri) | DEFERRED |
+| Sprint | Focus | Priority | Status |
+|--------|-------|----------|--------|
+| Sprint 8 | **Investment Lifecycle Loop** -- close positions, record outcomes, realized P&L, feedback loop | P0 (core product gap) | PLANNED |
+| Sprint 9 | **Dashboard + Workflow** -- home dashboard, analyze-to-buy flow, thesis editing, alert management | P0 (usability) | PLANNED |
+| Sprint 10 | **SentimentAgent** -- Claude-powered news/catalyst eval + daemon catalyst scanner | P1 (differentiation) | PLANNED |
+| Sprint 11 | Portfolio-aware analysis (concentration limits, correlation checks, position sizing) | P2 (optimization) | PLANNED |
+| Sprint 12+ | Alert dispatcher (email/Slack), OnChainAgent, desktop app (Tauri) | P3 (expansion) | DEFERRED |
+
+-----
+
+## 20. Product Roadmap Detail
+
+### Sprint 8: Investment Lifecycle Loop (P0)
+
+**Problem:** Users can open positions but cannot close them properly. "Remove" deletes the position without recording exit price, realized P&L, or outcome. This breaks the thesis accountability feedback loop -- the product's core differentiator.
+
+**Deliverables:**
+
+1. **Close Position API + UI**
+   - New `POST /portfolio/positions/{ticker}/close` endpoint
+   - Records: exit_price, exit_date, exit_reason (manual | target_hit | stop_loss | signal_reversal)
+   - Computes realized P&L and stores in trade_executions
+   - Position moves to "closed" state (not deleted)
+   - Frontend: "Close Position" modal with exit price + reason
+
+2. **Position Outcome Resolution**
+   - Closed positions automatically resolve linked signals (WIN/LOSS based on return)
+   - Signal outcome feeds into adaptive weight system
+   - Creates the feedback loop: signal -> trade -> outcome -> weight adjustment
+
+3. **Realized P&L Tracking**
+   - New `closed_positions` view or status column on active_positions
+   - Portfolio page shows: unrealized P&L (open) + realized P&L (closed) + total
+   - Historical performance: win rate, avg return, avg hold time
+
+4. **Position History Page**
+   - List of all closed positions with entry/exit details
+   - Per-position thesis vs reality comparison
+   - Filter by time period, asset type, outcome
+
+### Sprint 9: Dashboard + Workflow (P0)
+
+**Problem:** No daily entry point. Root route is Analysis page, not portfolio overview. Analyze-to-buy flow is disconnected across pages.
+
+**Deliverables:**
+
+1. **Dashboard Home Page (new root route `/`)**
+   - Portfolio value + daily change
+   - Open positions with P&L heat map
+   - Recent alerts (top 5, severity-colored)
+   - Quick actions: Analyze, Add Position, Run Check
+   - Weekly summary card (if SummaryAgent configured)
+
+2. **Analyze -> Add Position Flow**
+   - "Add to Portfolio" button on Analysis results
+   - Pre-fills ticker, asset_type, current price as entry price
+   - Pre-fills thesis from analysis reasoning + signal
+   - One-click flow: Analyze -> Review -> Add
+
+3. **Thesis Editing**
+   - Edit thesis after position entry (target price, stop loss, hold days, notes)
+   - Thesis version history (what changed and when)
+
+4. **Alert Management**
+   - Dismiss/acknowledge alerts
+   - Filter by severity, ticker, type
+   - Alert configuration (custom thresholds per position)
+
+### Sprint 10: SentimentAgent (P1)
+
+**Problem:** All agents are backward-looking (price history, financials, macro data). No forward-looking catalyst detection.
+
+**Deliverables:**
+
+1. **SentimentAgent**
+   - Claude API: analyze recent news headlines for a ticker
+   - Scoring: catalyst strength, sentiment direction, relevance to thesis
+   - Integrates into aggregator as optional 4th agent for stocks
+
+2. **Catalyst Scanner Daemon Job**
+   - Activate the existing 4-hour catalyst_scan stub in daemon
+   - Scans all portfolio positions for news events
+   - Generates CATALYST_ALERT when significant news detected
+
+3. **News Feed in Frontend**
+   - Analysis page shows recent catalysts alongside agent signals
+   - Portfolio page shows per-position news alerts
 
 -----
 

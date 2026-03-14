@@ -65,6 +65,12 @@ class ThesisResponse(BaseModel):
     return_drift_pct: float | None = None
 
 
+class ClosePositionRequest(BaseModel):
+    exit_price: float = Field(gt=0)
+    exit_reason: Literal["manual", "target_hit", "stop_loss"] = "manual"
+    exit_date: str | None = None  # YYYY-MM-DD, defaults to today
+
+
 class SetCashRequest(BaseModel):
     amount: float = Field(ge=0)
 

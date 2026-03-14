@@ -7,7 +7,7 @@ import logging
 from fastapi import APIRouter, Depends
 
 from api.deps import get_db_path, map_ticker, resolve_asset_type
-from api.models import AddPositionRequest, ScaleRequest, SetCashRequest, SplitRequest, ThesisResponse
+from api.models import AddPositionRequest, ClosePositionRequest, ScaleRequest, SetCashRequest, SplitRequest, ThesisResponse
 from data_providers.factory import get_provider
 from portfolio.manager import PortfolioManager
 
@@ -94,6 +94,37 @@ async def remove_position(ticker: str, db_path: str = Depends(get_db_path)):
             },
         )
     return {"data": {"removed": True}, "warnings": []}
+
+
+@router.post("/positions/{ticker}/close")
+async def close_position(ticker: str, body: ClosePositionRequest, db_path: str = Depends(get_db_path)):
+    """Close an open position and record realized P&L."""
+    mgr = PortfolioManager(db_path)
+    try:
+        result = await mgr.close_position(
+            ticker=ticker.upper(),
+            exit_price=body.exit_price,
+            exit_reason=body.exit_reason,
+            exit_date=body.exit_date,
+        )
+    except ValueError as exc:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=404,
+            content={"error": {"code": "NOT_FOUND", "message": str(exc), "detail": None}},
+        )
+    return {"data": result, "warnings": []}
+
+
+@router.get("/history")
+async def get_position_history(db_path: str = Depends(get_db_path)):
+    """Return all closed positions."""
+    mgr = PortfolioManager(db_path)
+    closed = await mgr.get_closed_positions()
+    return {
+        "data": [p.to_dict() for p in closed],
+        "warnings": [],
+    }
 
 
 @router.put("/cash")

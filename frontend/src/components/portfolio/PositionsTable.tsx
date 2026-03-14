@@ -5,6 +5,7 @@ import type { Position } from "../../api/types";
 interface Props {
   positions: Position[];
   onRemove: (ticker: string) => void;
+  onClose?: (position: Position) => void;
 }
 
 function pnlColor(v: number): string {
@@ -21,7 +22,7 @@ function holdColor(held: number, expected: number | null): string {
   return "text-emerald-400";
 }
 
-export default function PositionsTable({ positions, onRemove }: Props) {
+export default function PositionsTable({ positions, onRemove, onClose }: Props) {
   const columns: Column<Position>[] = [
     {
       key: "ticker",
@@ -112,12 +113,22 @@ export default function PositionsTable({ positions, onRemove }: Props) {
       key: "actions",
       header: "",
       render: (r) => (
-        <button
-          onClick={() => onRemove(r.ticker)}
-          className="text-red-400/70 hover:text-red-300 text-xs transition-colors duration-150"
-        >
-          Remove
-        </button>
+        <div className="flex gap-2">
+          {onClose && (
+            <button
+              onClick={() => onClose(r)}
+              className="text-yellow-400/70 hover:text-yellow-300 text-xs transition-colors duration-150"
+            >
+              Close
+            </button>
+          )}
+          <button
+            onClick={() => onRemove(r.ticker)}
+            className="text-red-400/70 hover:text-red-300 text-xs transition-colors duration-150"
+          >
+            Remove
+          </button>
+        </div>
       ),
     },
   ];

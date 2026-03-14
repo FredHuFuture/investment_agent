@@ -21,6 +21,12 @@ class Position:
     thesis_text: str | None = None
     target_price: float | None = None
     stop_loss: float | None = None
+    # Sprint 8: lifecycle fields
+    status: str = "open"
+    exit_price: float | None = None
+    exit_date: str | None = None
+    exit_reason: str | None = None
+    realized_pnl: float | None = None
 
     @property
     def market_value(self) -> float:
@@ -71,6 +77,13 @@ class Position:
             pos.thesis_text = row[10]
             pos.target_price = float(row[11]) if row[11] is not None else None
             pos.stop_loss = float(row[12]) if row[12] is not None else None
+        # Sprint 8: lifecycle columns (appended after thesis join cols)
+        if len(row) > 13:
+            pos.status = row[13] or "open"
+            pos.exit_price = float(row[14]) if row[14] is not None else None
+            pos.exit_date = row[15]
+            pos.exit_reason = row[16]
+            pos.realized_pnl = float(row[17]) if row[17] is not None else None
         return pos
 
     def to_dict(self) -> dict[str, Any]:
@@ -94,6 +107,11 @@ class Position:
             "unrealized_pnl": self.unrealized_pnl,
             "unrealized_pnl_pct": self.unrealized_pnl_pct,
             "holding_days": self.holding_days,
+            "status": self.status,
+            "exit_price": self.exit_price,
+            "exit_date": self.exit_date,
+            "exit_reason": self.exit_reason,
+            "realized_pnl": self.realized_pnl,
         }
 
 
