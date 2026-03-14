@@ -30,6 +30,7 @@ import LoadingSpinner from "../components/shared/LoadingSpinner";
 import ErrorAlert from "../components/shared/ErrorAlert";
 import EmptyState from "../components/shared/EmptyState";
 import MetricCard from "../components/shared/MetricCard";
+import CatalystPanel from "../components/analysis/CatalystPanel";
 import { formatCurrency, formatDate } from "../lib/formatters";
 
 // ---------------------------------------------------------------------------
@@ -712,6 +713,9 @@ export default function PositionDetailPage() {
           )}
         </div>
       </div>
+
+      {/* ── News & Catalysts ── */}
+      <CatalystPanel ticker={ticker!} assetType={assetType} />
     </div>
   );
 }

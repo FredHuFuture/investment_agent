@@ -13,7 +13,7 @@ import aiosqlite
 import pytest
 
 from agents.models import Signal
-from daemon.jobs import run_catalyst_scan_stub, run_daily_check, run_weekly_revaluation
+from daemon.jobs import run_catalyst_scan, run_daily_check, run_weekly_revaluation
 from daemon.signal_comparator import SignalComparison, compare_signals
 from db.database import init_db
 from engine.aggregator import AggregatedSignal
@@ -325,19 +325,19 @@ async def test_weekly_handles_analysis_failure(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 10. Catalyst stub -- records skipped
+# 10. Catalyst scan -- records skipped when no positions
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_catalyst_stub_records_skipped(tmp_path: Path) -> None:
+async def test_catalyst_scan_no_positions_records_skipped(tmp_path: Path) -> None:
     db_path = str(tmp_path / "test.db")
     await init_db(db_path)
     logger = _null_logger()
 
-    result = await run_catalyst_scan_stub(db_path, logger)
+    result = await run_catalyst_scan(db_path, logger)
 
     assert result["status"] == "skipped"
-    assert "Task 017" in result["reason"]
+    assert "No open positions" in result["reason"]
 
     async with aiosqlite.connect(db_path) as conn:
         row = await (

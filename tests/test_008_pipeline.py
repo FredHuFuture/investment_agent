@@ -71,15 +71,15 @@ class TestAnalysisPipeline:
         assert isinstance(result, AggregatedSignal)
         assert result.ticker == "AAPL"
         assert result.asset_type == "stock"
-        # All 3 agents contributed
-        assert len(result.agent_signals) == 3
+        # At least 3 core agents contributed (SentimentAgent may also be present)
+        assert len(result.agent_signals) >= 3
         agent_names = {o.agent_name for o in result.agent_signals}
         assert "TechnicalAgent" in agent_names
         assert "FundamentalAgent" in agent_names
         assert "MacroAgent" in agent_names
         # Regime extracted
         assert result.regime == Regime.RISK_ON
-        # No pipeline errors
+        # No pipeline errors (sentiment warnings about missing key are OK)
         assert not any("failed" in w.lower() for w in result.warnings)
 
     # 2. Crypto: uses CryptoAgent only (no Technical/Fundamental/Macro)
@@ -148,8 +148,8 @@ class TestAnalysisPipeline:
             result = await pipeline.analyze_ticker("AAPL", "stock")
 
         assert isinstance(result, AggregatedSignal)
-        # Only 2 agents (Technical + Fundamental)
-        assert len(result.agent_signals) == 2
+        # At least 2 agents (Technical + Fundamental); SentimentAgent may also be present
+        assert len(result.agent_signals) >= 2
         agent_names = {o.agent_name for o in result.agent_signals}
         assert "TechnicalAgent" in agent_names
         assert "FundamentalAgent" in agent_names

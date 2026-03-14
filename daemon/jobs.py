@@ -355,30 +355,151 @@ async def run_weekly_summary(
         return {"status": "error", "error": err_msg}
 
 
-async def run_catalyst_scan_stub(
+async def run_catalyst_scan(
     db_path: str = str(DEFAULT_DB_PATH),
     logger: logging.Logger | None = None,
 ) -> dict[str, Any]:
-    """Catalyst scanner stub -- not implemented until Task 017 (LLM integration).
+    """Scan portfolio positions for sentiment-based catalysts.
 
-    Records a 'skipped' run in daemon_runs.
+    For each open position:
+    1. Fetch recent news headlines via WebNewsProvider
+    2. Run SentimentAgent.analyze() for a sentiment signal
+    3. If the signal DISAGREES with position direction at sufficient confidence,
+       create a CATALYST alert
+
+    Never raises -- per-position errors are caught and the loop continues.
+    Returns summary dict.
     """
+    from agents.models import AgentInput
+    from agents.sentiment import SentimentAgent
+    from data_providers.web_news_provider import WebNewsProvider
+    from data_providers.yfinance_provider import YFinanceProvider
+
     if logger is None:
         logger = logging.getLogger("investment_daemon")
 
     started_at = datetime.now(timezone.utc).isoformat()
-    reason = "Catalyst scanner not available -- requires LLM integration (Task 017)"
-    logger.info(reason)
+    t0 = time.monotonic()
 
-    await _record_daemon_run(
-        db_path=db_path,
-        job_name="catalyst_scan",
-        status="skipped",
-        started_at=started_at,
-        duration_ms=0,
-        result_json=json.dumps({"reason": reason}),
-    )
-    return {"status": "skipped", "reason": reason}
+    try:
+        pm = PortfolioManager(db_path)
+        positions = await pm.get_all_positions()
+
+        if not positions:
+            reason = "No open positions -- skipping catalyst scan"
+            logger.info(reason)
+            await _record_daemon_run(
+                db_path=db_path,
+                job_name="catalyst_scan",
+                status="skipped",
+                started_at=started_at,
+                duration_ms=int((time.monotonic() - t0) * 1000),
+                result_json=json.dumps({"reason": reason}),
+            )
+            return {"status": "skipped", "reason": reason}
+
+        news_provider = WebNewsProvider()
+        yf_provider = YFinanceProvider()
+        agent = SentimentAgent(yf_provider, news_provider=news_provider)
+        alert_store = AlertStore(db_path)
+
+        positions_scanned = 0
+        alerts_created = 0
+        errors: list[dict[str, str]] = []
+
+        for pos in positions:
+            try:
+                input_ = AgentInput(ticker=pos.ticker, asset_type=pos.asset_type)
+                output = await agent.analyze(input_)
+
+                signal = output.signal.value   # "BUY", "HOLD", or "SELL"
+                confidence = output.confidence
+                reasoning = output.reasoning
+
+                should_alert = False
+                severity = "WARNING"
+
+                # Alert if signal DISAGREES with position direction
+                # Long position (all open positions assumed long) with SELL signal
+                if signal == "SELL" and confidence >= 60:
+                    should_alert = True
+                    severity = "WARNING" if confidence < 75 else "CRITICAL"
+                # BUY signal at high confidence = potential opportunity to add
+                elif signal == "BUY" and confidence >= 70:
+                    should_alert = True
+                    severity = "INFO" if confidence < 85 else "WARNING"
+
+                if should_alert:
+                    alert = Alert(
+                        ticker=pos.ticker,
+                        alert_type="CATALYST",
+                        severity=severity,
+                        message=f"SentimentAgent: {signal} ({confidence:.0f}%) — {reasoning[:200]}",
+                        recommended_action=f"Review recent news for {pos.ticker}",
+                        current_price=pos.current_price,
+                        trigger_price=None,
+                    )
+                    await alert_store.save_alert(alert)
+                    alerts_created += 1
+                    logger.info(
+                        "  %s: CATALYST alert (%s @ %.0f%%)",
+                        pos.ticker, signal, confidence,
+                    )
+                else:
+                    logger.info(
+                        "  %s: %s @ %.0f%% -- no alert",
+                        pos.ticker, signal, confidence,
+                    )
+
+                positions_scanned += 1
+
+            except Exception as exc:
+                err_msg = str(exc)
+                logger.error(
+                    "  %s: catalyst scan failed -- %s",
+                    pos.ticker, err_msg, exc_info=True,
+                )
+                errors.append({"ticker": pos.ticker, "error": err_msg})
+
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        logger.info(
+            "Catalyst scan complete -- %d scanned, %d alerts, %d errors",
+            positions_scanned, alerts_created, len(errors),
+        )
+
+        result = {
+            "status": "success",
+            "positions_scanned": positions_scanned,
+            "alerts_created": alerts_created,
+            "errors": errors,
+        }
+        await _record_daemon_run(
+            db_path=db_path,
+            job_name="catalyst_scan",
+            status="success",
+            started_at=started_at,
+            duration_ms=duration_ms,
+            result_json=json.dumps({
+                "positions_scanned": positions_scanned,
+                "alerts_created": alerts_created,
+                "errors": len(errors),
+            }),
+        )
+        return result
+
+    except Exception as exc:
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        err_msg = str(exc)
+        logger.error("Catalyst scan failed: %s", err_msg, exc_info=True)
+        await _record_daemon_run(
+            db_path=db_path,
+            job_name="catalyst_scan",
+            status="error",
+            started_at=started_at,
+            duration_ms=duration_ms,
+            error_message=err_msg,
+        )
+        return {"status": "error", "error": err_msg}
 
 
 # ---------------------------------------------------------------------------

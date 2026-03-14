@@ -5,6 +5,7 @@ from agents.crypto import CryptoAgent
 from agents.fundamental import FundamentalAgent
 from agents.macro import MacroAgent
 from agents.models import AgentInput, AgentOutput, Regime, Signal
+from agents.sentiment import SentimentAgent
 from agents.technical import TechnicalAgent
 
 __all__ = [
@@ -15,6 +16,7 @@ __all__ = [
     "FundamentalAgent",
     "MacroAgent",
     "Regime",
+    "SentimentAgent",
     "Signal",
     "TechnicalAgent",
 ]

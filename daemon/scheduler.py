@@ -11,7 +11,7 @@ from typing import Any
 import aiosqlite
 
 from daemon.config import DaemonConfig
-from daemon.jobs import run_catalyst_scan_stub, run_daily_check, run_weekly_revaluation
+from daemon.jobs import run_catalyst_scan, run_daily_check, run_weekly_revaluation
 from db.database import DEFAULT_DB_PATH, init_db
 
 

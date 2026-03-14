@@ -16,6 +16,7 @@ import type {
   ThesisResponse,
   SummaryResponse,
   OhlcvPoint,
+  CatalystData,
 } from "./types";
 
 // Portfolio
@@ -80,6 +81,16 @@ export const getPriceHistory = (
   apiGet<OhlcvPoint[]>(
     `/analyze/${ticker}/price-history?asset_type=${assetType}&period=${period}`,
   );
+
+export async function getCatalysts(
+  ticker: string,
+  assetType = "stock",
+): Promise<{ data: CatalystData; warnings: string[] }> {
+  const res = await apiGet<CatalystData>(
+    `/analyze/${ticker}/catalysts?asset_type=${assetType}`,
+  );
+  return res;
+}
 
 // Backtest
 export const runBacktest = (body: {

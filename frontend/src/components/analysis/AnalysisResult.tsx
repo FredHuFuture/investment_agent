@@ -1,6 +1,7 @@
 import SignalBadge from "../shared/SignalBadge";
 import MetricCard from "../shared/MetricCard";
 import AgentBreakdown from "./AgentBreakdown";
+import CatalystPanel from "./CatalystPanel";
 import KeyMetricsPanel from "./KeyMetricsPanel";
 import PriceHistoryChart from "./PriceHistoryChart";
 import type { AnalysisResult as AnalysisResultType } from "../../api/types";
@@ -58,6 +59,9 @@ export default function AnalysisResult({ data }: { data: AnalysisResultType }) {
           agentSignals={data.agent_signals}
         />
       </div>
+
+      {/* News & Catalysts */}
+      <CatalystPanel ticker={data.ticker} assetType={data.asset_type} />
 
       {/* Agent Breakdown */}
       <div>

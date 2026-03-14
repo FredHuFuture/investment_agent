@@ -51,9 +51,10 @@ class SignalAggregator:
 
     DEFAULT_WEIGHTS: dict[str, dict[str, float]] = {
         "stock": {
-            "TechnicalAgent": 0.30,
-            "FundamentalAgent": 0.45,
-            "MacroAgent": 0.25,
+            "TechnicalAgent": 0.25,
+            "FundamentalAgent": 0.40,
+            "MacroAgent": 0.20,
+            "SentimentAgent": 0.15,
         },
         "btc": {
             "CryptoAgent": 1.0,

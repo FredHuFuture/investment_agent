@@ -1,7 +1,7 @@
 # Investment Analysis Agent -- Product & Technical Roadmap
 
 **Last updated:** 2026-03-14
-**Current state:** Sprint 9 complete (239 tests, 74 source files, 27 API endpoints, 9 pages)
+**Current state:** Sprint 10 complete (269 tests, 78 source files, 28 API endpoints, 9 pages, 6 agents)
 
 ---
 
@@ -24,8 +24,9 @@ The Investment Analysis Agent is a self-hosted, multi-agent portfolio analysis a
 | Sprint 7 | Frontend | React 18 + TypeScript + Tailwind (7 pages, 36 components), SummaryAgent | +28 |
 | Sprint 8 | Lifecycle | Close position, realized P&L, signal auto-resolution, position history | +12 |
 | **Sprint 9** | **Dashboard + Workflow** | **Dashboard home, analyze-to-add flow, thesis editing, alert management, position detail page** | **+11** |
+| **Sprint 10** | **SentimentAgent + Catalyst Scanner** | **SentimentAgent (Claude API), WebNewsProvider (Google RSS), aggregator integration, catalyst scanner daemon, news feed UI** | **+30** |
 
-**Total: 239 tests, 0 failures**
+**Total: 269 tests, 0 failures**
 
 ---
 
@@ -59,11 +60,11 @@ The Investment Analysis Agent is a self-hosted, multi-agent portfolio analysis a
 
 | Task | Description | Scope |
 |------|-------------|-------|
-| 10.1 SentimentAgent | Claude API: analyze news headlines, score catalyst strength/sentiment/relevance | New agent |
-| 10.2 News Data Source | Web search integration (Brave Search API or similar) for recent headlines | Data provider |
-| 10.3 Aggregator Integration | Add SentimentAgent as optional 4th agent for stocks (weight ~0.15) | Engine |
-| 10.4 Catalyst Scanner | Activate daemon stub: scan portfolio positions every 4 hours for news | Daemon |
-| 10.5 News Feed UI | Show catalysts on analysis page and portfolio position cards | Frontend |
+| 10.1 SentimentAgent | Claude API: analyze news headlines, score catalyst strength/sentiment/relevance | New agent | DONE |
+| 10.2 News Data Source | Google News RSS + DuckDuckGo fallback for recent headlines | Data provider | DONE |
+| 10.3 Aggregator Integration | Add SentimentAgent as optional 4th agent for stocks (weight 0.15) | Engine | DONE |
+| 10.4 Catalyst Scanner | Real daemon: scan portfolio positions for news, create CATALYST alerts | Daemon | DONE |
+| 10.5 News Feed UI | CatalystPanel on analysis page and position detail page | Frontend | DONE |
 
 **Technical work:**
 - New `agents/sentiment.py` with Claude API integration
@@ -133,10 +134,10 @@ The Investment Analysis Agent is a self-hosted, multi-agent portfolio analysis a
 
 | Metric | Current (Sprint 9) | Sprint 10 Target | Sprint 12 Target |
 |--------|---------------------|------------------|------------------|
-| Test count | 239 | 260+ | 320+ |
-| API endpoints | 27 | 30+ | 35+ |
+| Test count | 269 | 290+ | 320+ |
+| API endpoints | 28 | 32+ | 35+ |
 | Frontend pages | 9 | 10+ | 10+ |
-| Agents | 5 | 6 (+ SentimentAgent) | 6 |
+| Agents | 6 (+ SentimentAgent) | 6 | 7+ |
 | Signal accuracy (resolved) | TBD | Baseline established | > 55% win rate |
 | Daily active use | Dashboard available | Daily dashboard check | Automated alerts |
 

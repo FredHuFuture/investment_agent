@@ -252,6 +252,29 @@ export interface SummaryResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Catalysts / Sentiment
+// ---------------------------------------------------------------------------
+export interface NewsHeadline {
+  title: string;
+  source: string;
+  published_at: string;
+  url: string | null;
+}
+
+export interface SentimentResult {
+  signal: string;
+  confidence: number;
+  sentiment_score: number;
+  catalysts: string[];
+  reasoning: string;
+}
+
+export interface CatalystData {
+  headlines: NewsHeadline[];
+  sentiment: SentimentResult | null;
+}
+
+// ---------------------------------------------------------------------------
 // Daemon
 // ---------------------------------------------------------------------------
 export interface DaemonJobStatus {

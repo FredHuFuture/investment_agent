@@ -76,6 +76,21 @@ class AnalysisPipeline:
             except Exception as exc:
                 pipeline_warnings.append(f"MacroAgent skipped: {exc}")
 
+            # SentimentAgent — optional, requires anthropic SDK + API key
+            try:
+                from agents.sentiment import SentimentAgent
+                from data_providers.news_provider import NewsProvider  # noqa: F811
+
+                news_provider: NewsProvider | None = None
+                try:
+                    from data_providers.web_news_provider import WebNewsProvider
+                    news_provider = WebNewsProvider()
+                except Exception:
+                    pass
+                agents.append(SentimentAgent(primary_provider, news_provider=news_provider))
+            except Exception as exc:
+                pipeline_warnings.append(f"SentimentAgent skipped: {exc}")
+
         # 3. Construct AgentInput
         agent_input = AgentInput(
             ticker=ticker,
@@ -193,6 +208,21 @@ class AnalysisPipeline:
                 agents.append(MacroAgent(fred_provider, vix_provider))
             except Exception as exc:
                 pipeline_warnings.append(f"MacroAgent skipped: {exc}")
+
+            # SentimentAgent — optional
+            try:
+                from agents.sentiment import SentimentAgent
+                from data_providers.news_provider import NewsProvider  # noqa: F811
+
+                news_provider: NewsProvider | None = None
+                try:
+                    from data_providers.web_news_provider import WebNewsProvider
+                    news_provider = WebNewsProvider()
+                except Exception:
+                    pass
+                agents.append(SentimentAgent(primary_provider, news_provider=news_provider))
+            except Exception as exc:
+                pipeline_warnings.append(f"SentimentAgent skipped: {exc}")
 
         agent_input = AgentInput(
             ticker=ticker, asset_type=asset_type, portfolio=portfolio,
