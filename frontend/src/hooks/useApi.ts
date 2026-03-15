@@ -14,6 +14,8 @@ interface ApiState<T> {
   refetch: () => void;
   /** True when showing cached data while fetching fresh data in background */
   stale: boolean;
+  /** Timestamp (ms) of the last successful data fetch */
+  lastUpdated: number | null;
 }
 
 interface UseApiOptions {
@@ -66,6 +68,9 @@ export function useApi<T>(
     cached?.warnings ?? [],
   );
   const [stale, setStale] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<number | null>(
+    cached?.data != null ? Date.now() : null,
+  );
   const [tick, setTick] = useState(0);
   const mountedRef = useRef(true);
 
@@ -116,6 +121,7 @@ export function useApi<T>(
         setData(res.data);
         setWarnings(res.warnings);
         setStale(false);
+        setLastUpdated(Date.now());
         // Update cache
         if (cacheKey) {
           setCache(cacheKey, res.data, res.warnings);
@@ -139,5 +145,5 @@ export function useApi<T>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tick, ...deps]);
 
-  return { data, loading, error, warnings, refetch, stale };
+  return { data, loading, error, warnings, refetch, stale, lastUpdated };
 }

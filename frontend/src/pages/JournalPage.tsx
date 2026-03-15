@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useApi } from "../hooks/useApi";
 import { getPositionHistory, getPerformanceSummary } from "../api/endpoints";
 import type { Position, PerformanceSummary } from "../api/types";
@@ -10,6 +10,7 @@ import EmptyState from "../components/shared/EmptyState";
 import WarningsBanner from "../components/shared/WarningsBanner";
 import { formatCurrency, formatDate } from "../lib/formatters";
 import { usePageTitle } from "../hooks/usePageTitle";
+import DataTable, { type Column } from "../components/shared/DataTable";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -31,6 +32,87 @@ function returnPct(pos: Position): number {
 }
 
 // ---------------------------------------------------------------------------
+// Column definitions (defined outside component to avoid recreation on render)
+// ---------------------------------------------------------------------------
+const journalColumns: Column<Position>[] = [
+  {
+    key: "ticker",
+    header: "Ticker",
+    render: (r) => <span className="font-mono text-white font-medium">{r.ticker}</span>,
+    sortValue: (r) => r.ticker,
+    searchValue: (r) => r.ticker,
+  },
+  {
+    key: "entry",
+    header: "Entry",
+    render: (r) => <span className="text-gray-400">{formatDate(r.entry_date)}</span>,
+    sortValue: (r) => r.entry_date,
+    hiddenOnMobile: true,
+  },
+  {
+    key: "exit",
+    header: "Exit",
+    render: (r) => <span className="text-gray-400">{r.exit_date ? formatDate(r.exit_date) : "--"}</span>,
+    sortValue: (r) => r.exit_date ?? "",
+  },
+  {
+    key: "entry_price",
+    header: "Entry $",
+    render: (r) => <span className="text-gray-300 font-mono">{formatCurrency(r.avg_cost)}</span>,
+    sortValue: (r) => r.avg_cost,
+    hiddenOnMobile: true,
+  },
+  {
+    key: "exit_price",
+    header: "Exit $",
+    render: (r) => <span className="text-gray-300 font-mono">{r.exit_price != null ? formatCurrency(r.exit_price) : "--"}</span>,
+    sortValue: (r) => r.exit_price ?? 0,
+    hiddenOnMobile: true,
+  },
+  {
+    key: "return",
+    header: "Return",
+    render: (r) => {
+      const ret = returnPct(r);
+      return <span className={`font-mono font-medium ${pnlColor(ret)}`}>{ret >= 0 ? "+" : ""}{ret.toFixed(1)}%</span>;
+    },
+    sortValue: (r) => returnPct(r),
+  },
+  {
+    key: "pnl",
+    header: "P&L",
+    render: (r) => {
+      const pnl = r.realized_pnl ?? 0;
+      return <span className={`font-mono ${pnlColor(pnl)}`}>{pnl >= 0 ? "+" : ""}{formatCurrency(pnl)}</span>;
+    },
+    sortValue: (r) => r.realized_pnl ?? 0,
+  },
+  {
+    key: "reason",
+    header: "Reason",
+    render: (r) => <span className="text-gray-400 text-xs">{r.exit_reason ? r.exit_reason.replace(/_/g, " ") : "--"}</span>,
+    searchValue: (r) => r.exit_reason ?? "",
+    hiddenOnMobile: true,
+  },
+  {
+    key: "days",
+    header: "Days",
+    render: (r) => <span className="text-gray-400 font-mono">{r.holding_days}</span>,
+    sortValue: (r) => r.holding_days,
+    hiddenOnMobile: true,
+  },
+  {
+    key: "thesis",
+    header: "Thesis",
+    render: (r) => (
+      <span className="text-gray-500 text-xs max-w-[200px] truncate block">{r.thesis_text || "--"}</span>
+    ),
+    searchValue: (r) => r.thesis_text ?? "",
+    hiddenOnMobile: true,
+  },
+];
+
+// ---------------------------------------------------------------------------
 // Expandable row detail
 // ---------------------------------------------------------------------------
 function TradeDetail({ pos }: { pos: Position }) {
@@ -39,82 +121,78 @@ function TradeDetail({ pos }: { pos: Position }) {
     pos.expected_return_pct != null ? pos.expected_return_pct * 100 : null;
 
   return (
-    <tr>
-      <td colSpan={10} className="px-4 py-3 bg-gray-800/20 border-b border-gray-800/30">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-          {/* Thesis */}
-          <div>
-            <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">
-              Thesis
-            </div>
-            <p className="text-gray-300 leading-relaxed">
-              {pos.thesis_text || "No thesis recorded."}
-            </p>
-          </div>
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+      {/* Thesis */}
+      <div>
+        <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">
+          Thesis
+        </div>
+        <p className="text-gray-300 leading-relaxed">
+          {pos.thesis_text || "No thesis recorded."}
+        </p>
+      </div>
 
-          {/* Expected vs Actual Return */}
-          <div>
-            <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">
-              Return: Expected vs Actual
-            </div>
-            <div className="space-y-1">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Expected</span>
-                <span className="text-gray-300 font-mono">
-                  {expectedPct != null ? `${expectedPct.toFixed(1)}%` : "--"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Actual</span>
-                <span className={`font-mono font-medium ${pnlColor(actual)}`}>
-                  {actual >= 0 ? "+" : ""}
-                  {actual.toFixed(1)}%
-                </span>
-              </div>
-            </div>
+      {/* Expected vs Actual Return */}
+      <div>
+        <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">
+          Return: Expected vs Actual
+        </div>
+        <div className="space-y-1">
+          <div className="flex justify-between">
+            <span className="text-gray-500">Expected</span>
+            <span className="text-gray-300 font-mono">
+              {expectedPct != null ? `${expectedPct.toFixed(1)}%` : "--"}
+            </span>
           </div>
-
-          {/* Hold Days & Targets */}
-          <div>
-            <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">
-              Hold Days: Expected vs Actual
-            </div>
-            <div className="space-y-1">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Expected</span>
-                <span className="text-gray-300 font-mono">
-                  {pos.expected_hold_days != null
-                    ? `${pos.expected_hold_days}d`
-                    : "--"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Actual</span>
-                <span className="text-gray-300 font-mono">
-                  {pos.holding_days}d
-                </span>
-              </div>
-              {pos.target_price != null && (
-                <div className="flex justify-between mt-1">
-                  <span className="text-gray-500">Target</span>
-                  <span className="text-gray-300 font-mono">
-                    {formatCurrency(pos.target_price)}
-                  </span>
-                </div>
-              )}
-              {pos.stop_loss != null && (
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Stop Loss</span>
-                  <span className="text-gray-300 font-mono">
-                    {formatCurrency(pos.stop_loss)}
-                  </span>
-                </div>
-              )}
-            </div>
+          <div className="flex justify-between">
+            <span className="text-gray-500">Actual</span>
+            <span className={`font-mono font-medium ${pnlColor(actual)}`}>
+              {actual >= 0 ? "+" : ""}
+              {actual.toFixed(1)}%
+            </span>
           </div>
         </div>
-      </td>
-    </tr>
+      </div>
+
+      {/* Hold Days & Targets */}
+      <div>
+        <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">
+          Hold Days: Expected vs Actual
+        </div>
+        <div className="space-y-1">
+          <div className="flex justify-between">
+            <span className="text-gray-500">Expected</span>
+            <span className="text-gray-300 font-mono">
+              {pos.expected_hold_days != null
+                ? `${pos.expected_hold_days}d`
+                : "--"}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-500">Actual</span>
+            <span className="text-gray-300 font-mono">
+              {pos.holding_days}d
+            </span>
+          </div>
+          {pos.target_price != null && (
+            <div className="flex justify-between mt-1">
+              <span className="text-gray-500">Target</span>
+              <span className="text-gray-300 font-mono">
+                {formatCurrency(pos.target_price)}
+              </span>
+            </div>
+          )}
+          {pos.stop_loss != null && (
+            <div className="flex justify-between">
+              <span className="text-gray-500">Stop Loss</span>
+              <span className="text-gray-300 font-mono">
+                {formatCurrency(pos.stop_loss)}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -151,7 +229,7 @@ export default function JournalPage() {
   const warnings = [...historyApi.warnings, ...summaryApi.warnings];
   const perf = summaryApi.data;
 
-  if (error) return <ErrorAlert message={error} />;
+  if (error) return <ErrorAlert message={error} onRetry={() => { historyApi.refetch(); summaryApi.refetch(); }} />;
 
   const pnlTrend =
     perf && perf.total_realized_pnl >= 0 ? "up" : "down";
@@ -261,88 +339,27 @@ export default function JournalPage() {
                 <EmptyState message="No closed trades yet." />
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-gray-500 text-xs uppercase tracking-wider border-b border-gray-800/50">
-                      <th className="text-left py-2.5 px-4">Ticker</th>
-                      <th className="text-left py-2.5 px-4">Entry</th>
-                      <th className="text-left py-2.5 px-4">Exit</th>
-                      <th className="text-right py-2.5 px-4">Entry $</th>
-                      <th className="text-right py-2.5 px-4">Exit $</th>
-                      <th className="text-right py-2.5 px-4">Return</th>
-                      <th className="text-right py-2.5 px-4">P&L</th>
-                      <th className="text-left py-2.5 px-4">Reason</th>
-                      <th className="text-right py-2.5 px-4">Days</th>
-                      <th className="text-left py-2.5 px-4">Thesis</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {closedPositions.map((pos) => {
-                      const ret = returnPct(pos);
-                      const pnl = pos.realized_pnl ?? 0;
-                      const isExpanded = expandedTicker === pos.ticker;
-
-                      return (
-                        <Fragment key={`${pos.ticker}-${pos.exit_date}`}>
-                          <tr
-                            className="border-b border-gray-800/30 hover:bg-gray-800/20 transition-colors cursor-pointer"
-                            onClick={() =>
-                              setExpandedTicker(
-                                isExpanded ? null : pos.ticker,
-                              )
-                            }
-                          >
-                            <td className="py-2.5 px-4 font-mono text-white font-medium">
-                              {pos.ticker}
-                            </td>
-                            <td className="py-2.5 px-4 text-gray-400 whitespace-nowrap">
-                              {formatDate(pos.entry_date)}
-                            </td>
-                            <td className="py-2.5 px-4 text-gray-400 whitespace-nowrap">
-                              {pos.exit_date
-                                ? formatDate(pos.exit_date)
-                                : "--"}
-                            </td>
-                            <td className="py-2.5 px-4 text-right text-gray-300 font-mono">
-                              {formatCurrency(pos.avg_cost)}
-                            </td>
-                            <td className="py-2.5 px-4 text-right text-gray-300 font-mono">
-                              {pos.exit_price != null
-                                ? formatCurrency(pos.exit_price)
-                                : "--"}
-                            </td>
-                            <td
-                              className={`py-2.5 px-4 text-right font-mono font-medium ${pnlColor(ret)}`}
-                            >
-                              {ret >= 0 ? "+" : ""}
-                              {ret.toFixed(1)}%
-                            </td>
-                            <td
-                              className={`py-2.5 px-4 text-right font-mono ${pnlColor(pnl)}`}
-                            >
-                              {pnl >= 0 ? "+" : ""}
-                              {formatCurrency(pnl)}
-                            </td>
-                            <td className="py-2.5 px-4 text-gray-400 text-xs">
-                              {pos.exit_reason
-                                ? pos.exit_reason.replace(/_/g, " ")
-                                : "--"}
-                            </td>
-                            <td className="py-2.5 px-4 text-right text-gray-400 font-mono">
-                              {pos.holding_days}
-                            </td>
-                            <td className="py-2.5 px-4 text-gray-500 text-xs max-w-[200px] truncate">
-                              {pos.thesis_text || "--"}
-                            </td>
-                          </tr>
-                          {isExpanded && <TradeDetail pos={pos} />}
-                        </Fragment>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <>
+                <DataTable
+                  columns={journalColumns}
+                  data={closedPositions}
+                  keyFn={(r) => `${r.ticker}-${r.exit_date}`}
+                  searchable
+                  searchPlaceholder="Search by ticker, reason, thesis..."
+                  paginated
+                  defaultPageSize={20}
+                  onRowClick={(row) =>
+                    setExpandedTicker(
+                      expandedTicker === row.ticker ? null : row.ticker,
+                    )
+                  }
+                />
+                {expandedTicker && closedPositions.find(p => p.ticker === expandedTicker) && (
+                  <div className="px-4 py-3 bg-gray-800/20 border-t border-gray-800/30">
+                    <TradeDetail pos={closedPositions.find(p => p.ticker === expandedTicker)!} />
+                  </div>
+                )}
+              </>
             )}
           </CardBody>
         </Card>

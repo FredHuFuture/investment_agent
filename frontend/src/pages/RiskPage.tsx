@@ -272,6 +272,12 @@ export default function RiskPage() {
   const loading = riskApi.loading || corrApi.loading || valueApi.loading;
   const error = riskApi.error || corrApi.error || valueApi.error;
 
+  function refetchAll() {
+    riskApi.refetch();
+    corrApi.refetch();
+    valueApi.refetch();
+  }
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -291,7 +297,7 @@ export default function RiskPage() {
     );
   }
 
-  if (error) return <ErrorAlert message={error} />;
+  if (error) return <ErrorAlert message={error} onRetry={refetchAll} />;
 
   const risk = riskApi.data;
 

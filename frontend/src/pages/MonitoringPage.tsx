@@ -16,7 +16,7 @@ export default function MonitoringPage() {
   );
 
   if (loading) return <SkeletonTable rows={5} columns={4} />;
-  if (error) return <ErrorAlert message={error} />;
+  if (error) return <ErrorAlert message={error} onRetry={refetch} />;
 
   return (
     <div className="space-y-6">

@@ -52,6 +52,13 @@ export default function PerformancePage() {
     { cacheKey: "perf:topPerformers", ttlMs: 120_000 },
   );
 
+  function refetchAll() {
+    valueHistory.refetch();
+    perfSummary.refetch();
+    monthlyReturns.refetch();
+    topPerformers.refetch();
+  }
+
   const loading =
     valueHistory.loading ||
     perfSummary.loading ||
@@ -86,7 +93,7 @@ export default function PerformancePage() {
       </div>
     );
 
-  if (error) return <ErrorAlert message={error} />;
+  if (error) return <ErrorAlert message={error} onRetry={refetchAll} />;
 
   const perf = perfSummary.data;
   const history = valueHistory.data ?? [];

@@ -18,6 +18,7 @@ import CalibrationChart from "../components/signals/CalibrationChart";
 import AgentPerformance from "../components/signals/AgentPerformance";
 import { Card, CardBody } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
+import { TextInput, SelectInput } from "../components/ui/Input";
 import { SkeletonTable } from "../components/ui/Skeleton";
 import ErrorAlert from "../components/shared/ErrorAlert";
 import EmptyState from "../components/shared/EmptyState";
@@ -30,8 +31,17 @@ export default function SignalsPage() {
   usePageTitle("Signals");
   const [tab, setTab] = useState<Tab>("History");
 
+  const [filterTicker, setFilterTicker] = useState("");
+  const [filterSignal, setFilterSignal] = useState("");
+
   const history = useApi<SignalHistoryEntry[]>(
-    () => getSignalHistory({ limit: 50 }),
+    () => getSignalHistory({
+      ticker: filterTicker || undefined,
+      signal: filterSignal || undefined,
+      limit: 200,
+    }),
+    [filterTicker, filterSignal],
+    { cacheKey: `signals:history:${filterTicker}:${filterSignal}`, ttlMs: 30_000 },
   );
   const accuracy = useApi<AccuracyStatsType>(() => getAccuracyStats());
   const calibration = useApi<CalibrationBucket[]>(() => getCalibration());
@@ -43,27 +53,27 @@ export default function SignalsPage() {
     switch (tab) {
       case "History":
         if (history.loading) return <SkeletonTable rows={8} columns={6} />;
-        if (history.error) return <ErrorAlert message={history.error} />;
+        if (history.error) return <ErrorAlert message={history.error} onRetry={history.refetch} />;
         if (!history.data?.length)
           return <EmptyState message="No signal history." />;
         return <SignalHistory entries={history.data} />;
 
       case "Accuracy":
         if (accuracy.loading) return <SkeletonTable rows={4} columns={4} />;
-        if (accuracy.error) return <ErrorAlert message={accuracy.error} />;
+        if (accuracy.error) return <ErrorAlert message={accuracy.error} onRetry={accuracy.refetch} />;
         if (!accuracy.data) return null;
         return <AccuracyStatsComponent data={accuracy.data} />;
 
       case "Calibration":
         if (calibration.loading) return <SkeletonTable rows={5} columns={3} />;
-        if (calibration.error) return <ErrorAlert message={calibration.error} />;
+        if (calibration.error) return <ErrorAlert message={calibration.error} onRetry={calibration.refetch} />;
         if (!calibration.data?.length)
           return <EmptyState message="Not enough data for calibration." />;
         return <CalibrationChart data={calibration.data} />;
 
       case "Agent Perf":
         if (agentPerf.loading) return <SkeletonTable rows={4} columns={5} />;
-        if (agentPerf.error) return <ErrorAlert message={agentPerf.error} />;
+        if (agentPerf.error) return <ErrorAlert message={agentPerf.error} onRetry={agentPerf.refetch} />;
         if (!agentPerf.data || Object.keys(agentPerf.data).length === 0)
           return <EmptyState message="No agent performance data." />;
         return (
@@ -80,6 +90,38 @@ export default function SignalsPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-white">Signals</h1>
+
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-end gap-3">
+        <TextInput
+          label="Ticker"
+          value={filterTicker}
+          onChange={(e) => setFilterTicker(e.target.value.toUpperCase())}
+          placeholder="All tickers"
+          className="w-28"
+        />
+        <SelectInput
+          label="Signal"
+          value={filterSignal}
+          onChange={(e) => setFilterSignal(e.target.value)}
+          options={[
+            { value: "", label: "All Signals" },
+            { value: "BUY", label: "BUY" },
+            { value: "HOLD", label: "HOLD" },
+            { value: "SELL", label: "SELL" },
+          ]}
+        />
+        {(filterTicker || filterSignal) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => { setFilterTicker(""); setFilterSignal(""); }}
+          >
+            Clear
+          </Button>
+        )}
+      </div>
+
       <div className="flex gap-1 border-b border-gray-800/50">
         {tabs.map((t) => (
           <Button

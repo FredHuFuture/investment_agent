@@ -49,7 +49,7 @@ export default function DashboardPage() {
   usePageTitle("Dashboard");
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { data, loading, error, warnings } = useApi<Portfolio>(
+  const { data, loading, error, warnings, refetch } = useApi<Portfolio>(
     () => getPortfolio(),
     { cacheKey: "dashboard:portfolio", ttlMs: 30_000 },
   );
@@ -126,7 +126,7 @@ export default function DashboardPage() {
         <SkeletonTable rows={5} columns={4} />
       </div>
     );
-  if (error) return <ErrorAlert message={error} />;
+  if (error) return <ErrorAlert message={error} onRetry={refetch} />;
   if (!data) return null;
 
   const pnlTrend = totalPnl.pnl >= 0 ? ("up" as const) : ("down" as const);

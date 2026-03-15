@@ -127,12 +127,20 @@ const severityDotMap: Record<string, string> = {
   green: "bg-emerald-400",
 };
 
+function formatRelativeTime(timestamp: number | null): string {
+  if (!timestamp) return "";
+  const diff = Math.floor((Date.now() - timestamp) / 1000);
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  return `${Math.floor(diff / 3600)}h ago`;
+}
+
 export default function PortfolioPage() {
   usePageTitle("Portfolio");
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const addFormRef = useRef<HTMLDivElement>(null);
-  const { data, loading, error, warnings, refetch } = useApi<Portfolio>(
+  const { data, loading, error, warnings, refetch, lastUpdated } = useApi<Portfolio>(
     () => getPortfolio(),
     { cacheKey: "portfolio:main", ttlMs: 30_000 },
   );
@@ -194,6 +202,19 @@ export default function PortfolioPage() {
         pos.stop_loss != null,
     );
   }, [data]);
+
+  // Ticker to re-render the relative time display every 30s
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Auto-refresh portfolio data every 60 seconds
+  useEffect(() => {
+    const id = setInterval(() => refetch(), 60_000);
+    return () => clearInterval(id);
+  }, [refetch]);
 
   async function handleAdd(pos: {
     ticker: string;
@@ -269,7 +290,9 @@ export default function PortfolioPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-white">Portfolio</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-white">Portfolio</h1>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <SkeletonCard />
           <SkeletonCard />
@@ -280,7 +303,7 @@ export default function PortfolioPage() {
       </div>
     );
   }
-  if (error) return <ErrorAlert message={error} />;
+  if (error) return <ErrorAlert message={error} onRetry={refetch} />;
   if (!data) return null;
 
   const pnlTrend = totalPnl.pnl >= 0 ? ("up" as const) : ("down" as const);
@@ -288,7 +311,24 @@ export default function PortfolioPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-white">Portfolio</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-white">Portfolio</h1>
+        <div className="flex items-center gap-3">
+          {lastUpdated && (
+            <span className="text-xs text-gray-500">
+              Updated {formatRelativeTime(lastUpdated)}
+            </span>
+          )}
+          <Button variant="ghost" size="sm" onClick={() => refetch()}>
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M23 4v6h-6" />
+              <path d="M1 20v-6h6" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+            Refresh
+          </Button>
+        </div>
+      </div>
       <WarningsBanner warnings={[...warnings, ...alertsApi.warnings]} />
 
       {/* -- Stat cards row -- */}

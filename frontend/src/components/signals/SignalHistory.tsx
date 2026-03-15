@@ -29,6 +29,7 @@ export default function SignalHistory({
       header: "Ticker",
       render: (r) => <span className="font-mono font-semibold">{r.ticker}</span>,
       sortValue: (r) => r.ticker,
+      searchValue: (r) => r.ticker,
     },
     {
       key: "signal",
@@ -59,6 +60,7 @@ export default function SignalHistory({
           {formatRegime(r.regime)}
         </span>
       ),
+      searchValue: (r) => r.regime ?? "",
     },
     {
       key: "time",
@@ -71,6 +73,14 @@ export default function SignalHistory({
   ];
 
   return (
-    <DataTable columns={columns} data={entries} keyFn={(r) => r.id} />
+    <DataTable
+      columns={columns}
+      data={entries}
+      keyFn={(r) => r.id}
+      searchable
+      searchPlaceholder="Search by ticker, regime..."
+      paginated
+      defaultPageSize={25}
+    />
   );
 }
