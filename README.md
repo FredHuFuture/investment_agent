@@ -6,7 +6,7 @@
 
 Tracks your thesis, monitors positions, tells you when reality diverges from your plan.
 
-[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue)](https://python.org) [![License MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE) [![Tests 416 passing](https://img.shields.io/badge/Tests-416_passing-brightgreen)](#) [![FastAPI](https://img.shields.io/badge/API-FastAPI-009688)](http://localhost:8000/docs)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue)](https://python.org) [![License MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE) [![Tests 416 passing](https://img.shields.io/badge/Tests-416_passing-brightgreen)](#) [![Pages 13](https://img.shields.io/badge/Pages-13-blue)](#) [![FastAPI](https://img.shields.io/badge/API-FastAPI-009688)](http://localhost:8000/docs)
 
 [Live Site](https://investment-agent.dev) · [Architecture](docs/architecture_v5.md) · [API Docs (local)](http://localhost:8000/docs)
 
@@ -105,7 +105,7 @@ Background daemon watches positions 24/7. Alerts on price targets, drawdowns, si
 </tr>
 </table>
 
-**Also includes:** Thesis drift tracking · AI weekly summaries (Claude) · Interactive Plotly charts · Signal accuracy calibration · Adaptive weight optimization · Sector rotation & correlation analysis · Regime detection (bull/bear/sideways/high-vol/risk-off) · Watchlist with batch analysis · Performance analytics · Multi-portfolio support · Email & Telegram notifications · CSV/JSON export
+**Also includes:** Trade journal with thesis-vs-reality review · Thesis drift tracking · AI weekly summaries (Claude) · Interactive Plotly charts · Signal accuracy calibration · Adaptive weight optimization · Sector rotation & correlation analysis · Regime detection (bull/bear/sideways/high-vol/risk-off) · Watchlist with batch analysis · Performance analytics · Multi-portfolio support · Email & Telegram notifications · CSV/JSON export · Design system (Button, Input, Card, Skeleton, Toast) · Command palette (Ctrl+K)
 
 ## CLI Usage
 
@@ -227,7 +227,7 @@ investment_agent/
   notifications/    # Email (SMTP) + Telegram dispatchers
   export/           # CSV/JSON portfolio report export
   api/              # FastAPI REST backend (50 endpoints)
-  frontend/         # React 18 + TypeScript + Tailwind dashboard (12 pages)
+  frontend/         # React 18 + TypeScript + Tailwind dashboard (13 pages, 25+ UI components)
   daemon/           # APScheduler background monitoring + catalyst scanner
   data_providers/   # YFinance, FRED, CCXT, Google News
   charts/           # Plotly interactive chart generators

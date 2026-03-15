@@ -1,7 +1,7 @@
 # Investment Analysis Agent -- Product & Technical Roadmap
 
 **Last updated:** 2026-03-14
-**Current state:** Sprint 15 complete (416 tests, 120+ source files, 50 API endpoints, 12 pages, 6 agents, 20+ UI components)
+**Current state:** Sprint 16 complete (416 tests, 120+ source files, 50 API endpoints, 13 pages, 6 agents, 25+ UI components)
 
 ---
 
@@ -30,6 +30,7 @@ The Investment Analysis Agent is a self-hosted, multi-agent portfolio analysis a
 | **Sprint 13** | **Watchlist + Analytics + Multi-Portfolio** | **Watchlist CRUD, performance analytics, portfolio profiles, tech debt fixes** | **+49** |
 | **Sprint 14** | **Advanced Intelligence** | **Regime detection (5 types), L2 weight switching, batch watchlist, dashboard charts** | **+52** |
 | **Sprint 15** | **UI/UX Overhaul** | **Design system (8 components), responsive sidebar, enhanced DataTable, command palette, breadcrumbs** | **+0 (frontend)** |
+| **Sprint 16** | **Design System Adoption + Trade Journal** | **Full design system adoption (19 files), toast notifications, Trade Journal page, skeleton loading** | **+0 (frontend)** |
 
 **Total: 416 tests, 0 failures**
 
@@ -189,7 +190,34 @@ The Investment Analysis Agent is a self-hosted, multi-agent portfolio analysis a
 
 ---
 
-### Sprint 16+: Advanced (Deferred)
+### Sprint 16: Design System Adoption + Trade Journal -- COMPLETE
+
+| Task | Description | Status |
+|------|-------------|--------|
+| 16.1 Toast System + Mutation Feedback | Fix ToastContainer rendering, wire useToast into all 12 mutation actions across the app | DONE |
+| 16.2 Form Component Adoption | Replace 33+ inline inputs/selects with TextInput/SelectInput, 49+ buttons with Button | DONE |
+| 16.3 Card + Skeleton Adoption | Replace 40+ inline card divs with Card component, LoadingSpinner with Skeleton loading | DONE |
+| 16.4 Trade Journal Page | New `/journal` page reviewing closed positions with thesis-vs-reality, expandable rows | DONE |
+
+**Delivered:**
+- Full design system adoption across 19 files (0% → 100% component usage)
+- ToastContainer mounted in App.tsx (was created in Sprint 15 but never rendered)
+- Toast notifications on all 12 mutation handlers (replacing alert()/confirm())
+- All pages use Skeleton loading instead of LoadingSpinner
+- All forms use TextInput/SelectInput instead of inline styled inputs
+- All action buttons use Button component with consistent sizing/variants
+- Card component updated to match app visual language (backdrop-blur-sm)
+- New Trade Journal page (/journal) with:
+  - Summary stats (Total Trades, Win Rate, Avg Hold Days, Realized P&L)
+  - Best/Worst Trade highlight cards
+  - Closed positions table (10 columns, sorted by exit date)
+  - Expandable rows: thesis-vs-reality (expected vs actual return, hold days, targets)
+- Journal added to sidebar navigation (book icon) and command palette
+- 22 files changed: 1,530 lines added, 1,117 removed
+
+---
+
+### Sprint 17+: Advanced (Deferred)
 
 | Feature | Priority | Rationale |
 |---------|----------|-----------|
@@ -216,15 +244,16 @@ The Investment Analysis Agent is a self-hosted, multi-agent portfolio analysis a
 
 ## Key Metrics to Track
 
-| Metric | Current (Sprint 15) | Sprint 16 Target | Sprint 17 Target |
+| Metric | Current (Sprint 16) | Sprint 17 Target | Sprint 18 Target |
 |--------|---------------------|------------------|------------------|
 | Test count | 416 | 440+ | 470+ |
 | API endpoints | 50 | 54+ | 58+ |
-| Frontend pages | 12 | 13+ | 14+ |
-| UI components | 20+ | 25+ | 30+ |
+| Frontend pages | 13 | 14+ | 15+ |
+| UI components | 25+ | 28+ | 32+ |
+| Design system adoption | 100% (19 files) | Maintained | Maintained |
 | Agents | 6 | 7+ | 8+ |
 | Signal accuracy (resolved) | TBD | Baseline established | > 55% win rate |
-| Daily active use | Full UI polish | On-chain + validation | Fully autonomous |
+| Daily active use | Full UI consistency | On-chain + validation | Fully autonomous |
 
 ---
 

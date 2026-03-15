@@ -58,7 +58,7 @@ Core moat: Expected vs Actual ROI dual-track + thesis accountability feedback lo
 ```
 +-----------------------------------------------------------------------+
 |                      React Frontend (Vite + TypeScript)                |
-|  12 pages  |  60+ components  |  20+ UI primitives                   |
+|  13 pages  |  60+ components  |  25+ UI primitives (design system)   |
 |  Tailwind + Recharts  |  SWR cache  |  Command palette (Ctrl+K)      |
 +---------------------------+-------------------------------------------+
                             | /api proxy (localhost:3000 -> :8000)
@@ -233,7 +233,7 @@ investment_agent/
 
   frontend/                    # React frontend (Vite + TypeScript)
     src/
-      pages/                   #   12 pages: Dashboard, Analyze, Portfolio,
+      pages/                   #   13 pages: Dashboard, Analyze, Portfolio, Journal,
                                #   PositionDetail, Performance, Watchlist,
                                #   Backtest, Signals, Monitoring, Weights,
                                #   Daemon, Settings
@@ -1097,7 +1097,8 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 | Sprint 12 | **Notifications + Integrations** -- Email/Telegram alerts, CSV/JSON export, Settings page | P3 (expansion) | **COMPLETE** |
 | Sprint 13 | **Watchlist + Analytics + Tech Debt + Multi-Portfolio** | P2 (workflow) | **COMPLETE** |
 | Sprint 14 | **Advanced Intelligence** -- Regime detection, L2 weight switching, batch analysis, dashboard | P2 (intelligence) | **COMPLETE** |
-| Sprint 15+ | OnChainAgent, ValidationAgent, desktop app (Tauri) | P3+ (deferred) | PLANNED |
+| Sprint 16 | Design system adoption (100%), toast notifications, Trade Journal page | P0 (UX consistency) | COMPLETE |
+| Sprint 17+ | OnChainAgent, ValidationAgent, desktop app (Tauri) | P3+ (deferred) | PLANNED |
 
 -----
 
