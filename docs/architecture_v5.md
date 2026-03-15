@@ -228,8 +228,8 @@ investment_agent/
     store.py                   #   SignalStore (persist + query signals)
     tracker.py                 #   SignalTracker (accuracy, calibration, agent perf)
 
-  tests/                       # 416+ tests, 1 skipped (network)
-    test_001 - test_040        #   40 test files covering all packages
+  tests/                       # 465+ tests, 1 skipped (network)
+    test_001 - test_044        #   44 test files covering all packages + API routes
 
   frontend/                    # React frontend (Vite + TypeScript)
     src/
@@ -254,7 +254,7 @@ investment_agent/
       lib/                     #   cache.ts (TTL), colors.ts, formatters.ts
       contexts/                #   ToastContext (global notifications)
       test/                    #   setup.ts (jest-dom matchers)
-    vitest (192 tests)         #   formatters, cache, colors, client, useApi, 6 UI + 7 shared + 3 page tests
+    vitest (272 tests)         #   formatters, cache, colors, client, useApi, 8 UI + 12 shared + 14 page tests
     vite.config.ts             #   Port 3000, /api proxy -> localhost:8000
 
   docs/
@@ -1096,7 +1096,8 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 | Sprint 21 | 113 new FE tests (useApi, client, colors, 6 UI + 7 shared components), utility consolidation (pnlColor/holdColor/formatRelativeTime), mobile padding | +113 FE |
 | Sprint 22 | Alert acknowledge/delete actions, dashboard position links, dead code cleanup, ARIA accessibility, 16 BE API tests (export/watchlist/thesis/summary) | +19 (16 BE + 3 FE) |
 | Sprint 23 | Keyboard a11y (focus-visible, Escape, skip-to-content), design consistency (Button/Skeleton/onRetry), lazy-load PriceHistoryChart (86% chunk reduction), 12 page integration tests | +14 FE |
-| **Total** | **53+ tasks** | **110+ source files, 9 CLIs, 53 API endpoints, 14 UI pages, 10 tables** | **639 passed (447 BE + 192 FE), 1 skipped** |
+| Sprint 24 | 14/14 pages tested, all 53 API endpoints tested, all shared/UI components tested. Profile/signal/daemon API tests (18 BE), 8 page tests + 5 component tests (80 FE) | +98 (18 BE + 80 FE) |
+| **Total** | **53+ tasks** | **110+ source files, 9 CLIs, 53 API endpoints, 14 UI pages, 10 tables** | **737 passed (465 BE + 272 FE), 1 skipped** |
 
 ### Planned
 
@@ -1116,7 +1117,8 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 | Sprint 21 | Frontend test suite expansion (175 tests), utility consolidation, mobile polish | P0 (quality) | COMPLETE |
 | Sprint 22 | Alert actions, dashboard links, dead code cleanup, ARIA accessibility, API test coverage | P0 (polish) | COMPLETE |
 | Sprint 23 | Keyboard a11y, design system consistency, lazy-load performance, page integration tests | P0 (a11y + perf) | COMPLETE |
-| Sprint 24+ | OnChainAgent, ValidationAgent, desktop app (Tauri) | P3+ (deferred) | PLANNED |
+| Sprint 24 | Comprehensive test coverage: 14/14 pages, all API routes, all shared components | P0 (quality) | COMPLETE |
+| Sprint 25+ | OnChainAgent, ValidationAgent, desktop app (Tauri) | P3+ (deferred) | PLANNED |
 
 -----
 

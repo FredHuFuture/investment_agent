@@ -344,7 +344,7 @@ export default function Sidebar({
       {/* Footer */}
       {showLabels && (
         <div className="px-5 py-3 text-[10px] text-gray-700 text-center">
-          v5 · Sprint 23
+          v5 · Sprint 24
         </div>
       )}
     </aside>

@@ -6,7 +6,7 @@
 
 Tracks your thesis, monitors positions, tells you when reality diverges from your plan.
 
-[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue)](https://python.org) [![License MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE) [![Tests 639 passing](https://img.shields.io/badge/Tests-639_passing-brightgreen)](#) [![Pages 14](https://img.shields.io/badge/Pages-14-blue)](#) [![FastAPI](https://img.shields.io/badge/API-FastAPI-009688)](http://localhost:8000/docs)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue)](https://python.org) [![License MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE) [![Tests 737 passing](https://img.shields.io/badge/Tests-737_passing-brightgreen)](#) [![Pages 14](https://img.shields.io/badge/Pages-14-blue)](#) [![FastAPI](https://img.shields.io/badge/API-FastAPI-009688)](http://localhost:8000/docs)
 
 [Live Site](https://investment-agent.dev) · [Architecture](docs/architecture_v5.md) · [API Docs (local)](http://localhost:8000/docs)
 
@@ -233,7 +233,7 @@ investment_agent/
   charts/           # Plotly interactive chart generators
   cli/              # CLI entry points
   db/               # SQLite with WAL mode (10 tables)
-  tests/            # 639+ tests (447 backend + 192 frontend)
+  tests/            # 737+ tests (465 backend + 272 frontend)
 ```
 
 ## Tech Stack
