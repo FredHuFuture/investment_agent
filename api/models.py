@@ -80,6 +80,19 @@ class ClosePositionRequest(BaseModel):
     exit_date: str | None = None  # YYYY-MM-DD, defaults to today
 
 
+class BulkPositionItem(BaseModel):
+    ticker: str
+    quantity: float = Field(gt=0)
+    avg_cost: float = Field(gt=0)
+    entry_date: str  # YYYY-MM-DD
+    asset_type: Literal["stock", "btc", "eth"] = "stock"
+    sector: str | None = None
+
+
+class BulkImportRequest(BaseModel):
+    positions: list[BulkPositionItem] = Field(min_length=1)
+
+
 class SetCashRequest(BaseModel):
     amount: float = Field(ge=0)
 

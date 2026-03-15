@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Literal
 
+import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
@@ -99,6 +100,62 @@ async def update_watchlist_ticker(
         raise HTTPException(status_code=404, detail=f"Ticker {ticker.upper()} not on watchlist")
     item = await mgr.get_ticker(ticker.upper())
     return {"data": item, "warnings": []}
+
+
+@router.get("/price-targets")
+async def get_price_targets(db_path: str = Depends(get_db_path)):
+    """Return watchlist items that are within 10% of their target buy price."""
+    async with aiosqlite.connect(db_path) as conn:
+        conn.row_factory = aiosqlite.Row
+        # Get watchlist items with a target_buy_price set
+        rows = await conn.execute_fetchall(
+            "SELECT ticker, target_buy_price, last_signal, last_confidence "
+            "FROM watchlist WHERE target_buy_price IS NOT NULL"
+        )
+
+        results = []
+        for row in rows:
+            ticker = row["ticker"]
+            target = row["target_buy_price"]
+
+            # Try price_history_cache (latest close)
+            price_row = await conn.execute_fetchall(
+                "SELECT close FROM price_history_cache "
+                "WHERE ticker = ? ORDER BY date DESC LIMIT 1",
+                (ticker,),
+            )
+            current_price = price_row[0]["close"] if price_row else None
+
+            # Fallback: active_positions avg_cost as proxy (last known cost)
+            if current_price is None:
+                pos_row = await conn.execute_fetchall(
+                    "SELECT avg_cost FROM active_positions "
+                    "WHERE ticker = ? AND status = 'open' LIMIT 1",
+                    (ticker,),
+                )
+                current_price = pos_row[0]["avg_cost"] if pos_row else None
+
+            if current_price is None:
+                continue
+
+            distance_pct = (current_price - target) / target * 100
+            if distance_pct > 10:
+                continue
+
+            results.append(
+                {
+                    "ticker": ticker,
+                    "target_buy_price": target,
+                    "current_price": round(current_price, 2),
+                    "distance_pct": round(distance_pct, 2),
+                    "last_signal": row["last_signal"],
+                    "last_confidence": row["last_confidence"],
+                }
+            )
+
+        results.sort(key=lambda x: x["distance_pct"])
+
+    return {"data": results, "warnings": []}
 
 
 @router.post("/scan")

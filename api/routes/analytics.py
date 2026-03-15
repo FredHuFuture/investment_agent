@@ -229,6 +229,90 @@ async def monthly_heatmap(db_path: str = Depends(get_db_path)):
     return {"data": data, "warnings": []}
 
 
+@router.get("/attribution")
+async def performance_attribution(db_path: str = Depends(get_db_path)):
+    """Per-position P&L attribution with contribution percentages."""
+    import asyncio
+    from api.deps import map_ticker
+    from data_providers.factory import get_provider
+
+    async with aiosqlite.connect(db_path) as conn:
+        conn.row_factory = aiosqlite.Row
+        rows = await (
+            await conn.execute(
+                "SELECT ticker, asset_type, sector, quantity, avg_cost, "
+                "status, realized_pnl "
+                "FROM active_positions"
+            )
+        ).fetchall()
+
+    if not rows:
+        return {"data": [], "warnings": []}
+
+    # Separate open and closed positions
+    open_positions = [r for r in rows if r["status"] != "closed"]
+    closed_positions = [r for r in rows if r["status"] == "closed"]
+
+    # Fetch live prices for open positions
+    price_map: dict[str, float] = {}
+    warnings: list[str] = []
+
+    async def _fetch(ticker: str, asset_type: str) -> tuple[str, float]:
+        try:
+            provider = get_provider(asset_type)
+            yf_ticker = map_ticker(ticker, asset_type)
+            price = await provider.get_current_price(yf_ticker)
+            return ticker, price
+        except Exception:
+            return ticker, 0.0
+
+    if open_positions:
+        results = await asyncio.gather(
+            *[_fetch(r["ticker"], r["asset_type"]) for r in open_positions]
+        )
+        price_map = dict(results)
+
+    entries: list[dict] = []
+    for row in rows:
+        ticker = row["ticker"]
+        avg_cost = row["avg_cost"]
+        quantity = row["quantity"]
+        sector = row["sector"]
+        status = row["status"]
+
+        if status == "closed":
+            pnl = row["realized_pnl"] or 0.0
+            cost_basis = avg_cost * quantity
+            pnl_pct = (pnl / cost_basis * 100) if cost_basis else 0.0
+        else:
+            current_price = price_map.get(ticker, 0.0)
+            if current_price <= 0:
+                warnings.append(f"Could not fetch price for {ticker}")
+                continue
+            pnl = (current_price - avg_cost) * quantity
+            pnl_pct = ((current_price - avg_cost) / avg_cost * 100) if avg_cost else 0.0
+
+        entries.append({
+            "ticker": ticker,
+            "sector": sector,
+            "pnl": round(pnl, 2),
+            "pnl_pct": round(pnl_pct, 2),
+            "contribution_pct": 0.0,  # computed below
+            "status": status,
+        })
+
+    # Compute contribution percentages
+    total_abs_pnl = sum(abs(e["pnl"]) for e in entries)
+    if total_abs_pnl > 0:
+        for e in entries:
+            e["contribution_pct"] = round(e["pnl"] / total_abs_pnl * 100, 2)
+
+    # Sort by absolute contribution descending
+    entries.sort(key=lambda e: abs(e["contribution_pct"]), reverse=True)
+
+    return {"data": entries, "warnings": warnings}
+
+
 @router.get("/activity-feed")
 async def activity_feed(
     limit: int = Query(20, ge=1, le=100),

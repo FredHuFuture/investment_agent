@@ -28,6 +28,7 @@ import { usePageTitle } from "../hooks/usePageTitle";
 import DrawdownChart from "../components/performance/DrawdownChart";
 import RollingSharpeChart from "../components/performance/RollingSharpeChart";
 import MonthlyHeatmapCalendar from "../components/performance/MonthlyHeatmapCalendar";
+import PerformanceAttribution from "../components/performance/PerformanceAttribution";
 import {
   AreaChart,
   Area,
@@ -384,6 +385,9 @@ export default function PerformancePage() {
 
       {/* Monthly Heatmap */}
       <MonthlyHeatmapCalendar />
+
+      {/* P&L Attribution */}
+      <PerformanceAttribution />
 
       {/* Monthly returns + Top performers */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

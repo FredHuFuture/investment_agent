@@ -52,6 +52,9 @@ import type {
   NotificationConfig,
   PositionEvent,
   ActivityFeedEntry,
+  BulkImportResult,
+  WatchlistTarget,
+  PerformanceAttribution,
 } from "./types";
 
 // Portfolio
@@ -417,3 +420,17 @@ export const getPositionTimeline = (ticker: string) =>
 // Activity feed (Sprint 34)
 export const getActivityFeed = (limit = 20) =>
   apiGet<ActivityFeedEntry[]>(`/analytics/activity-feed?limit=${limit}`);
+
+// Bulk position import (Sprint 35)
+export const bulkImportPositions = (positions: Array<{
+  ticker: string; quantity: number; avg_cost: number; entry_date: string;
+  asset_type?: string; sector?: string;
+}>) => apiPost<BulkImportResult>("/portfolio/bulk-import", { positions });
+
+// Watchlist price targets (Sprint 35)
+export const getWatchlistTargets = () =>
+  apiGet<WatchlistTarget[]>("/watchlist/price-targets");
+
+// Performance attribution (Sprint 35)
+export const getPerformanceAttribution = () =>
+  apiGet<PerformanceAttribution[]>("/analytics/attribution");

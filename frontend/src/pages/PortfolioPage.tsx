@@ -10,6 +10,7 @@ import type { AddPositionInitialValues } from "../components/portfolio/AddPositi
 import AllocationChart from "../components/portfolio/AllocationChart";
 import SectorDrillDown from "../components/portfolio/SectorDrillDown";
 import ClosePositionModal from "../components/portfolio/ClosePositionModal";
+import ImportPositionsModal from "../components/portfolio/ImportPositionsModal";
 import ConfirmModal from "../components/ui/ConfirmModal";
 import ClosedPositionsTable from "../components/portfolio/ClosedPositionsTable";
 import DashboardAlertsList from "../components/monitoring/DashboardAlertsList";
@@ -152,6 +153,7 @@ export default function PortfolioPage() {
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
   const [posTab, setPosTab] = useState<"open" | "closed">("open");
   const [drillDownSector, setDrillDownSector] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   // Read query params for pre-fill from Analyze -> Add flow
   const addInitialValues = useMemo<AddPositionInitialValues | undefined>(() => {
@@ -365,8 +367,11 @@ export default function PortfolioPage() {
         />
       </div>
 
-      {/* -- Export actions -- */}
+      {/* -- Export / Import actions -- */}
       <div className="flex gap-2">
+        <Button variant="secondary" size="sm" onClick={() => setImportOpen(true)}>
+          Import CSV
+        </Button>
         <a href="/api/export/portfolio/csv" download className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-xs font-medium text-gray-300 transition-colors">
           Export CSV
         </a>
@@ -554,6 +559,18 @@ export default function PortfolioPage() {
           )}
         </Card>
       </div>
+
+      {/* Import Positions Modal */}
+      <ImportPositionsModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onSuccess={() => {
+          invalidateCache("portfolio");
+          invalidateCache("dashboard");
+          invalidateCache("perf");
+          refetch();
+        }}
+      />
     </div>
   );
 }

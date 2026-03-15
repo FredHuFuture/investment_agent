@@ -23,6 +23,7 @@ vi.mock("../../api/endpoints", () => ({
   updateProfile: vi.fn(),
   deleteProfile: vi.fn(),
   setDefaultProfile: vi.fn(),
+  bulkImportPositions: vi.fn(),
 }));
 
 import {
@@ -194,5 +195,17 @@ describe("PortfolioPage", () => {
     });
     expect(screen.getAllByText("Cash").length).toBeGreaterThan(0);
     expect(screen.getByText("$50,000")).toBeInTheDocument();
+  });
+
+  it("renders Import CSV button", async () => {
+    mockGetPortfolio.mockResolvedValue({
+      data: mockPortfolio as never,
+      warnings: [],
+    });
+    mockSecondaryApis();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Import CSV")).toBeInTheDocument();
+    });
   });
 });

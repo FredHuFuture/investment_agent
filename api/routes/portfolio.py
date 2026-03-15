@@ -8,7 +8,7 @@ import aiosqlite
 from fastapi import APIRouter, Depends
 
 from api.deps import get_db_path, map_ticker, resolve_asset_type
-from api.models import AddPositionRequest, ClosePositionRequest, ScaleRequest, SetCashRequest, SplitRequest, ThesisResponse, UpdateThesisRequest
+from api.models import AddPositionRequest, BulkImportRequest, ClosePositionRequest, ScaleRequest, SetCashRequest, SplitRequest, ThesisResponse, UpdateThesisRequest
 from data_providers.factory import get_provider
 from portfolio.manager import PortfolioManager
 
@@ -79,6 +79,55 @@ async def add_position(body: AddPositionRequest, db_path: str = Depends(get_db_p
         stop_loss=body.stop_loss,
     )
     return {"data": {"id": pos_id}, "warnings": []}
+
+
+@router.post("/bulk-import")
+async def bulk_import_positions(body: BulkImportRequest, db_path: str = Depends(get_db_path)):
+    """Bulk-import positions from a list. Skips tickers that already exist."""
+    import re
+    date_re = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+    mgr = PortfolioManager(db_path)
+    imported = 0
+    skipped = 0
+    errors: list[dict] = []
+
+    for item in body.positions:
+        ticker = item.ticker.strip().upper()
+
+        # Validate date format
+        if not date_re.match(item.entry_date):
+            errors.append({"ticker": ticker, "reason": f"Invalid date format: {item.entry_date}"})
+            continue
+
+        # Validate non-negative values
+        if item.quantity <= 0:
+            errors.append({"ticker": ticker, "reason": "Quantity must be positive"})
+            continue
+        if item.avg_cost <= 0:
+            errors.append({"ticker": ticker, "reason": "Average cost must be positive"})
+            continue
+
+        asset_type = resolve_asset_type(ticker, item.asset_type)
+        mapped_ticker = map_ticker(ticker, asset_type)
+
+        try:
+            await mgr.add_position(
+                ticker=mapped_ticker,
+                asset_type=asset_type,
+                quantity=item.quantity,
+                avg_cost=item.avg_cost,
+                entry_date=item.entry_date,
+                sector=item.sector,
+            )
+            imported += 1
+        except ValueError:
+            # Already exists
+            skipped += 1
+        except Exception as exc:
+            errors.append({"ticker": mapped_ticker, "reason": str(exc)})
+
+    return {"data": {"imported": imported, "skipped": skipped, "errors": errors}, "warnings": []}
 
 
 @router.delete("/positions/{ticker}")

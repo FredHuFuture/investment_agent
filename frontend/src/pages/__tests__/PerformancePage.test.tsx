@@ -38,6 +38,7 @@ vi.mock("../../api/endpoints", () => ({
   getDrawdownSeries: vi.fn(),
   getRollingSharpe: vi.fn(),
   getMonthlyHeatmap: vi.fn(),
+  getPerformanceAttribution: vi.fn(),
 }));
 
 import {
@@ -50,6 +51,7 @@ import {
   getDrawdownSeries,
   getRollingSharpe,
   getMonthlyHeatmap,
+  getPerformanceAttribution,
 } from "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import PerformancePage from "../PerformancePage";
@@ -63,6 +65,7 @@ const mockGetCumulativePnl = vi.mocked(getCumulativePnl);
 const mockGetDrawdownSeries = vi.mocked(getDrawdownSeries);
 const mockGetRollingSharpe = vi.mocked(getRollingSharpe);
 const mockGetMonthlyHeatmap = vi.mocked(getMonthlyHeatmap);
+const mockGetPerformanceAttribution = vi.mocked(getPerformanceAttribution);
 
 const mockPerformanceSummary = {
   total_realized_pnl: 5000,
@@ -107,6 +110,14 @@ function mockAllApis() {
   mockGetDrawdownSeries.mockResolvedValue({ data: [] as never, warnings: [] });
   mockGetRollingSharpe.mockResolvedValue({ data: [] as never, warnings: [] });
   mockGetMonthlyHeatmap.mockResolvedValue({ data: [] as never, warnings: [] });
+  mockGetPerformanceAttribution.mockResolvedValue({
+    data: [
+      { ticker: "AAPL", sector: "Technology", pnl: 1200, pnl_pct: 15.5, contribution_pct: 48.0, status: "active" },
+      { ticker: "MSFT", sector: "Technology", pnl: 800, pnl_pct: 10.2, contribution_pct: 32.0, status: "active" },
+      { ticker: "TSLA", sector: "Automotive", pnl: -500, pnl_pct: -8.3, contribution_pct: -20.0, status: "closed" },
+    ] as never,
+    warnings: [],
+  });
 }
 
 function renderPage() {
@@ -135,6 +146,7 @@ describe("PerformancePage", () => {
     mockGetDrawdownSeries.mockReturnValue(new Promise(() => {}));
     mockGetRollingSharpe.mockReturnValue(new Promise(() => {}));
     mockGetMonthlyHeatmap.mockReturnValue(new Promise(() => {}));
+    mockGetPerformanceAttribution.mockReturnValue(new Promise(() => {}));
     renderPage();
     const skeletons = document.querySelectorAll(".animate-pulse");
     expect(skeletons.length).toBeGreaterThan(0);
@@ -150,6 +162,7 @@ describe("PerformancePage", () => {
     mockGetDrawdownSeries.mockRejectedValue(new Error("Server unavailable"));
     mockGetRollingSharpe.mockRejectedValue(new Error("Server unavailable"));
     mockGetMonthlyHeatmap.mockRejectedValue(new Error("Server unavailable"));
+    mockGetPerformanceAttribution.mockRejectedValue(new Error("Server unavailable"));
     renderPage();
     await waitFor(() => {
       expect(screen.getByText("Server unavailable")).toBeInTheDocument();
@@ -223,6 +236,14 @@ describe("PerformancePage", () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByText("Monthly Returns Heatmap")).toBeInTheDocument();
+    });
+  });
+
+  it("renders P&L Attribution section", async () => {
+    mockAllApis();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("P&L Attribution")).toBeInTheDocument();
     });
   });
 

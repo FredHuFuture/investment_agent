@@ -25,6 +25,8 @@ vi.mock("recharts", () => ({
     React.createElement("div", { "data-testid": "bar-chart" }, children),
   CartesianGrid: () => null,
   Cell: () => null,
+  LineChart: ({ children }: { children: React.ReactNode }) =>
+    React.createElement("div", { "data-testid": "line-chart" }, children),
 }));
 
 // Mock ALL endpoint functions imported by BacktestPage and its children
@@ -37,6 +39,8 @@ import "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import BacktestPage from "../BacktestPage";
 import BacktestResults from "../../components/backtest/BacktestResults";
+import BacktestComparison from "../../components/backtest/BacktestComparison";
+import type { SavedBacktestRun } from "../../lib/backtestStorage";
 
 function renderPage() {
   return render(
@@ -193,5 +197,119 @@ describe("BacktestResults - Advanced Metrics", () => {
     fireEvent.click(toggleBtn);
     expect(screen.queryByTestId("advanced-metrics-panel")).not.toBeInTheDocument();
     expect(screen.getByText("Show Advanced Metrics")).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// BacktestComparison
+// ---------------------------------------------------------------------------
+
+/** Helper to create mock saved backtest runs. */
+function makeSavedRun(overrides: Partial<SavedBacktestRun> & { id: string }): SavedBacktestRun {
+  return {
+    ticker: "AAPL",
+    label: "Run " + overrides.id,
+    params: { start_date: "2023-01-01", end_date: "2024-01-01" },
+    metrics: {
+      total_return_pct: 15.0,
+      annualized_return_pct: 10.0,
+      max_drawdown_pct: -5.0,
+      sharpe_ratio: 1.2,
+      win_rate: 55.0,
+      total_trades: 30,
+      sortino_ratio: 1.8,
+      profit_factor: 1.5,
+    },
+    equity_curve: [
+      { date: "2023-01-01", equity: 100000 },
+      { date: "2023-06-01", equity: 110000 },
+      { date: "2024-01-01", equity: 115000 },
+    ],
+    saved_at: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+describe("BacktestComparison", () => {
+  const mockOnClose = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renders "Compare Backtests" heading with 2 saved runs', () => {
+    const runs = [
+      makeSavedRun({ id: "run1", label: "AAPL Bull", ticker: "AAPL", metrics: { ...fullMockResult.metrics, total_return_pct: 25.3 } }),
+      makeSavedRun({ id: "run2", label: "MSFT Bear", ticker: "MSFT", metrics: { ...fullMockResult.metrics, total_return_pct: 10.0 } }),
+    ];
+
+    render(<BacktestComparison runs={runs} onClose={mockOnClose} />);
+
+    expect(screen.getByText("Compare Backtests")).toBeInTheDocument();
+    expect(screen.getByTestId("backtest-comparison")).toBeInTheDocument();
+  });
+
+  it("renders Run A and Run B dropdown selects", () => {
+    const runs = [
+      makeSavedRun({ id: "run1", label: "Run Alpha" }),
+      makeSavedRun({ id: "run2", label: "Run Beta" }),
+    ];
+
+    render(<BacktestComparison runs={runs} onClose={mockOnClose} />);
+
+    expect(screen.getByTestId("select-run-a")).toBeInTheDocument();
+    expect(screen.getByTestId("select-run-b")).toBeInTheDocument();
+  });
+
+  it("renders metrics comparison table with Diff column", () => {
+    const runs = [
+      makeSavedRun({ id: "run1" }),
+      makeSavedRun({ id: "run2" }),
+    ];
+
+    render(<BacktestComparison runs={runs} onClose={mockOnClose} />);
+
+    const table = screen.getByTestId("comparison-metrics-table");
+    expect(table).toBeInTheDocument();
+    expect(screen.getByText("Metric")).toBeInTheDocument();
+    expect(screen.getByText("Diff")).toBeInTheDocument();
+    expect(screen.getByText("Total Return")).toBeInTheDocument();
+    expect(screen.getByText("Sharpe Ratio")).toBeInTheDocument();
+    // "Run A" and "Run B" appear as both labels and table headers
+    expect(screen.getAllByText("Run A").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Run B").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("renders summary verdict", () => {
+    const runs = [
+      makeSavedRun({ id: "run1", metrics: { ...fullMockResult.metrics, total_return_pct: 10.0 } }),
+      makeSavedRun({ id: "run2", metrics: { ...fullMockResult.metrics, total_return_pct: 20.0 } }),
+    ];
+
+    render(<BacktestComparison runs={runs} onClose={mockOnClose} />);
+
+    expect(screen.getByTestId("comparison-verdict")).toBeInTheDocument();
+    expect(screen.getByTestId("comparison-verdict").textContent).toContain("Run B outperforms Run A");
+  });
+
+  it("shows empty state when fewer than 2 runs are provided", () => {
+    const runs = [makeSavedRun({ id: "run1" })];
+
+    render(<BacktestComparison runs={runs} onClose={mockOnClose} />);
+
+    expect(screen.getByText("Compare Backtests")).toBeInTheDocument();
+    expect(screen.getByText("Select at least 2 saved runs to compare.")).toBeInTheDocument();
+  });
+
+  it("calls onClose when Close button is clicked", () => {
+    const runs = [
+      makeSavedRun({ id: "run1" }),
+      makeSavedRun({ id: "run2" }),
+    ];
+
+    render(<BacktestComparison runs={runs} onClose={mockOnClose} />);
+
+    fireEvent.click(screen.getByText("Close"));
+    expect(mockOnClose).toHaveBeenCalledTimes(1);
   });
 });

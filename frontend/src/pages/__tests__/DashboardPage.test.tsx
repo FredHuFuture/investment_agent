@@ -37,6 +37,7 @@ vi.mock("../../api/endpoints", () => ({
   getDailyReturn: vi.fn(),
   getPortfolioRisk: vi.fn(),
   getActivityFeed: vi.fn(),
+  getWatchlistTargets: vi.fn(),
 }));
 
 import {
@@ -53,6 +54,7 @@ import {
   getDailyReturn,
   getPortfolioRisk,
   getActivityFeed,
+  getWatchlistTargets,
 } from "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import DashboardPage from "../DashboardPage";
@@ -70,6 +72,7 @@ const mockGetAccuracyStats = vi.mocked(getAccuracyStats);
 const mockGetDailyReturn = vi.mocked(getDailyReturn);
 const mockGetPortfolioRisk = vi.mocked(getPortfolioRisk);
 const mockGetActivityFeed = vi.mocked(getActivityFeed);
+const mockGetWatchlistTargets = vi.mocked(getWatchlistTargets);
 
 const mockPortfolio = {
   positions: [
@@ -164,6 +167,13 @@ function mockSecondaryApis() {
       { type: "alert", timestamp: "2025-03-15T09:30:00Z", title: "price_drop \u2014 AAPL", detail: "Price dropped 5%", severity: "high", icon: "bell" },
       { type: "signal", timestamp: "2025-03-15T09:00:00Z", title: "GOOG \u2192 BUY", detail: "Confidence: 78%", severity: "info", icon: "chart" },
     ] as never,
+    warnings: [],
+  });
+  mockGetWatchlistTargets.mockResolvedValue({
+    data: [
+      { ticker: "MSFT", target_buy_price: 400, current_price: 390, distance_pct: -2.5, last_signal: "BUY", last_confidence: 0.75 },
+      { ticker: "NVDA", target_buy_price: 800, current_price: 830, distance_pct: 3.75, last_signal: "HOLD", last_confidence: 0.6 },
+    ],
     warnings: [],
   });
 }
@@ -278,6 +288,20 @@ describe("DashboardPage", () => {
         screen.getByText("No regime history recorded yet."),
       ).toBeInTheDocument();
     });
+  });
+
+  it("renders Watchlist Near Target banner when targets exist", async () => {
+    mockGetPortfolio.mockResolvedValue({
+      data: mockPortfolio as never,
+      warnings: [],
+    });
+    mockSecondaryApis();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Watchlist Near Target")).toBeInTheDocument();
+    });
+    expect(screen.getByText("MSFT")).toBeInTheDocument();
+    expect(screen.getByText("NVDA")).toBeInTheDocument();
   });
 
   it("renders Recent Activity card with feed entries", async () => {

@@ -654,3 +654,30 @@ export interface ActivityFeedEntry {
   severity: string | null;
   icon: string;
 }
+
+// ---------------------------------------------------------------------------
+// Sprint 35 types
+// ---------------------------------------------------------------------------
+export interface BulkImportResult {
+  imported: number;
+  skipped: number;
+  errors: Array<{ ticker: string; reason: string }>;
+}
+
+export interface WatchlistTarget {
+  ticker: string;
+  target_buy_price: number;
+  current_price: number;
+  distance_pct: number;
+  last_signal: string | null;
+  last_confidence: number | null;
+}
+
+export interface PerformanceAttribution {
+  ticker: string;
+  sector: string | null;
+  pnl: number;
+  pnl_pct: number;
+  contribution_pct: number;
+  status: string;
+}
