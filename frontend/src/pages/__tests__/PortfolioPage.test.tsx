@@ -153,6 +153,18 @@ describe("PortfolioPage", () => {
     expect(screen.getAllByText("MSFT").length).toBeGreaterThan(0);
   });
 
+  it("renders search placeholder on positions table", async () => {
+    mockGetPortfolio.mockResolvedValue({
+      data: mockPortfolio as never,
+      warnings: [],
+    });
+    mockSecondaryApis();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/Search by ticker/i)).toBeInTheDocument();
+    });
+  });
+
   it("renders cash balance in metric card", async () => {
     mockGetPortfolio.mockResolvedValue({
       data: mockPortfolio as never,

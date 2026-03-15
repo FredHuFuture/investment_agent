@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { ToastProvider } from "../../contexts/ToastContext";
 
-// Mock endpoint functions used by SettingsPage (called on button click only)
+// Mock endpoint functions used by NotificationPreferences (called on button click only)
 vi.mock("../../api/endpoints", () => ({
   testEmailNotification: vi.fn(),
   testTelegramNotification: vi.fn(),
@@ -26,6 +26,7 @@ describe("SettingsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     invalidateCache();
+    localStorage.clear();
   });
 
   it("renders Settings heading", () => {
@@ -33,16 +34,25 @@ describe("SettingsPage", () => {
     expect(screen.getByText("Settings")).toBeInTheDocument();
   });
 
-  it("renders Email Notifications section", () => {
+  it("renders Appearance section with theme toggle buttons", () => {
     renderPage();
-    expect(screen.getByText("Email Notifications")).toBeInTheDocument();
-    expect(screen.getByText("Send Test Email")).toBeInTheDocument();
+    expect(screen.getByText("Appearance")).toBeInTheDocument();
+    expect(screen.getByText("Dark")).toBeInTheDocument();
+    expect(screen.getByText("Light")).toBeInTheDocument();
+    expect(screen.getByText("System")).toBeInTheDocument();
   });
 
-  it("renders Telegram Notifications section", () => {
+  it("renders Notifications section with test buttons", () => {
     renderPage();
-    expect(screen.getByText("Telegram Notifications")).toBeInTheDocument();
+    expect(screen.getByText("Notifications")).toBeInTheDocument();
+    expect(screen.getByText("Send Test Email")).toBeInTheDocument();
     expect(screen.getByText("Send Test Telegram")).toBeInTheDocument();
+  });
+
+  it("renders Data & Cache section", () => {
+    renderPage();
+    expect(screen.getByText("Data & Cache")).toBeInTheDocument();
+    expect(screen.getByText("Clear Cache")).toBeInTheDocument();
   });
 
   it("renders Export section with download links", () => {
@@ -54,9 +64,23 @@ describe("SettingsPage", () => {
     expect(screen.getByText("All Signals CSV")).toBeInTheDocument();
   });
 
-  it("renders configuration guidance sections", () => {
+  it("renders configuration guidance section", () => {
     renderPage();
-    const configSections = screen.getAllByText("Configuration");
-    expect(configSections.length).toBe(2);
+    expect(screen.getByText("Configuration")).toBeInTheDocument();
+  });
+
+  it("renders cache TTL options", () => {
+    renderPage();
+    expect(screen.getByText("15s")).toBeInTheDocument();
+    expect(screen.getByText("30s")).toBeInTheDocument();
+    expect(screen.getByText("60s")).toBeInTheDocument();
+    expect(screen.getByText("2min")).toBeInTheDocument();
+    expect(screen.getByText("5min")).toBeInTheDocument();
+  });
+
+  it("renders notification toggle labels", () => {
+    renderPage();
+    expect(screen.getByText("Email")).toBeInTheDocument();
+    expect(screen.getByText("Telegram")).toBeInTheDocument();
   });
 });

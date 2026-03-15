@@ -33,6 +33,8 @@ import ErrorAlert from "../components/shared/ErrorAlert";
 import EmptyState from "../components/shared/EmptyState";
 import WarningsBanner from "../components/shared/WarningsBanner";
 import WeeklySummaryCard from "../components/summary/WeeklySummaryCard";
+import TopMoversCard from "../components/dashboard/TopMoversCard";
+import SignalSummaryCard from "../components/dashboard/SignalSummaryCard";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { SkeletonCard, SkeletonTable } from "../components/ui/Skeleton";
@@ -229,6 +231,12 @@ export default function DashboardPage() {
           value={formatCurrency(data.cash)}
           sub={`${(data.cash_pct * 100).toFixed(1)}% of portfolio`}
         />
+      </div>
+
+      {/* ── Top Movers + Signal Summary ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <TopMoversCard positions={data.positions} />
+        <SignalSummaryCard />
       </div>
 
       {/* ── Portfolio value sparkline ── */}

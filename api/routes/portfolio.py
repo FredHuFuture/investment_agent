@@ -191,3 +191,17 @@ async def update_thesis(ticker: str, body: UpdateThesisRequest, db_path: str = D
             content={"error": {"code": "NOT_FOUND", "message": str(exc), "detail": None}},
         )
     return {"data": result, "warnings": []}
+
+
+@router.get("/sector/{sector}")
+async def get_positions_by_sector(sector: str, db_path: str = Depends(get_db_path)):
+    """Return open positions filtered by sector name."""
+    mgr = PortfolioManager(db_path)
+    portfolio = await mgr.load_portfolio()
+    filtered = []
+    for p in portfolio.positions:
+        pos_sector = p.get("sector", "") if isinstance(p, dict) else getattr(p, "sector", "")
+        if (pos_sector or "").lower() == sector.lower():
+            row = p if isinstance(p, dict) else p.to_dict()
+            filtered.append(row)
+    return {"data": filtered, "warnings": []}

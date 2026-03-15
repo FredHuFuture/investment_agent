@@ -27,6 +27,8 @@ vi.mock("../../api/endpoints", () => ({
   runMonitorCheck: vi.fn(),
   getLatestSummary: vi.fn(),
   generateSummary: vi.fn(),
+  getSignalHistory: vi.fn(),
+  getAccuracyStats: vi.fn(),
 }));
 
 import {
@@ -37,6 +39,8 @@ import {
   getWatchlist,
   getRegime,
   getLatestSummary,
+  getSignalHistory,
+  getAccuracyStats,
 } from "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import DashboardPage from "../DashboardPage";
@@ -48,6 +52,8 @@ const mockGetValueHistory = vi.mocked(getValueHistory);
 const mockGetWatchlist = vi.mocked(getWatchlist);
 const mockGetRegime = vi.mocked(getRegime);
 const mockGetLatestSummary = vi.mocked(getLatestSummary);
+const mockGetSignalHistory = vi.mocked(getSignalHistory);
+const mockGetAccuracyStats = vi.mocked(getAccuracyStats);
 
 const mockPortfolio = {
   positions: [
@@ -98,6 +104,29 @@ function mockSecondaryApis() {
   });
   // WeeklySummaryCard calls getLatestSummary directly (not via useApi)
   mockGetLatestSummary.mockRejectedValue({ status: 404, message: "Not found" });
+  // SignalSummaryCard
+  mockGetSignalHistory.mockResolvedValue({
+    data: [
+      { id: 1, ticker: "AAPL", final_signal: "BUY", final_confidence: 0.8, raw_score: 0.7, consensus_score: 0.75, regime: "normal", agent_signals: [], reasoning: "", created_at: "2024-01-01" },
+      { id: 2, ticker: "GOOG", final_signal: "HOLD", final_confidence: 0.5, raw_score: 0.4, consensus_score: 0.45, regime: "normal", agent_signals: [], reasoning: "", created_at: "2024-01-02" },
+      { id: 3, ticker: "TSLA", final_signal: "SELL", final_confidence: 0.6, raw_score: -0.5, consensus_score: -0.4, regime: "normal", agent_signals: [], reasoning: "", created_at: "2024-01-03" },
+    ],
+    warnings: [],
+  });
+  mockGetAccuracyStats.mockResolvedValue({
+    data: {
+      total_signals: 10,
+      resolved_count: 8,
+      win_count: 5,
+      loss_count: 3,
+      win_rate: 0.625,
+      avg_confidence: 0.7,
+      by_signal: {},
+      by_asset_type: {},
+      by_regime: {},
+    },
+    warnings: [],
+  });
 }
 
 function renderPage() {
@@ -159,5 +188,29 @@ describe("DashboardPage", () => {
     expect(screen.getByText("$51,700")).toBeInTheDocument();
     expect(screen.getByText("Cash")).toBeInTheDocument();
     expect(screen.getByText("$50,000")).toBeInTheDocument();
+  });
+
+  it("renders Top Movers card", async () => {
+    mockGetPortfolio.mockResolvedValue({
+      data: mockPortfolio as never,
+      warnings: [],
+    });
+    mockSecondaryApis();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Top Movers")).toBeInTheDocument();
+    });
+  });
+
+  it("renders Signal Summary card", async () => {
+    mockGetPortfolio.mockResolvedValue({
+      data: mockPortfolio as never,
+      warnings: [],
+    });
+    mockSecondaryApis();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Signal Summary")).toBeInTheDocument();
+    });
   });
 });

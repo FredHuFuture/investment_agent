@@ -8,6 +8,7 @@ import PositionsTable from "../components/portfolio/PositionsTable";
 import AddPositionForm from "../components/portfolio/AddPositionForm";
 import type { AddPositionInitialValues } from "../components/portfolio/AddPositionForm";
 import AllocationChart from "../components/portfolio/AllocationChart";
+import SectorDrillDown from "../components/portfolio/SectorDrillDown";
 import ClosePositionModal from "../components/portfolio/ClosePositionModal";
 import ConfirmModal from "../components/ui/ConfirmModal";
 import ClosedPositionsTable from "../components/portfolio/ClosedPositionsTable";
@@ -149,6 +150,7 @@ export default function PortfolioPage() {
   const [closingPosition, setClosingPosition] = useState<Position | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
   const [posTab, setPosTab] = useState<"open" | "closed">("open");
+  const [drillDownSector, setDrillDownSector] = useState<string | null>(null);
 
   // Read query params for pre-fill from Analyze -> Add flow
   const addInitialValues = useMemo<AddPositionInitialValues | undefined>(() => {
@@ -391,10 +393,28 @@ export default function PortfolioPage() {
           </div>
           {(() => {
             const alloc = buildAllocations(data, breakdownMode);
-            return Object.keys(alloc).length > 0 ? (
-              <AllocationChart allocations={alloc} />
-            ) : (
-              <EmptyState message="No allocation data." />
+            if (Object.keys(alloc).length === 0) {
+              return <EmptyState message="No allocation data." />;
+            }
+            return (
+              <>
+                <AllocationChart allocations={alloc} />
+                {breakdownMode === "sector" && (
+                  <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-3">
+                    {Object.keys(alloc)
+                      .filter((name) => name !== "Cash")
+                      .map((sectorName) => (
+                        <button
+                          key={sectorName}
+                          onClick={() => setDrillDownSector(sectorName)}
+                          className="text-xs text-blue-400 hover:text-blue-300 underline underline-offset-2 cursor-pointer transition-colors"
+                        >
+                          {sectorName} details
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </>
             );
           })()}
         </Card>
@@ -468,6 +488,13 @@ export default function PortfolioPage() {
           </Card>
         )}
       </div>
+
+      {/* Sector Drill-Down Modal */}
+      <SectorDrillDown
+        sector={drillDownSector}
+        positions={data.positions}
+        onClose={() => setDrillDownSector(null)}
+      />
 
       {/* Close Position Modal */}
       {closingPosition && (

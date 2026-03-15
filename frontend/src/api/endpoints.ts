@@ -291,3 +291,7 @@ export const analyzeAllWatchlist = () =>
     total: number;
     success_count: number;
   }>("/watchlist/analyze-all", {});
+
+// Portfolio sector filter
+export const getPositionsBySector = (sector: string) =>
+  apiGet<Position[]>(`/portfolio/sector/${encodeURIComponent(sector)}`);

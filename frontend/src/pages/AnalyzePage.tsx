@@ -5,6 +5,7 @@ import type { AnalysisResult as AnalysisResultType } from "../api/types";
 import AnalyzeForm from "../components/analysis/AnalyzeForm";
 import AnalysisResultComponent from "../components/analysis/AnalysisResult";
 import WeightAdjuster from "../components/analysis/WeightAdjuster";
+import ComparisonPanel from "../components/analysis/ComparisonPanel";
 import ErrorAlert from "../components/shared/ErrorAlert";
 import WarningsBanner from "../components/shared/WarningsBanner";
 import { usePageTitle } from "../hooks/usePageTitle";
@@ -13,6 +14,8 @@ import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { SkeletonCard } from "../components/ui/Skeleton";
 import { useToast } from "../contexts/ToastContext";
+
+type AnalyzeMode = "single" | "compare";
 
 const LS_TICKER_KEY = "lastAnalyzedTicker";
 const LS_ASSET_KEY = "lastAnalyzedAssetType";
@@ -31,6 +34,7 @@ export default function AnalyzePage() {
   usePageTitle("Analyze");
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [mode, setMode] = useState<AnalyzeMode>("single");
 
   // Restore last analysis from cache (instant show on return)
   const cachedAnalysis = getCached<AnalysisResultType>(ANALYSIS_CACHE_KEY, LONG_TTL_MS, true);
@@ -163,82 +167,113 @@ export default function AnalyzePage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-white">Analysis</h1>
 
-      <Card padding="md">
-        <AnalyzeForm
-          onAnalyze={handleAnalyze}
-          loading={loading}
-          initialTicker={initialTicker}
-          initialAssetType={initialAssetType}
-        />
-        {/* Quick-access ticker buttons */}
-        <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-gray-800">
-          <span className="text-xs text-gray-500 mr-1">Quick:</span>
-          {QUICK_TICKERS.map((qt) => (
-            <Button
-              key={qt.ticker}
-              variant="ghost"
-              size="sm"
-              disabled={loading}
-              onClick={() => handleAnalyze(qt.ticker, qt.assetType, false)}
-            >
-              {qt.ticker}
-            </Button>
-          ))}
-        </div>
-      </Card>
+      {/* Mode toggle */}
+      <div className="flex items-center gap-1 rounded-lg bg-gray-800/60 p-1 w-fit">
+        <Button
+          variant={mode === "single" ? "primary" : "ghost"}
+          size="sm"
+          onClick={() => setMode("single")}
+        >
+          Single
+        </Button>
+        <Button
+          variant={mode === "compare" ? "primary" : "ghost"}
+          size="sm"
+          onClick={() => setMode("compare")}
+        >
+          Compare
+        </Button>
+      </div>
 
-      {loading && <SkeletonCard />}
-      {error && <ErrorAlert message={error} />}
-      <WarningsBanner warnings={warnings} />
+      {/* Quick-access ticker buttons — visible in both modes */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-gray-500 mr-1">Quick:</span>
+        {QUICK_TICKERS.map((qt) => (
+          <Button
+            key={qt.ticker}
+            variant="ghost"
+            size="sm"
+            disabled={loading}
+            onClick={() => {
+              if (mode === "single") {
+                handleAnalyze(qt.ticker, qt.assetType, false);
+              }
+            }}
+          >
+            {qt.ticker}
+          </Button>
+        ))}
+      </div>
 
-      {result && (
+      {mode === "single" && (
         <>
           <Card padding="md">
-            <AnalysisResultComponent data={result} />
+            <AnalyzeForm
+              onAnalyze={handleAnalyze}
+              loading={loading}
+              initialTicker={initialTicker}
+              initialAssetType={initialAssetType}
+            />
           </Card>
 
-          {/* Add to Portfolio action */}
-          <Card padding="md">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-300">
-                  Like the analysis?
-                </h3>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Add {result.ticker} to your portfolio to start tracking it.
-                </p>
-              </div>
-              <Button
-                onClick={() => {
-                  const currentPrice =
-                    typeof result.ticker_info?.currentPrice === "number"
-                      ? result.ticker_info.currentPrice
-                      : typeof result.ticker_info?.current_price === "number"
-                        ? result.ticker_info.current_price
-                        : 0;
-                  const params = new URLSearchParams({
-                    add: "1",
-                    ticker: result.ticker,
-                    asset_type: result.asset_type,
-                    avg_cost: String(currentPrice),
-                  });
-                  navigate(`/portfolio?${params.toString()}`);
-                }}
-                className="shrink-0"
-              >
-                Add to Portfolio
-              </Button>
-            </div>
-          </Card>
+          {loading && <SkeletonCard />}
+          {error && <ErrorAlert message={error} />}
+          <WarningsBanner warnings={warnings} />
 
-          {/* Weight adjuster */}
-          <WeightAdjuster
-            assetType={lastAssetType}
-            onApply={handleCustomWeights}
-            loading={loading}
-          />
+          {result && (
+            <>
+              <Card padding="md">
+                <AnalysisResultComponent data={result} />
+              </Card>
+
+              {/* Add to Portfolio action */}
+              <Card padding="md">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-300">
+                      Like the analysis?
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Add {result.ticker} to your portfolio to start tracking
+                      it.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      const currentPrice =
+                        typeof result.ticker_info?.currentPrice === "number"
+                          ? result.ticker_info.currentPrice
+                          : typeof result.ticker_info?.current_price ===
+                              "number"
+                            ? result.ticker_info.current_price
+                            : 0;
+                      const params = new URLSearchParams({
+                        add: "1",
+                        ticker: result.ticker,
+                        asset_type: result.asset_type,
+                        avg_cost: String(currentPrice),
+                      });
+                      navigate(`/portfolio?${params.toString()}`);
+                    }}
+                    className="shrink-0"
+                  >
+                    Add to Portfolio
+                  </Button>
+                </div>
+              </Card>
+
+              {/* Weight adjuster */}
+              <WeightAdjuster
+                assetType={lastAssetType}
+                onApply={handleCustomWeights}
+                loading={loading}
+              />
+            </>
+          )}
         </>
       )}
+
+      {mode === "compare" && <ComparisonPanel />}
     </div>
   );
 }

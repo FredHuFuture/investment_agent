@@ -166,4 +166,17 @@ describe("AnalyzePage", () => {
       expect(mockAnalyzeTicker).toHaveBeenCalledWith("SPY", "stock", false);
     });
   });
+
+  it("renders Compare button in mode toggle", async () => {
+    mockAnalyzeTicker.mockResolvedValue({
+      data: mockResult as never,
+      warnings: [],
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Analysis")).toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: "Compare" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Single" })).toBeInTheDocument();
+  });
 });

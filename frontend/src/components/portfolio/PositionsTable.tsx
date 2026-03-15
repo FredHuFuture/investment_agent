@@ -23,11 +23,13 @@ export default function PositionsTable({ positions, onRemove, onClose }: Props) 
         </Link>
       ),
       sortValue: (r) => r.ticker,
+      searchValue: (r) => `${r.ticker} ${r.sector ?? ""}`,
     },
     {
       key: "type",
       header: "Type",
       render: (r) => <span className="text-gray-400">{r.asset_type}</span>,
+      searchValue: (r) => r.asset_type,
     },
     {
       key: "qty",
@@ -40,6 +42,7 @@ export default function PositionsTable({ positions, onRemove, onClose }: Props) 
       header: "Avg Cost",
       render: (r) => <span className="text-gray-300">{formatCurrency(r.avg_cost)}</span>,
       sortValue: (r) => r.avg_cost,
+      hiddenOnMobile: true,
     },
     {
       key: "price",
@@ -57,6 +60,7 @@ export default function PositionsTable({ positions, onRemove, onClose }: Props) 
       header: "Mkt Value",
       render: (r) => <span className="text-gray-200">{formatCurrency(r.market_value)}</span>,
       sortValue: (r) => r.market_value,
+      hiddenOnMobile: true,
     },
     {
       key: "pnl",
@@ -102,6 +106,7 @@ export default function PositionsTable({ positions, onRemove, onClose }: Props) 
       header: "Entry",
       render: (r) => <span className="text-gray-500">{formatDate(r.entry_date)}</span>,
       sortValue: (r) => r.entry_date,
+      hiddenOnMobile: true,
     },
     {
       key: "actions",
@@ -127,5 +132,15 @@ export default function PositionsTable({ positions, onRemove, onClose }: Props) 
     },
   ];
 
-  return <DataTable columns={columns} data={positions} keyFn={(r) => r.ticker} />;
+  return (
+    <DataTable
+      columns={columns}
+      data={positions}
+      keyFn={(r) => r.ticker}
+      searchable
+      searchPlaceholder="Search by ticker, sector..."
+      paginated
+      defaultPageSize={15}
+    />
+  );
 }
