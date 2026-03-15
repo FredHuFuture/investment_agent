@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatCurrency, formatPct, formatDate, formatNumber } from "../formatters";
+import { formatCurrency, formatPct, formatDate, formatNumber, formatRelativeTime, formatRelativeDate, pnlColor, holdColor } from "../formatters";
 
 describe("formatCurrency", () => {
   it("formats a positive integer", () => {
@@ -93,5 +93,65 @@ describe("formatNumber", () => {
 
   it("formats large numbers with commas", () => {
     expect(formatNumber(1_234_567.89)).toBe("1,234,567.89");
+  });
+});
+
+describe("formatRelativeTime", () => {
+  it("returns empty string for null", () => {
+    expect(formatRelativeTime(null)).toBe("");
+  });
+  it("returns 'just now' for recent timestamp", () => {
+    expect(formatRelativeTime(Date.now() - 5000)).toBe("just now");
+  });
+  it("returns minutes ago", () => {
+    expect(formatRelativeTime(Date.now() - 300000)).toBe("5m ago");
+  });
+  it("returns hours ago", () => {
+    expect(formatRelativeTime(Date.now() - 7200000)).toBe("2h ago");
+  });
+});
+
+describe("formatRelativeDate", () => {
+  it("returns empty string for empty input", () => {
+    expect(formatRelativeDate("")).toBe("");
+  });
+  it("returns minutes ago for recent date", () => {
+    const fiveMinAgo = new Date(Date.now() - 300000).toISOString();
+    expect(formatRelativeDate(fiveMinAgo)).toBe("5m ago");
+  });
+  it("returns hours ago", () => {
+    const twoHoursAgo = new Date(Date.now() - 7200000).toISOString();
+    expect(formatRelativeDate(twoHoursAgo)).toBe("2h ago");
+  });
+  it("returns days ago", () => {
+    const threeDaysAgo = new Date(Date.now() - 259200000).toISOString();
+    expect(formatRelativeDate(threeDaysAgo)).toBe("3d ago");
+  });
+});
+
+describe("pnlColor", () => {
+  it("returns emerald for positive", () => {
+    expect(pnlColor(5)).toBe("text-emerald-400");
+  });
+  it("returns red for negative", () => {
+    expect(pnlColor(-3)).toBe("text-red-400");
+  });
+  it("returns gray for zero", () => {
+    expect(pnlColor(0)).toBe("text-gray-400");
+  });
+});
+
+describe("holdColor", () => {
+  it("returns gray when expected is null", () => {
+    expect(holdColor(10, null)).toBe("text-gray-400");
+  });
+  it("returns red when overdue", () => {
+    expect(holdColor(100, 50)).toBe("text-red-400");
+  });
+  it("returns yellow when nearing deadline", () => {
+    expect(holdColor(85, 100)).toBe("text-yellow-400");
+  });
+  it("returns emerald when on track", () => {
+    expect(holdColor(30, 100)).toBe("text-emerald-400");
   });
 });

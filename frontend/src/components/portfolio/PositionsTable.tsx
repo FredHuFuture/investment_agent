@@ -1,26 +1,12 @@
 import { Link } from "react-router-dom";
 import DataTable, { type Column } from "../shared/DataTable";
-import { formatCurrency, formatNumber, formatDate } from "../../lib/formatters";
+import { formatCurrency, formatNumber, formatDate, pnlColor, holdColor } from "../../lib/formatters";
 import type { Position } from "../../api/types";
 
 interface Props {
   positions: Position[];
   onRemove: (ticker: string) => void;
   onClose?: (position: Position) => void;
-}
-
-function pnlColor(v: number): string {
-  if (v > 0) return "text-emerald-400";
-  if (v < 0) return "text-red-400";
-  return "text-gray-400";
-}
-
-function holdColor(held: number, expected: number | null): string {
-  if (expected == null) return "text-gray-400";
-  const ratio = held / expected;
-  if (ratio > 1.0) return "text-red-400";
-  if (ratio >= 0.8) return "text-yellow-400";
-  return "text-emerald-400";
 }
 
 export default function PositionsTable({ positions, onRemove, onClose }: Props) {

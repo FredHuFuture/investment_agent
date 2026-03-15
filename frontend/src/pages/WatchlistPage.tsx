@@ -16,6 +16,7 @@ import { Button } from "../components/ui/Button";
 import { SkeletonTable } from "../components/ui/Skeleton";
 import { useToast } from "../contexts/ToastContext";
 import ConfirmModal from "../components/ui/ConfirmModal";
+import { formatRelativeDate } from "../lib/formatters";
 
 export default function WatchlistPage() {
   usePageTitle("Watchlist");
@@ -160,16 +161,6 @@ export default function WatchlistPage() {
 
   function handleCancelEdit() {
     setEditingTicker(null);
-  }
-
-  function relativeTime(dateStr: string): string {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 60) return `${mins}m ago`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    return `${days}d ago`;
   }
 
   return (
@@ -337,7 +328,7 @@ export default function WatchlistPage() {
                     </td>
                     <td className="px-4 py-3 text-right text-gray-500 text-xs">
                       {item.last_analysis_at
-                        ? relativeTime(item.last_analysis_at)
+                        ? formatRelativeDate(item.last_analysis_at)
                         : "Never"}
                     </td>
                     <td className="px-4 py-3 text-right">

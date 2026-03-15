@@ -16,7 +16,7 @@ import WeeklySummaryCard from "../components/summary/WeeklySummaryCard";
 import ErrorAlert from "../components/shared/ErrorAlert";
 import EmptyState from "../components/shared/EmptyState";
 import WarningsBanner from "../components/shared/WarningsBanner";
-import { formatCurrency } from "../lib/formatters";
+import { formatCurrency, formatRelativeTime } from "../lib/formatters";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { invalidateCache } from "../lib/cache";
 import { Card } from "../components/ui/Card";
@@ -126,14 +126,6 @@ const severityDotMap: Record<string, string> = {
   amber: "bg-yellow-400",
   green: "bg-emerald-400",
 };
-
-function formatRelativeTime(timestamp: number | null): string {
-  if (!timestamp) return "";
-  const diff = Math.floor((Date.now() - timestamp) / 1000);
-  if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  return `${Math.floor(diff / 3600)}h ago`;
-}
 
 export default function PortfolioPage() {
   usePageTitle("Portfolio");

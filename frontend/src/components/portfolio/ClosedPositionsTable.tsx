@@ -1,16 +1,10 @@
 import { Link } from "react-router-dom";
 import DataTable, { type Column } from "../shared/DataTable";
-import { formatCurrency, formatDate } from "../../lib/formatters";
+import { formatCurrency, formatDate, pnlColor } from "../../lib/formatters";
 import type { Position } from "../../api/types";
 
 interface Props {
   positions: Position[];
-}
-
-function pnlColor(v: number): string {
-  if (v > 0) return "text-emerald-400";
-  if (v < 0) return "text-red-400";
-  return "text-gray-400";
 }
 
 export default function ClosedPositionsTable({ positions }: Props) {

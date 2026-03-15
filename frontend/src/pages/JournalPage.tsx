@@ -8,18 +8,9 @@ import MetricCard from "../components/shared/MetricCard";
 import ErrorAlert from "../components/shared/ErrorAlert";
 import EmptyState from "../components/shared/EmptyState";
 import WarningsBanner from "../components/shared/WarningsBanner";
-import { formatCurrency, formatDate } from "../lib/formatters";
+import { formatCurrency, formatDate, pnlColor } from "../lib/formatters";
 import { usePageTitle } from "../hooks/usePageTitle";
 import DataTable, { type Column } from "../components/shared/DataTable";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-function pnlColor(v: number): string {
-  if (v > 0) return "text-emerald-400";
-  if (v < 0) return "text-red-400";
-  return "text-gray-400";
-}
 
 function returnPct(pos: Position): number {
   if (

@@ -37,16 +37,8 @@ import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { SkeletonCard, SkeletonTable } from "../components/ui/Skeleton";
 import { useToast } from "../contexts/ToastContext";
-import { formatCurrency } from "../lib/formatters";
+import { formatCurrency, formatRelativeTime } from "../lib/formatters";
 import { usePageTitle } from "../hooks/usePageTitle";
-
-function formatRelativeTime(timestamp: number | null): string {
-  if (!timestamp) return "";
-  const diff = Math.floor((Date.now() - timestamp) / 1000);
-  if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  return `${Math.floor(diff / 3600)}h ago`;
-}
 
 const severityDotMap: Record<string, string> = {
   critical: "bg-red-400",

@@ -3,38 +3,7 @@ import { getCatalysts } from "../../api/endpoints";
 import type { CatalystData } from "../../api/types";
 import SignalBadge from "../shared/SignalBadge";
 import LoadingSpinner from "../shared/LoadingSpinner";
-
-// ---------------------------------------------------------------------------
-// Relative time formatter
-// ---------------------------------------------------------------------------
-function relativeTime(isoString: string): string {
-  if (!isoString) return "";
-  const now = Date.now();
-  let parsed: number;
-  try {
-    parsed = new Date(isoString).getTime();
-  } catch {
-    return isoString;
-  }
-  if (isNaN(parsed)) return isoString;
-
-  const diffMs = now - parsed;
-  if (diffMs < 0) return "just now";
-
-  const minutes = Math.floor(diffMs / 60_000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-
-  // Older than a week — show date
-  const d = new Date(parsed);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
+import { formatRelativeDate } from "../../lib/formatters";
 
 // ---------------------------------------------------------------------------
 // Sentiment score gauge
@@ -261,7 +230,7 @@ export default function CatalystPanel({
                                 {"·"}
                               </span>
                               <span className="text-[10px] text-gray-500">
-                                {relativeTime(h.published_at)}
+                                {formatRelativeDate(h.published_at)}
                               </span>
                             </>
                           )}

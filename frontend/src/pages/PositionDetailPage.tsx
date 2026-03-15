@@ -32,20 +32,11 @@ import ErrorAlert from "../components/shared/ErrorAlert";
 import EmptyState from "../components/shared/EmptyState";
 import MetricCard from "../components/shared/MetricCard";
 import CatalystPanel from "../components/analysis/CatalystPanel";
-import { formatCurrency, formatDate } from "../lib/formatters";
+import { formatCurrency, formatDate, pnlColor } from "../lib/formatters";
 import { usePageTitle } from "../hooks/usePageTitle";
 import Breadcrumb from "../components/shared/Breadcrumb";
 import ThesisEditForm from "../components/portfolio/ThesisEditForm";
 import { Button } from "../components/ui/Button";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-function pnlColor(v: number): string {
-  if (v > 0) return "text-emerald-400";
-  if (v < 0) return "text-red-400";
-  return "text-gray-400";
-}
 
 function statusBadge(status: string) {
   const isOpen = status === "open";
