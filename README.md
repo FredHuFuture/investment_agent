@@ -105,7 +105,7 @@ Background daemon watches positions 24/7. Alerts on price targets, drawdowns, si
 </tr>
 </table>
 
-**Also includes:** Trade journal with thesis-vs-reality review · Risk dashboard (Sharpe, Sortino, VaR, drawdown, correlation matrix) · SPY benchmark comparison with alpha · Thesis drift tracking · AI weekly summaries (Claude) · Interactive Plotly charts · Signal accuracy calibration · Adaptive weight optimization · Sector rotation & correlation analysis · Regime detection (bull/bear/sideways/high-vol/risk-off) · Watchlist with batch analysis · Performance analytics · Multi-portfolio support · Email & Telegram notifications · CSV/JSON export · Design system (Button, Input, Card, Skeleton, Toast, ConfirmModal) · ARIA accessibility (focus-visible, skip-to-content, keyboard navigation) · Command palette (Ctrl+K) · Route + component lazy loading (86% chunk reduction) · Auto-refresh (60s) · Inline thesis editing · Live regime badge · Watchlist inline editing · Frontend test suite (305 tests, vitest + testing-library)
+**Also includes:** Trade journal with thesis-vs-reality review · Risk dashboard (Sharpe, Sortino, VaR, drawdown, correlation matrix) · SPY benchmark comparison with alpha · Thesis drift tracking · AI weekly summaries (Claude) · Interactive Plotly charts · Signal accuracy calibration · Adaptive weight optimization · Sector rotation & correlation analysis · Regime detection (bull/bear/sideways/high-vol/risk-off) · Watchlist with batch analysis · Performance analytics (profit factor, expectancy, streaks, cumulative P&L chart) · Sector allocation bar + thesis drift panel · Position P&L performance bar + trade summary · Trade return distribution histogram + equity curve · Multi-portfolio support · Email & Telegram notifications · CSV/JSON export · Design system (Button, Input, Card, Skeleton, Toast, ConfirmModal) · ARIA accessibility (focus-visible, skip-to-content, keyboard navigation) · Command palette (Ctrl+K) · Route + component lazy loading (86% chunk reduction) · Auto-refresh (60s) · Inline thesis editing · Live regime badge · Watchlist inline editing · Frontend test suite (305 tests, vitest + testing-library)
 
 ## CLI Usage
 
@@ -226,7 +226,7 @@ investment_agent/
   watchlist/        # Ticker watchlist with batch analysis
   notifications/    # Email (SMTP) + Telegram dispatchers
   export/           # CSV/JSON portfolio report export
-  api/              # FastAPI REST backend (53 endpoints)
+  api/              # FastAPI REST backend (55 endpoints)
   frontend/         # React 18 + TypeScript + Tailwind dashboard (14 pages, 25+ UI components)
   daemon/           # APScheduler background monitoring + catalyst scanner
   data_providers/   # YFinance, FRED, CCXT, Google News

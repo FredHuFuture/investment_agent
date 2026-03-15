@@ -64,7 +64,7 @@ Core moat: Expected vs Actual ROI dual-track + thesis accountability feedback lo
                             | /api proxy (localhost:3000 -> :8000)
 +---------------------------v-------------------------------------------+
 |                      FastAPI REST API Layer                            |
-|  53 endpoints across 12 route modules  |  Pydantic v2 validation     |
+|  55 endpoints across 12 route modules  |  Pydantic v2 validation     |
 |  CORS  |  Error handlers  |  Lifespan DB init                        |
 +--------+----------+-----------+-----------+-----------+---------------+
          |          |           |           |           |
@@ -102,7 +102,7 @@ Tech stack:
 - **Store**: SQLite (WAL mode, aiosqlite, single-file, zero-ops)
 - **Charts**: plotly (dark theme, HTML export) + Recharts (frontend)
 - **Scheduler**: APScheduler 3.x (cron-based async daemon)
-- **API**: FastAPI + uvicorn + Pydantic v2 (53 endpoints)
+- **API**: FastAPI + uvicorn + Pydantic v2 (55 endpoints)
 - **Frontend**: React 18 + Vite + TypeScript + Tailwind CSS + Recharts
 - **Frontend perf**: In-memory SWR cache (stale-while-revalidate), TTL-based invalidation, route-based code splitting (React.lazy), component-level lazy loading (PriceHistoryChart, 86% chunk reduction), 60s auto-refresh with lastUpdated indicator, SPY benchmark comparison
 - **Notifications**: SMTP email + Telegram Bot API (aiohttp)
@@ -125,7 +125,7 @@ investment_agent/
     sentiment.py               #   SentimentAgent (Claude API, news analysis)
     summary_agent.py           #   SummaryAgent (Claude API, weekly portfolio review)
 
-  api/                         # FastAPI REST API (53 endpoints)
+  api/                         # FastAPI REST API (55 endpoints)
     app.py                     #   App factory, CORS, lifespan, error handlers
     models.py                  #   Pydantic v2 request/response schemas
     deps.py                    #   Shared dependencies (crypto detection, ticker mapping)
@@ -139,7 +139,7 @@ investment_agent/
       weights.py               #   /weights
       summary.py               #   /summary/generate, /summary/latest
       watchlist.py             #   /watchlist CRUD, /watchlist/analyze-all
-      analytics.py             #   /analytics/value-history, /analytics/performance, /analytics/risk, /analytics/correlations, etc.
+      analytics.py             #   /analytics/value-history, /analytics/performance, /analytics/risk, /analytics/correlations, /analytics/cumulative-pnl, /analytics/position-pnl/{ticker}, etc.
       profiles.py              #   /portfolios CRUD, /portfolios/default
       export.py                #   /export/portfolio, /export/trades, /export/report, etc.
       regime.py                #   /regime/current
@@ -192,7 +192,7 @@ investment_agent/
     aggregator.py              #   SignalAggregator, AggregatedSignal, aggregate_with_regime()
     pipeline.py                #   AnalysisPipeline (parallel agent execution + regime integration)
     regime.py                  #   RegimeDetector (5 market regimes, weight adjustments)
-    analytics.py               #   PortfolioAnalytics (value history, performance, monthly returns, risk metrics)
+    analytics.py               #   PortfolioAnalytics (value history, performance, monthly returns, risk metrics, cumulative P&L, position P&L)
     drift_analyzer.py          #   DriftAnalyzer (entry/return/hold drift)
     weight_adapter.py          #   WeightAdapter (EWMA + Sharpe-based adaptive weights)
     sector.py                  #   Sector rotation matrix + get_sector_modifier()
