@@ -1,7 +1,7 @@
 # Investment Analysis Agent -- Product & Technical Roadmap
 
 **Last updated:** 2026-03-14
-**Current state:** Sprint 14 complete (416 tests, 105+ source files, 50 API endpoints, 12 pages, 6 agents)
+**Current state:** Sprint 15 complete (416 tests, 120+ source files, 50 API endpoints, 12 pages, 6 agents, 20+ UI components)
 
 ---
 
@@ -27,8 +27,11 @@ The Investment Analysis Agent is a self-hosted, multi-agent portfolio analysis a
 | **Sprint 10** | **SentimentAgent + Catalyst Scanner** | **SentimentAgent (Claude API), WebNewsProvider (Google RSS), aggregator integration, catalyst scanner daemon, news feed UI** | **+30** |
 | **Sprint 11** | **Portfolio-Aware Analysis** | **Concentration check, correlation analysis, position sizing, portfolio impact preview UI** | **+18** |
 | **Sprint 12** | **Notifications + Integrations** | **Email alerts (SMTP), Telegram bot, CSV/JSON export (5 endpoints), Settings page** | **+28** |
+| **Sprint 13** | **Watchlist + Analytics + Multi-Portfolio** | **Watchlist CRUD, performance analytics, portfolio profiles, tech debt fixes** | **+49** |
+| **Sprint 14** | **Advanced Intelligence** | **Regime detection (5 types), L2 weight switching, batch watchlist, dashboard charts** | **+52** |
+| **Sprint 15** | **UI/UX Overhaul** | **Design system (8 components), responsive sidebar, enhanced DataTable, command palette, breadcrumbs** | **+0 (frontend)** |
 
-**Total: 315 tests, 0 failures**
+**Total: 416 tests, 0 failures**
 
 ---
 
@@ -158,7 +161,35 @@ The Investment Analysis Agent is a self-hosted, multi-agent portfolio analysis a
 
 ---
 
-### Sprint 15+: Advanced (Deferred)
+### Sprint 15: UI/UX Design & Usability Overhaul -- COMPLETE
+
+| Task | Description | Status |
+|------|-------------|--------|
+| 15.1 Design System + Toast | Button, Input, Card, Skeleton, ErrorBoundary, Toast notification components | DONE |
+| 15.2 Responsive Layout | Mobile sidebar (hamburger + overlay drawer), responsive charts, useMobile hook | DONE |
+| 15.3 Table Enhancement | DataTable with pagination, search/filter, sort indicators, mobile column hiding | DONE |
+| 15.4 Navigation + Interaction | Command palette (Ctrl+K), Breadcrumb, usePageTitle, useHotkeys, favicon | DONE |
+
+**Delivered:**
+- 8 new UI components in `components/ui/` (Button, Input, Card, Skeleton, ErrorBoundary, Toast, CommandPalette, index barrel)
+- ToastProvider + useToast context (success/error/info/warning with auto-dismiss)
+- Mobile-responsive sidebar with hamburger menu, backdrop overlay, auto-close on navigation
+- Enhanced DataTable: pagination (10/25/50 rows), debounced search, tri-state sort, mobile column hiding
+- Pagination + TableSearch shared components
+- Command palette (Ctrl+K / Cmd+K) with fuzzy search across 11 pages + 3 actions
+- Breadcrumb navigation on PositionDetailPage
+- usePageTitle hook on all 12 pages (dynamic document.title)
+- useHotkeys hook for keyboard shortcuts
+- useMobile hook for responsive breakpoint detection
+- SVG favicon (trending-up chart icon)
+- Toast animation CSS keyframes
+- Fix: SQLite autoindex migration (table rebuild for UNIQUE constraint removal)
+- PowerShell `run.ps1` launcher for Windows
+- README updated (416 tests, 50 endpoints, 6 agents, Windows/Mac/Linux start instructions)
+
+---
+
+### Sprint 16+: Advanced (Deferred)
 
 | Feature | Priority | Rationale |
 |---------|----------|-----------|
@@ -185,14 +216,15 @@ The Investment Analysis Agent is a self-hosted, multi-agent portfolio analysis a
 
 ## Key Metrics to Track
 
-| Metric | Current (Sprint 14) | Sprint 15 Target | Sprint 16 Target |
+| Metric | Current (Sprint 15) | Sprint 16 Target | Sprint 17 Target |
 |--------|---------------------|------------------|------------------|
 | Test count | 416 | 440+ | 470+ |
 | API endpoints | 50 | 54+ | 58+ |
 | Frontend pages | 12 | 13+ | 14+ |
+| UI components | 20+ | 25+ | 30+ |
 | Agents | 6 | 7+ | 8+ |
 | Signal accuracy (resolved) | TBD | Baseline established | > 55% win rate |
-| Daily active use | Regime-aware signals | Multi-channel + watchlist | Fully autonomous |
+| Daily active use | Full UI polish | On-chain + validation | Fully autonomous |
 
 ---
 
