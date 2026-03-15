@@ -1093,7 +1093,8 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 | Sprint 18 | ErrorAlert retry pattern (8 pages), Journal DataTable, Signals filtering, auto-refresh | +0 (UX) |
 | Sprint 19 | Dashboard auto-refresh, SPY benchmark comparison (API+chart), monthly returns toggle | +1 (benchmark) |
 | Sprint 20 | Thesis editing (ThesisEditForm), RegimeBadge, watchlist inline editing, vitest + testing-library (62 FE tests), risk+regime API tests | +77 (15 BE + 62 FE) |
-| **Total** | **53+ tasks** | **110+ source files, 9 CLIs, 53 API endpoints, 14 UI pages, 10 tables** | **493 passed (431 BE + 62 FE), 1 skipped** |
+| Sprint 21 | 113 new FE tests (useApi, client, colors, 6 UI + 7 shared components), utility consolidation (pnlColor/holdColor/formatRelativeTime), mobile padding | +113 FE |
+| **Total** | **53+ tasks** | **110+ source files, 9 CLIs, 53 API endpoints, 14 UI pages, 10 tables** | **606 passed (431 BE + 175 FE), 1 skipped** |
 
 ### Planned
 
@@ -1110,7 +1111,8 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 | Sprint 18 | ErrorAlert retry, Journal DataTable, Signals filtering, portfolio auto-refresh | P0 (UX resilience) | COMPLETE |
 | Sprint 19 | Dashboard auto-refresh, SPY benchmark comparison, monthly returns toggle | P1 (benchmarking) | COMPLETE |
 | Sprint 20 | Thesis editing, regime badge, watchlist inline editing, test infrastructure (vitest) | P0 (UX + quality) | COMPLETE |
-| Sprint 21+ | OnChainAgent, ValidationAgent, desktop app (Tauri) | P3+ (deferred) | PLANNED |
+| Sprint 21 | Frontend test suite expansion (175 tests), utility consolidation, mobile polish | P0 (quality) | COMPLETE |
+| Sprint 22+ | OnChainAgent, ValidationAgent, desktop app (Tauri) | P3+ (deferred) | PLANNED |
 
 -----
 
