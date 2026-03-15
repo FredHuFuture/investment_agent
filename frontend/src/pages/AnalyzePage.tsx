@@ -18,6 +18,15 @@ const LS_TICKER_KEY = "lastAnalyzedTicker";
 const LS_ASSET_KEY = "lastAnalyzedAssetType";
 const ANALYSIS_CACHE_KEY = "analysis:lastResult";
 
+const QUICK_TICKERS: ReadonlyArray<{ ticker: string; assetType: string }> = [
+  { ticker: "SPY", assetType: "stock" },
+  { ticker: "AAPL", assetType: "stock" },
+  { ticker: "MSFT", assetType: "stock" },
+  { ticker: "NVDA", assetType: "stock" },
+  { ticker: "TSLA", assetType: "stock" },
+  { ticker: "BTC", assetType: "crypto" },
+];
+
 export default function AnalyzePage() {
   usePageTitle("Analyze");
   const navigate = useNavigate();
@@ -161,6 +170,21 @@ export default function AnalyzePage() {
           initialTicker={initialTicker}
           initialAssetType={initialAssetType}
         />
+        {/* Quick-access ticker buttons */}
+        <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-gray-800">
+          <span className="text-xs text-gray-500 mr-1">Quick:</span>
+          {QUICK_TICKERS.map((qt) => (
+            <Button
+              key={qt.ticker}
+              variant="ghost"
+              size="sm"
+              disabled={loading}
+              onClick={() => handleAnalyze(qt.ticker, qt.assetType, false)}
+            >
+              {qt.ticker}
+            </Button>
+          ))}
+        </div>
       </Card>
 
       {loading && <SkeletonCard />}

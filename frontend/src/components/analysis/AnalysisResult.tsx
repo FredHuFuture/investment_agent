@@ -1,6 +1,7 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useState, useCallback } from "react";
 import SignalBadge from "../shared/SignalBadge";
 import MetricCard from "../shared/MetricCard";
+import { Button } from "../ui/Button";
 import { SkeletonCard } from "../ui/Skeleton";
 import AgentBreakdown from "./AgentBreakdown";
 import CatalystPanel from "./CatalystPanel";
@@ -18,14 +19,108 @@ function formatRegime(raw: string): string {
     .join(" ");
 }
 
+/** Build a plain-text summary of the analysis for clipboard. */
+function buildCopyText(data: AnalysisResultType): string {
+  const agentSummaries = data.agent_signals
+    .map((a) => `${a.agent_name}: ${a.signal} (${a.confidence.toFixed(0)}%)`)
+    .join(", ");
+
+  return [
+    `${data.ticker} | ${data.final_signal.toUpperCase()} (${data.final_confidence.toFixed(1)}%) | Regime: ${formatRegime(data.regime)}`,
+    `Agents: ${agentSummaries}`,
+    data.reasoning,
+  ].join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Signal strength bar: shows raw_score position between sell and buy thresholds
+// ---------------------------------------------------------------------------
+function SignalStrengthBar({ rawScore }: { rawScore: number }) {
+  // Fixed thresholds matching the orchestrator
+  const sellThreshold = -0.3;
+  const buyThreshold = 0.3;
+
+  // Clamp raw score for display purposes (allow a little overshoot)
+  const displayMin = -0.5;
+  const displayMax = 0.5;
+  const clamped = Math.max(displayMin, Math.min(displayMax, rawScore));
+
+  // Position as a percentage across the bar (0% = displayMin, 100% = displayMax)
+  const pct = ((clamped - displayMin) / (displayMax - displayMin)) * 100;
+
+  // Threshold positions
+  const sellPct = ((sellThreshold - displayMin) / (displayMax - displayMin)) * 100;
+  const buyPct = ((buyThreshold - displayMin) / (displayMax - displayMin)) * 100;
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between text-[10px] text-gray-500">
+        <span>SELL</span>
+        <span>HOLD</span>
+        <span>BUY</span>
+      </div>
+      <div className="relative h-3 rounded-full overflow-hidden bg-gray-800">
+        {/* Gradient bar */}
+        <div
+          className="absolute inset-0 rounded-full"
+          style={{
+            background:
+              "linear-gradient(to right, #ef4444 0%, #f59e0b 40%, #eab308 50%, #f59e0b 60%, #22c55e 100%)",
+          }}
+        />
+        {/* Sell threshold marker */}
+        <div
+          className="absolute top-0 h-full w-px bg-gray-300/40"
+          style={{ left: `${sellPct}%` }}
+        />
+        {/* Buy threshold marker */}
+        <div
+          className="absolute top-0 h-full w-px bg-gray-300/40"
+          style={{ left: `${buyPct}%` }}
+        />
+        {/* Needle / marker */}
+        <div
+          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full border-2 border-white bg-gray-950 shadow-lg shadow-black/40 z-10"
+          style={{ left: `${pct}%` }}
+        />
+      </div>
+      <div className="flex items-center justify-between text-[10px] text-gray-500 font-mono">
+        <span>{sellThreshold.toFixed(2)}</span>
+        <span className="text-gray-300 text-xs font-semibold">
+          {rawScore.toFixed(3)}
+        </span>
+        <span>{buyThreshold.toFixed(2)}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function AnalysisResult({ data }: { data: AnalysisResultType }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    const text = buildCopyText(data);
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [data]);
+
   return (
     <div className="space-y-6">
-      {/* Header: ticker + signal */}
+      {/* Header: ticker + signal + copy button */}
       <div className="flex items-center gap-4">
         <h2 className="text-xl font-bold font-mono">{data.ticker}</h2>
         <SignalBadge signal={data.final_signal} />
+        <div className="ml-auto">
+          <Button variant="ghost" size="sm" onClick={handleCopy}>
+            {copied ? "Copied!" : "Copy Analysis"}
+          </Button>
+        </div>
       </div>
+
+      {/* Signal strength bar */}
+      <SignalStrengthBar rawScore={data.metrics.raw_score} />
 
       {/* Metrics row — full width */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

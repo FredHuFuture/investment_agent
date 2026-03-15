@@ -33,6 +33,70 @@ function pct(value: number): string {
   return (value * 100).toFixed(1) + "%";
 }
 
+function pct2(value: number): string {
+  return (value * 100).toFixed(2) + "%";
+}
+
+// ---------------------------------------------------------------------------
+// Risk status helpers
+// ---------------------------------------------------------------------------
+
+type RiskLevel = "red" | "amber" | "green";
+
+interface RiskStatus {
+  level: RiskLevel;
+  message: string;
+}
+
+function computeRiskStatus(risk: PortfolioRisk): RiskStatus {
+  if (risk.current_drawdown_pct < -0.10) {
+    return {
+      level: "red",
+      message: `Portfolio in significant drawdown (${pct(risk.current_drawdown_pct)})`,
+    };
+  }
+  if (risk.current_drawdown_pct < -0.05) {
+    return {
+      level: "amber",
+      message: `Portfolio in moderate drawdown (${pct(risk.current_drawdown_pct)})`,
+    };
+  }
+  if (risk.annualized_volatility > 0.30) {
+    return {
+      level: "amber",
+      message: `High volatility detected (${pct(risk.annualized_volatility)})`,
+    };
+  }
+  if (risk.sharpe_ratio !== null && risk.sharpe_ratio < 0.5) {
+    return {
+      level: "amber",
+      message: `Low risk-adjusted returns (Sharpe: ${risk.sharpe_ratio.toFixed(2)})`,
+    };
+  }
+  return {
+    level: "green",
+    message: "Portfolio risk metrics within normal range",
+  };
+}
+
+const riskBannerStyles: Record<RiskLevel, string> = {
+  red: "bg-red-400/10 border-red-400/30 text-red-300",
+  amber: "bg-amber-400/10 border-amber-400/30 text-amber-300",
+  green: "bg-emerald-400/10 border-emerald-400/30 text-emerald-300",
+};
+
+function computeRiskBadge(maxDrawdown: number): { label: string; style: string } {
+  // maxDrawdown is negative (e.g. -0.15 for 15% drawdown)
+  const absDd = Math.abs(maxDrawdown);
+  if (absDd > 0.20) {
+    return { label: "HIGH RISK", style: "bg-red-400/20 text-red-400" };
+  }
+  if (absDd > 0.10) {
+    return { label: "MODERATE", style: "bg-amber-400/20 text-amber-400" };
+  }
+  return { label: "LOW RISK", style: "bg-green-400/20 text-green-400" };
+}
+
 function concentrationBadgeColor(risk: CorrelationData["concentration_risk"]): string {
   if (risk === "HIGH") return "bg-red-500/20 text-red-400 border border-red-500/30";
   if (risk === "MODERATE") return "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30";
@@ -300,10 +364,39 @@ export default function RiskPage() {
   if (error) return <ErrorAlert message={error} onRetry={refetchAll} />;
 
   const risk = riskApi.data;
+  const riskStatus = risk ? computeRiskStatus(risk) : null;
+  const riskBadge = risk ? computeRiskBadge(risk.max_drawdown_pct) : null;
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-white">Risk Dashboard</h1>
+      <div className="flex items-center gap-3">
+        <h1 className="text-2xl font-bold text-white">Risk Dashboard</h1>
+        {riskBadge && (
+          <span
+            className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${riskBadge.style}`}
+          >
+            {riskBadge.label}
+          </span>
+        )}
+      </div>
+
+      {/* Risk status banner */}
+      {riskStatus && (
+        <div
+          className={`rounded-lg border px-4 py-3 text-sm ${riskBannerStyles[riskStatus.level]}`}
+        >
+          <div className="flex items-center gap-2">
+            <span className="shrink-0">
+              {riskStatus.level === "red"
+                ? "\u26A0\uFE0F"
+                : riskStatus.level === "amber"
+                  ? "\u26A0"
+                  : "\u2714\uFE0F"}
+            </span>
+            <span>{riskStatus.message}</span>
+          </div>
+        </div>
+      )}
 
       {/* Row 1: Core volatility & drawdown metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -349,25 +442,25 @@ export default function RiskPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           label="VaR (95%)"
-          value={risk ? pct(risk.var_95) : "—"}
+          value={risk ? pct2(risk.var_95) : "—"}
           sub="1-day value at risk"
           trend="down"
         />
         <MetricCard
           label="CVaR (95%)"
-          value={risk ? pct(risk.cvar_95) : "—"}
+          value={risk ? pct2(risk.cvar_95) : "—"}
           sub="Expected shortfall"
           trend="down"
         />
         <MetricCard
           label="Best Day"
-          value={risk ? `+${pct(risk.best_day_pct)}` : "—"}
+          value={risk ? `+${pct2(risk.best_day_pct)}` : "—"}
           sub={risk ? `${risk.data_points} data points` : undefined}
           trend="up"
         />
         <MetricCard
           label="Worst Day"
-          value={risk ? pct(risk.worst_day_pct) : "—"}
+          value={risk ? pct2(risk.worst_day_pct) : "—"}
           trend="down"
         />
       </div>
