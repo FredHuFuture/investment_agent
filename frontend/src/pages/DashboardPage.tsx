@@ -47,13 +47,24 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const { data, loading, error, warnings } = useApi<Portfolio>(
     () => getPortfolio(),
+    { cacheKey: "dashboard:portfolio", ttlMs: 30_000 },
   );
-  const alertsApi = useApi<Alert[]>(() => getAlerts({ limit: 5 }));
-  const historyApi = useApi<Position[]>(() => getPositionHistory());
-  const valueHistoryApi = useApi<ValueHistoryPoint[]>(() =>
-    getValueHistory(30),
+  const alertsApi = useApi<Alert[]>(
+    () => getAlerts({ limit: 5 }),
+    { cacheKey: "dashboard:alerts", ttlMs: 15_000 },
   );
-  const watchlistApi = useApi<WatchlistItem[]>(() => getWatchlist());
+  const historyApi = useApi<Position[]>(
+    () => getPositionHistory(),
+    { cacheKey: "dashboard:history", ttlMs: 60_000 },
+  );
+  const valueHistoryApi = useApi<ValueHistoryPoint[]>(
+    () => getValueHistory(30),
+    { cacheKey: "dashboard:valueHistory", ttlMs: 60_000 },
+  );
+  const watchlistApi = useApi<WatchlistItem[]>(
+    () => getWatchlist(),
+    { cacheKey: "dashboard:watchlist", ttlMs: 60_000 },
+  );
   const [healthLoading, setHealthLoading] = useState(false);
   const [healthMsg, setHealthMsg] = useState<string | null>(null);
 

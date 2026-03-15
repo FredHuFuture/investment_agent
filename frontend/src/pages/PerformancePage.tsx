@@ -34,10 +34,22 @@ import {
 
 export default function PerformancePage() {
   usePageTitle("Performance");
-  const valueHistory = useApi<ValueHistoryPoint[]>(() => getValueHistory(90));
-  const perfSummary = useApi<PerformanceSummary>(() => getPerformanceSummary());
-  const monthlyReturns = useApi<MonthlyReturn[]>(() => getMonthlyReturns());
-  const topPerformers = useApi<TopPerformers>(() => getTopPerformers(5));
+  const valueHistory = useApi<ValueHistoryPoint[]>(
+    () => getValueHistory(90),
+    { cacheKey: "perf:valueHistory", ttlMs: 60_000 },
+  );
+  const perfSummary = useApi<PerformanceSummary>(
+    () => getPerformanceSummary(),
+    { cacheKey: "perf:summary", ttlMs: 60_000 },
+  );
+  const monthlyReturns = useApi<MonthlyReturn[]>(
+    () => getMonthlyReturns(),
+    { cacheKey: "perf:monthly", ttlMs: 120_000 },
+  );
+  const topPerformers = useApi<TopPerformers>(
+    () => getTopPerformers(5),
+    { cacheKey: "perf:topPerformers", ttlMs: 120_000 },
+  );
 
   const loading =
     valueHistory.loading ||

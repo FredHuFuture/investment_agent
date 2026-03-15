@@ -12,6 +12,7 @@ export default function MonitoringPage() {
   usePageTitle("Monitoring");
   const { data, loading, error, refetch } = useApi<Alert[]>(
     () => getAlerts({ limit: 50 }),
+    { cacheKey: "monitoring:alerts", ttlMs: 15_000 },
   );
 
   if (loading) return <LoadingSpinner />;

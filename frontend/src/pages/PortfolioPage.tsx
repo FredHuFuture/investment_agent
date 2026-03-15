@@ -18,6 +18,7 @@ import EmptyState from "../components/shared/EmptyState";
 import WarningsBanner from "../components/shared/WarningsBanner";
 import { formatCurrency } from "../lib/formatters";
 import { usePageTitle } from "../hooks/usePageTitle";
+import { invalidateCache } from "../lib/cache";
 
 type BreakdownMode = "ticker" | "sector";
 
@@ -128,9 +129,16 @@ export default function PortfolioPage() {
   const addFormRef = useRef<HTMLDivElement>(null);
   const { data, loading, error, warnings, refetch } = useApi<Portfolio>(
     () => getPortfolio(),
+    { cacheKey: "portfolio:main", ttlMs: 30_000 },
   );
-  const alertsApi = useApi<Alert[]>(() => getAlerts({ limit: 5 }));
-  const historyApi = useApi<Position[]>(() => getPositionHistory());
+  const alertsApi = useApi<Alert[]>(
+    () => getAlerts({ limit: 5 }),
+    { cacheKey: "portfolio:alerts", ttlMs: 15_000 },
+  );
+  const historyApi = useApi<Position[]>(
+    () => getPositionHistory(),
+    { cacheKey: "portfolio:history", ttlMs: 60_000 },
+  );
   const [adding, setAdding] = useState(false);
   const [breakdownMode, setBreakdownMode] = useState<BreakdownMode>("ticker");
   const [closingPosition, setClosingPosition] = useState<Position | null>(null);
@@ -196,6 +204,9 @@ export default function PortfolioPage() {
     setAdding(true);
     try {
       await addPosition(pos);
+      invalidateCache("dashboard");
+      invalidateCache("portfolio");
+      invalidateCache("perf");
       refetch();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to add position");
@@ -209,6 +220,9 @@ export default function PortfolioPage() {
     if (!confirm(`Remove ${ticker}?`)) return;
     try {
       await removePosition(ticker);
+      invalidateCache("dashboard");
+      invalidateCache("portfolio");
+      invalidateCache("perf");
       refetch();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to remove position");
@@ -223,6 +237,9 @@ export default function PortfolioPage() {
     if (!closingPosition) return;
     await closePosition(closingPosition.ticker, data);
     setClosingPosition(null);
+    invalidateCache("dashboard");
+    invalidateCache("portfolio");
+    invalidateCache("perf");
     refetch();
     historyApi.refetch();
   }

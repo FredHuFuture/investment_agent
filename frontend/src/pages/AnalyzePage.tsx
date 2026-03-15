@@ -9,17 +9,23 @@ import LoadingSpinner from "../components/shared/LoadingSpinner";
 import ErrorAlert from "../components/shared/ErrorAlert";
 import WarningsBanner from "../components/shared/WarningsBanner";
 import { usePageTitle } from "../hooks/usePageTitle";
+import { getCached, setCache, LONG_TTL_MS } from "../lib/cache";
 
 const LS_TICKER_KEY = "lastAnalyzedTicker";
 const LS_ASSET_KEY = "lastAnalyzedAssetType";
+const ANALYSIS_CACHE_KEY = "analysis:lastResult";
 
 export default function AnalyzePage() {
   usePageTitle("Analyze");
   const navigate = useNavigate();
-  const [result, setResult] = useState<AnalysisResultType | null>(null);
+
+  // Restore last analysis from cache (instant show on return)
+  const cachedAnalysis = getCached<AnalysisResultType>(ANALYSIS_CACHE_KEY, LONG_TTL_MS, true);
+
+  const [result, setResult] = useState<AnalysisResultType | null>(cachedAnalysis?.data ?? null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [warnings, setWarnings] = useState<string[]>([]);
+  const [warnings, setWarnings] = useState<string[]>(cachedAnalysis?.warnings ?? []);
 
   // Initial values resolved from localStorage > portfolio > SPY
   const [initialTicker, setInitialTicker] = useState("");
@@ -44,7 +50,9 @@ export default function AnalyzePage() {
         const res = await analyzeTicker(ticker, assetType, adaptiveWeights);
         setResult(res.data);
         setWarnings(res.warnings);
-        // Persist to localStorage
+        // Cache result so returning to this page is instant
+        setCache(ANALYSIS_CACHE_KEY, res.data, res.warnings);
+        // Persist ticker to localStorage
         localStorage.setItem(LS_TICKER_KEY, ticker);
         localStorage.setItem(LS_ASSET_KEY, assetType);
       } catch (err) {
@@ -62,6 +70,16 @@ export default function AnalyzePage() {
 
     const storedTicker = localStorage.getItem(LS_TICKER_KEY);
     const storedAsset = localStorage.getItem(LS_ASSET_KEY);
+
+    // If we already have a cached result, just set the form values — no refetch
+    if (cachedAnalysis?.data && storedTicker) {
+      setInitialTicker(storedTicker);
+      setInitialAssetType(storedAsset ?? "stock");
+      setLastTicker(storedTicker);
+      setLastAssetType(storedAsset ?? "stock");
+      autoAnalyzed.current = true;
+      return;
+    }
 
     if (storedTicker) {
       // Priority 1: localStorage
