@@ -338,6 +338,7 @@ export interface MonthlyReturn {
   month: string;
   pnl: number;
   trade_count: number;
+  return_pct: number;  // NEW
 }
 
 export interface TradePerformer {
@@ -394,4 +395,22 @@ export interface CorrelationData {
   high_correlation_pairs: Array<[string, string, number]>;
   concentration_risk: "HIGH" | "MODERATE" | "LOW";
   tickers: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Benchmark Comparison
+// ---------------------------------------------------------------------------
+export interface BenchmarkPoint {
+  date: string;
+  portfolio_indexed: number;
+  benchmark_indexed: number;
+}
+
+export interface BenchmarkComparison {
+  series: BenchmarkPoint[];
+  benchmark_ticker: string;
+  portfolio_return_pct: number;
+  benchmark_return_pct: number;
+  alpha_pct: number;
+  data_points: number;
 }

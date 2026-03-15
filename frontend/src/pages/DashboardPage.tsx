@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   AreaChart,
@@ -37,6 +37,14 @@ import { useToast } from "../contexts/ToastContext";
 import { formatCurrency } from "../lib/formatters";
 import { usePageTitle } from "../hooks/usePageTitle";
 
+function formatRelativeTime(timestamp: number | null): string {
+  if (!timestamp) return "";
+  const diff = Math.floor((Date.now() - timestamp) / 1000);
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  return `${Math.floor(diff / 3600)}h ago`;
+}
+
 const severityDotMap: Record<string, string> = {
   critical: "bg-red-400",
   high: "bg-red-400",
@@ -49,7 +57,7 @@ export default function DashboardPage() {
   usePageTitle("Dashboard");
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { data, loading, error, warnings, refetch } = useApi<Portfolio>(
+  const { data, loading, error, warnings, refetch, lastUpdated } = useApi<Portfolio>(
     () => getPortfolio(),
     { cacheKey: "dashboard:portfolio", ttlMs: 30_000 },
   );
@@ -70,6 +78,27 @@ export default function DashboardPage() {
     { cacheKey: "dashboard:watchlist", ttlMs: 60_000 },
   );
   const [healthLoading, setHealthLoading] = useState(false);
+
+  // Auto-refresh all dashboard data every 60 seconds
+  const refetchAll = useCallback(() => {
+    refetch();
+    alertsApi.refetch();
+    historyApi.refetch();
+    valueHistoryApi.refetch();
+    watchlistApi.refetch();
+  }, [refetch, alertsApi, historyApi, valueHistoryApi, watchlistApi]);
+
+  useEffect(() => {
+    const id = setInterval(refetchAll, 60_000);
+    return () => clearInterval(id);
+  }, [refetchAll]);
+
+  // Tick to keep "Updated Xm ago" label fresh
+  const [, setDisplayTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setDisplayTick((t) => t + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   // Unrealized P&L
   const totalPnl = useMemo(() => {
@@ -134,7 +163,24 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+        <div className="flex items-center gap-3">
+          {lastUpdated && (
+            <span className="text-xs text-gray-500">
+              Updated {formatRelativeTime(lastUpdated)}
+            </span>
+          )}
+          <Button variant="ghost" size="sm" onClick={refetchAll}>
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M23 4v6h-6" />
+              <path d="M1 20v-6h6" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+            Refresh
+          </Button>
+        </div>
+      </div>
       <WarningsBanner warnings={[...warnings, ...alertsApi.warnings]} />
 
       {/* ── Top row: 4 metric cards ── */}

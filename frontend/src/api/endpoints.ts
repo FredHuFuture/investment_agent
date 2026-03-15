@@ -26,6 +26,7 @@ import type {
   WatchlistItem,
   PortfolioRisk,
   CorrelationData,
+  BenchmarkComparison,
 } from "./types";
 
 // Portfolio
@@ -229,6 +230,8 @@ export const getPortfolioRisk = (days = 90) =>
   apiGet<PortfolioRisk>(`/analytics/risk?days=${days}`);
 export const getPortfolioCorrelations = (lookbackDays = 90) =>
   apiGet<CorrelationData>(`/analytics/correlations?lookback_days=${lookbackDays}`);
+export const getBenchmarkComparison = (days = 90, benchmark = "SPY") =>
+  apiGet<BenchmarkComparison>(`/analytics/benchmark?days=${days}&benchmark=${benchmark}`);
 
 // Watchlist
 export const getWatchlist = () => apiGet<WatchlistItem[]>("/watchlist");

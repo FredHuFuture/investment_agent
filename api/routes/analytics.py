@@ -59,6 +59,25 @@ async def portfolio_risk(
     return {"data": data, "warnings": []}
 
 
+@router.get("/benchmark")
+async def benchmark_comparison(
+    days: int = Query(90, ge=7, le=365),
+    benchmark: str = Query("SPY"),
+    db_path: str = Depends(get_db_path),
+):
+    """Compare portfolio performance against a benchmark (e.g., SPY)."""
+    from data_providers.factory import get_provider
+
+    analytics = PortfolioAnalytics(db_path)
+    provider = get_provider()
+    data = await analytics.get_benchmark_comparison(
+        provider=provider,
+        benchmark_ticker=benchmark.upper(),
+        days=days,
+    )
+    return {"data": data, "warnings": []}
+
+
 @router.get("/correlations")
 async def portfolio_correlations(
     lookback_days: int = Query(90, ge=30, le=365),

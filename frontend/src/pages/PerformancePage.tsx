@@ -1,18 +1,22 @@
+import { useState } from "react";
 import { useApi } from "../hooks/useApi";
 import {
   getValueHistory,
   getPerformanceSummary,
   getMonthlyReturns,
   getTopPerformers,
+  getBenchmarkComparison,
 } from "../api/endpoints";
 import type {
   ValueHistoryPoint,
   PerformanceSummary,
   MonthlyReturn,
   TopPerformers,
+  BenchmarkComparison,
 } from "../api/types";
 import MetricCard from "../components/shared/MetricCard";
 import { Card, CardHeader, CardBody } from "../components/ui/Card";
+import { Button } from "../components/ui/Button";
 import { SkeletonCard, SkeletonTable } from "../components/ui/Skeleton";
 import ErrorAlert from "../components/shared/ErrorAlert";
 import EmptyState from "../components/shared/EmptyState";
@@ -31,10 +35,14 @@ import {
   ResponsiveContainer,
   Cell,
   ReferenceLine,
+  ComposedChart,
+  Line,
 } from "recharts";
 
 export default function PerformancePage() {
   usePageTitle("Performance");
+  const [monthlyMode, setMonthlyMode] = useState<"dollar" | "percent">("dollar");
+
   const valueHistory = useApi<ValueHistoryPoint[]>(
     () => getValueHistory(90),
     { cacheKey: "perf:valueHistory", ttlMs: 60_000 },
@@ -51,12 +59,17 @@ export default function PerformancePage() {
     () => getTopPerformers(5),
     { cacheKey: "perf:topPerformers", ttlMs: 120_000 },
   );
+  const benchmarkApi = useApi<BenchmarkComparison>(
+    () => getBenchmarkComparison(90),
+    { cacheKey: "perf:benchmark", ttlMs: 120_000 },
+  );
 
   function refetchAll() {
     valueHistory.refetch();
     perfSummary.refetch();
     monthlyReturns.refetch();
     topPerformers.refetch();
+    benchmarkApi.refetch();
   }
 
   const loading =
@@ -74,6 +87,7 @@ export default function PerformancePage() {
     ...perfSummary.warnings,
     ...monthlyReturns.warnings,
     ...topPerformers.warnings,
+    ...benchmarkApi.warnings,
   ];
 
   if (loading)
@@ -143,6 +157,14 @@ export default function PerformancePage() {
           value={String(perf?.total_trades ?? 0)}
           sub={`${(perf?.avg_hold_days ?? 0).toFixed(0)}d avg hold`}
         />
+        {benchmarkApi.data && (
+          <MetricCard
+            label={`Alpha vs ${benchmarkApi.data.benchmark_ticker}`}
+            value={`${benchmarkApi.data.alpha_pct >= 0 ? "+" : ""}${benchmarkApi.data.alpha_pct.toFixed(1)}%`}
+            sub={`Portfolio ${benchmarkApi.data.portfolio_return_pct >= 0 ? "+" : ""}${benchmarkApi.data.portfolio_return_pct.toFixed(1)}% vs ${benchmarkApi.data.benchmark_ticker} ${benchmarkApi.data.benchmark_return_pct >= 0 ? "+" : ""}${benchmarkApi.data.benchmark_return_pct.toFixed(1)}%`}
+            trend={benchmarkApi.data.alpha_pct >= 0 ? "up" : "down"}
+          />
+        )}
       </div>
 
       {/* Portfolio value chart */}
@@ -208,11 +230,83 @@ export default function PerformancePage() {
         </CardBody>
       </Card>
 
+      {/* Benchmark comparison */}
+      {benchmarkApi.error && (
+        <ErrorAlert
+          message={benchmarkApi.error}
+          onRetry={() => benchmarkApi.refetch()}
+        />
+      )}
+      {benchmarkApi.data && benchmarkApi.data.series.length > 0 && (
+        <Card>
+          <CardHeader
+            title={`Portfolio vs ${benchmarkApi.data.benchmark_ticker}`}
+            subtitle="Indexed to 100 at start"
+          />
+          <CardBody>
+            <ResponsiveContainer width="100%" height={280}>
+              <ComposedChart data={benchmarkApi.data.series} margin={{ top: 5, right: 10, bottom: 0, left: 10 }}>
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 10, fill: "#6b7280" }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v: string) => {
+                    const d = new Date(v);
+                    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                  }}
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: "#6b7280" }}
+                  axisLine={false}
+                  tickLine={false}
+                  domain={["auto", "auto"]}
+                />
+                <Tooltip
+                  contentStyle={{ background: "#1f2937", border: "1px solid #374151", borderRadius: 8, fontSize: 12 }}
+                  labelStyle={{ color: "#9ca3af" }}
+                  formatter={(v: number, name: string) => [
+                    v.toFixed(1),
+                    name === "portfolio_indexed" ? "Portfolio" : benchmarkApi.data!.benchmark_ticker,
+                  ]}
+                />
+                <ReferenceLine y={100} stroke="#374151" strokeDasharray="3 3" />
+                <Line type="monotone" dataKey="portfolio_indexed" stroke="#3b82f6" strokeWidth={2} dot={false} name="portfolio_indexed" />
+                <Line type="monotone" dataKey="benchmark_indexed" stroke="#6b7280" strokeWidth={1.5} strokeDasharray="5 5" dot={false} name="benchmark_indexed" />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </CardBody>
+        </Card>
+      )}
+
       {/* Monthly returns + Top performers */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Monthly returns bar chart */}
         <Card>
-          <CardHeader title="Monthly Returns" />
+          <CardHeader
+            title="Monthly Returns"
+            action={
+              <div className="flex rounded-md overflow-hidden border border-gray-700 text-xs">
+                <Button
+                  variant={monthlyMode === "dollar" ? "primary" : "ghost"}
+                  size="sm"
+                  onClick={() => setMonthlyMode("dollar")}
+                  className="rounded-none min-h-0 py-1 px-2.5 text-xs"
+                >
+                  Dollar
+                </Button>
+                <Button
+                  variant={monthlyMode === "percent" ? "primary" : "ghost"}
+                  size="sm"
+                  onClick={() => setMonthlyMode("percent")}
+                  className="rounded-none min-h-0 py-1 px-2.5 text-xs"
+                >
+                  Percent
+                </Button>
+              </div>
+            }
+          />
           <CardBody>
             {monthly.length === 0 ? (
               <EmptyState message="No closed trades yet." />
@@ -226,7 +320,11 @@ export default function PerformancePage() {
                   />
                   <YAxis
                     tick={{ fill: "#6b7280", fontSize: 11 }}
-                    tickFormatter={(v) => `$${v.toLocaleString()}`}
+                    tickFormatter={
+                      monthlyMode === "dollar"
+                        ? (v) => `$${v.toLocaleString()}`
+                        : (v) => `${(v as number).toFixed(1)}%`
+                    }
                   />
                   <Tooltip
                     contentStyle={{
@@ -235,14 +333,26 @@ export default function PerformancePage() {
                       borderRadius: 8,
                       fontSize: 12,
                     }}
-                    formatter={(value: number) => [formatCurrency(value), "P&L"]}
+                    formatter={
+                      monthlyMode === "dollar"
+                        ? (value: number) => [formatCurrency(value), "P&L"]
+                        : (value: number) => [`${value.toFixed(2)}%`, "Return"]
+                    }
                   />
                   <ReferenceLine y={0} stroke="#4b5563" />
-                  <Bar dataKey="pnl" radius={[4, 4, 0, 0]} name="P&L">
+                  <Bar
+                    dataKey={monthlyMode === "dollar" ? "pnl" : "return_pct"}
+                    radius={[4, 4, 0, 0]}
+                    name={monthlyMode === "dollar" ? "P&L" : "Return"}
+                  >
                     {monthly.map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}
-                        fill={entry.pnl >= 0 ? "#10b981" : "#ef4444"}
+                        fill={
+                          monthlyMode === "dollar"
+                            ? entry.pnl >= 0 ? "#10b981" : "#ef4444"
+                            : entry.return_pct >= 0 ? "#10b981" : "#ef4444"
+                        }
                       />
                     ))}
                   </Bar>

@@ -147,7 +147,9 @@ class PortfolioAnalytics:
     async def get_monthly_returns(self) -> list[dict]:
         """Monthly P&L breakdown from closed positions.
 
-        Returns list of ``{month, pnl, trade_count}`` dicts.
+        Returns list of ``{month, pnl, trade_count, return_pct}`` dicts.
+        ``return_pct`` is the monthly P&L as a percentage of the portfolio
+        value at the start of that month (from ``portfolio_snapshots``).
         """
         async with aiosqlite.connect(self._db_path) as conn:
             conn.row_factory = aiosqlite.Row
@@ -165,14 +167,42 @@ class PortfolioAnalytics:
                 )
             ).fetchall()
 
-        return [
-            {
-                "month": row["month"],
-                "pnl": round(row["pnl"], 2),
-                "trade_count": row["trade_count"],
-            }
-            for row in rows
-        ]
+            # Get portfolio value at the start of each month for return_pct
+            snapshot_rows = await (
+                await conn.execute(
+                    """
+                    SELECT month, total_value FROM (
+                        SELECT strftime('%Y-%m', timestamp) AS month,
+                               total_value,
+                               ROW_NUMBER() OVER (
+                                   PARTITION BY strftime('%Y-%m', timestamp)
+                                   ORDER BY timestamp ASC
+                               ) AS rn
+                        FROM portfolio_snapshots
+                    ) WHERE rn = 1
+                    """
+                )
+            ).fetchall()
+
+        month_start_values: dict[str, float] = {}
+        for sr in snapshot_rows:
+            month_start_values[sr["month"]] = sr["total_value"]
+
+        result = []
+        for row in rows:
+            return_pct = 0.0
+            start_val = month_start_values.get(row["month"])
+            if start_val and start_val > 0:
+                return_pct = round((row["pnl"] / start_val) * 100, 2)
+            result.append(
+                {
+                    "month": row["month"],
+                    "pnl": round(row["pnl"], 2),
+                    "trade_count": row["trade_count"],
+                    "return_pct": return_pct,
+                }
+            )
+        return result
 
     async def get_top_performers(self, limit: int = 5) -> dict:
         """Best and worst trades by return percentage.
@@ -227,6 +257,113 @@ class PortfolioAnalytics:
         return {
             "best": [_row_to_dict(r) for r in best_rows],
             "worst": [_row_to_dict(r) for r in worst_rows],
+        }
+
+    async def get_benchmark_comparison(
+        self,
+        provider,  # DataProvider
+        benchmark_ticker: str = "SPY",
+        days: int = 90,
+    ) -> dict:
+        """Compare portfolio performance against a benchmark (e.g., SPY).
+
+        Returns indexed series (base=100) for both portfolio and benchmark,
+        plus return/alpha metrics.
+        """
+        _EMPTY = {
+            "series": [],
+            "benchmark_ticker": benchmark_ticker,
+            "portfolio_return_pct": 0.0,
+            "benchmark_return_pct": 0.0,
+            "alpha_pct": 0.0,
+            "data_points": 0,
+        }
+
+        # 1. Get portfolio snapshots
+        portfolio_data = await self.get_value_history(days=days)
+        if len(portfolio_data) < 2:
+            return _EMPTY
+
+        # 2. Fetch benchmark price history — choose a period slightly wider than
+        #    `days` so we always have enough trading-day coverage.
+        if days <= 30:
+            period = "2mo"
+        elif days <= 90:
+            period = "4mo"
+        elif days <= 180:
+            period = "7mo"
+        else:
+            period = "2y"
+
+        try:
+            bench_df = await provider.get_price_history(
+                benchmark_ticker, period=period, interval="1d"
+            )
+        except Exception:
+            return _EMPTY
+
+        if bench_df is None or bench_df.empty or "Close" not in bench_df.columns:
+            return _EMPTY
+
+        # 3. Build date-indexed lookup dicts (YYYY-MM-DD keys)
+        port_by_date: dict[str, float] = {}
+        for pt in portfolio_data:
+            date_str = pt["date"][:10]
+            port_by_date[date_str] = pt["total_value"]
+
+        bench_close = bench_df["Close"].dropna()
+        bench_by_date: dict[str, float] = {}
+        for idx, val in bench_close.items():
+            date_str = str(idx)[:10]
+            bench_by_date[date_str] = float(val)
+
+        # 4. Find overlapping dates; fall back to all portfolio dates if needed
+        common_dates = sorted(set(port_by_date.keys()) & set(bench_by_date.keys()))
+        if len(common_dates) < 2:
+            common_dates = sorted(port_by_date.keys())
+
+        if len(common_dates) < 2:
+            return _EMPTY
+
+        # 5. Normalize to base 100 from the first common date
+        first_date = common_dates[0]
+        port_base = port_by_date.get(first_date) or 1.0
+        bench_base = bench_by_date.get(first_date) or 1.0
+
+        series: list[dict] = []
+        last_bench = bench_base
+        for date_str in common_dates:
+            port_val = port_by_date.get(date_str)
+            bench_val = bench_by_date.get(date_str, last_bench)
+            if bench_val:
+                last_bench = bench_val
+
+            if port_val is not None:
+                series.append(
+                    {
+                        "date": date_str,
+                        "portfolio_indexed": round(port_val / port_base * 100, 2),
+                        "benchmark_indexed": round(bench_val / bench_base * 100, 2),
+                    }
+                )
+
+        # 6. Compute total returns and alpha
+        if len(series) >= 2:
+            portfolio_return = (series[-1]["portfolio_indexed"] / 100 - 1) * 100
+            benchmark_return = (series[-1]["benchmark_indexed"] / 100 - 1) * 100
+        else:
+            portfolio_return = 0.0
+            benchmark_return = 0.0
+
+        alpha = portfolio_return - benchmark_return
+
+        return {
+            "series": series,
+            "benchmark_ticker": benchmark_ticker,
+            "portfolio_return_pct": round(portfolio_return, 2),
+            "benchmark_return_pct": round(benchmark_return, 2),
+            "alpha_pct": round(alpha, 2),
+            "data_points": len(series),
         }
 
     async def get_portfolio_risk(self, days: int = 90) -> dict:
