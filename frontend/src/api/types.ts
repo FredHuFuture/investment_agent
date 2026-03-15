@@ -681,3 +681,45 @@ export interface PerformanceAttribution {
   contribution_pct: number;
   status: string;
 }
+
+// ---------------------------------------------------------------------------
+// Sprint 36 types
+// ---------------------------------------------------------------------------
+export interface DividendEntry {
+  id: number;
+  ticker: string;
+  amount_per_share: number;
+  total_amount: number;
+  ex_date: string;
+  pay_date: string | null;
+  created_at: string;
+}
+
+export interface DividendSummary {
+  entries: DividendEntry[];
+  total_dividends: number;
+  yield_on_cost_pct: number;
+}
+
+export interface SnapshotComparison {
+  date_a: string;
+  date_b: string;
+  total_value_a: number;
+  total_value_b: number;
+  value_change: number;
+  value_change_pct: number;
+  positions_added: string[];
+  positions_removed: string[];
+  positions_changed: Array<{
+    ticker: string;
+    value_a: number;
+    value_b: number;
+    change_pct: number;
+  }>;
+}
+
+export interface BulkWatchlistResult {
+  added: number;
+  skipped: number;
+  errors: Array<{ ticker: string; reason: string }>;
+}

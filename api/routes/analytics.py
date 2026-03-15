@@ -1,8 +1,10 @@
 """API routes for portfolio performance analytics."""
 from __future__ import annotations
 
+import json
+
 import aiosqlite
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.deps import get_db_path
 from engine.analytics import PortfolioAnalytics
@@ -409,3 +411,94 @@ async def activity_feed(
     # Merge and sort by timestamp descending, take top `limit`
     entries.sort(key=lambda e: e["timestamp"] or "", reverse=True)
     return {"data": entries[:limit], "warnings": []}
+
+
+@router.get("/snapshot-compare")
+async def snapshot_compare(
+    date_a: str = Query(..., description="Start date YYYY-MM-DD"),
+    date_b: str = Query(..., description="End date YYYY-MM-DD"),
+    db_path: str = Depends(get_db_path),
+):
+    """Compare two portfolio snapshots by date."""
+    async with aiosqlite.connect(db_path) as conn:
+        conn.row_factory = aiosqlite.Row
+
+        # Find closest snapshot on or before each date
+        row_a = await (
+            await conn.execute(
+                "SELECT total_value, cash, positions_json, timestamp "
+                "FROM portfolio_snapshots "
+                "WHERE timestamp <= ? ORDER BY timestamp DESC LIMIT 1",
+                (date_a + "T23:59:59",),
+            )
+        ).fetchone()
+
+        row_b = await (
+            await conn.execute(
+                "SELECT total_value, cash, positions_json, timestamp "
+                "FROM portfolio_snapshots "
+                "WHERE timestamp <= ? ORDER BY timestamp DESC LIMIT 1",
+                (date_b + "T23:59:59",),
+            )
+        ).fetchone()
+
+    if not row_a or not row_b:
+        raise HTTPException(
+            status_code=404,
+            detail="No snapshot found for one or both dates.",
+        )
+
+    total_a = row_a["total_value"]
+    total_b = row_b["total_value"]
+    value_change = total_b - total_a
+    value_change_pct = (value_change / total_a * 100) if total_a else 0.0
+
+    # Parse positions
+    positions_a_raw = json.loads(row_a["positions_json"] or "[]")
+    positions_b_raw = json.loads(row_b["positions_json"] or "[]")
+
+    def _build_map(positions: list) -> dict[str, dict]:
+        result: dict[str, dict] = {}
+        for p in positions:
+            ticker = p.get("ticker", "")
+            if ticker:
+                result[ticker] = p
+        return result
+
+    map_a = _build_map(positions_a_raw)
+    map_b = _build_map(positions_b_raw)
+
+    tickers_a = set(map_a.keys())
+    tickers_b = set(map_b.keys())
+
+    positions_added = sorted(tickers_b - tickers_a)
+    positions_removed = sorted(tickers_a - tickers_b)
+
+    positions_changed: list[dict] = []
+    for ticker in sorted(tickers_a & tickers_b):
+        pa = map_a[ticker]
+        pb = map_b[ticker]
+        val_a = pa.get("market_value", pa.get("quantity", 0) * pa.get("avg_cost", 0))
+        val_b = pb.get("market_value", pb.get("quantity", 0) * pb.get("avg_cost", 0))
+        chg_pct = ((val_b - val_a) / val_a * 100) if val_a else 0.0
+        positions_changed.append({
+            "ticker": ticker,
+            "value_a": round(val_a, 2),
+            "value_b": round(val_b, 2),
+            "change_pct": round(chg_pct, 2),
+        })
+
+    return {
+        "data": {
+            "date_a": date_a,
+            "date_b": date_b,
+            "total_value_a": round(total_a, 2),
+            "total_value_b": round(total_b, 2),
+            "value_change": round(value_change, 2),
+            "value_change_pct": round(value_change_pct, 2),
+            "positions_added": positions_added,
+            "positions_removed": positions_removed,
+            "positions_changed": positions_changed,
+        },
+        "warnings": [],
+    }

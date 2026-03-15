@@ -41,6 +41,7 @@ import ThesisEditForm from "../components/portfolio/ThesisEditForm";
 import { Button } from "../components/ui/Button";
 import PnlTimelineChart from "../components/position/PnlTimelineChart";
 import PositionTimeline from "../components/position/PositionTimeline";
+import DividendTracker from "../components/portfolio/DividendTracker";
 
 function statusBadge(status: string) {
   const isOpen = status === "open";
@@ -834,6 +835,9 @@ export default function PositionDetailPage() {
 
       {/* -- News & Catalysts -- */}
       <CatalystPanel ticker={ticker!} assetType={assetType} />
+
+      {/* -- Dividends -- */}
+      <DividendTracker ticker={ticker!} />
 
       {/* -- Position Timeline -- */}
       <PositionTimeline ticker={ticker!} />

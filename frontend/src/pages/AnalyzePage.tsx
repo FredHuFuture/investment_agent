@@ -4,6 +4,7 @@ import { analyzeTicker, analyzeTickerCustom, getPortfolio } from "../api/endpoin
 import type { AnalysisResult as AnalysisResultType } from "../api/types";
 import AnalyzeForm from "../components/analysis/AnalyzeForm";
 import AnalysisResultComponent from "../components/analysis/AnalysisResult";
+import SignalStrengthGauge from "../components/analysis/SignalStrengthGauge";
 import WeightAdjuster from "../components/analysis/WeightAdjuster";
 import ComparisonPanel from "../components/analysis/ComparisonPanel";
 import ErrorAlert from "../components/shared/ErrorAlert";
@@ -222,6 +223,16 @@ export default function AnalyzePage() {
 
           {result && (
             <>
+              {/* Signal Strength Gauge — prominent summary */}
+              <Card padding="md">
+                <SignalStrengthGauge
+                  signal={result.final_signal}
+                  confidence={result.final_confidence}
+                  rawScore={result.metrics.raw_score}
+                  consensusScore={result.metrics.consensus_score}
+                />
+              </Card>
+
               <Card padding="md">
                 <AnalysisResultComponent data={result} />
               </Card>

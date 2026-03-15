@@ -39,6 +39,7 @@ vi.mock("../../api/endpoints", () => ({
   getRollingSharpe: vi.fn(),
   getMonthlyHeatmap: vi.fn(),
   getPerformanceAttribution: vi.fn(),
+  compareSnapshots: vi.fn(),
 }));
 
 import {
@@ -52,6 +53,7 @@ import {
   getRollingSharpe,
   getMonthlyHeatmap,
   getPerformanceAttribution,
+  compareSnapshots,
 } from "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import PerformancePage from "../PerformancePage";
@@ -66,6 +68,7 @@ const mockGetDrawdownSeries = vi.mocked(getDrawdownSeries);
 const mockGetRollingSharpe = vi.mocked(getRollingSharpe);
 const mockGetMonthlyHeatmap = vi.mocked(getMonthlyHeatmap);
 const mockGetPerformanceAttribution = vi.mocked(getPerformanceAttribution);
+const mockCompareSnapshots = vi.mocked(compareSnapshots);
 
 const mockPerformanceSummary = {
   total_realized_pnl: 5000,
@@ -118,6 +121,22 @@ function mockAllApis() {
     ] as never,
     warnings: [],
   });
+  mockCompareSnapshots.mockResolvedValue({
+    data: {
+      date_a: "2025-01-01",
+      date_b: "2025-06-01",
+      total_value_a: 100000,
+      total_value_b: 115000,
+      value_change: 15000,
+      value_change_pct: 15.0,
+      positions_added: ["GOOG"],
+      positions_removed: ["META"],
+      positions_changed: [
+        { ticker: "AAPL", value_a: 50000, value_b: 55000, change_pct: 10.0 },
+      ],
+    } as never,
+    warnings: [],
+  });
 }
 
 function renderPage() {
@@ -147,6 +166,7 @@ describe("PerformancePage", () => {
     mockGetRollingSharpe.mockReturnValue(new Promise(() => {}));
     mockGetMonthlyHeatmap.mockReturnValue(new Promise(() => {}));
     mockGetPerformanceAttribution.mockReturnValue(new Promise(() => {}));
+    mockCompareSnapshots.mockReturnValue(new Promise(() => {}));
     renderPage();
     const skeletons = document.querySelectorAll(".animate-pulse");
     expect(skeletons.length).toBeGreaterThan(0);
@@ -163,6 +183,7 @@ describe("PerformancePage", () => {
     mockGetRollingSharpe.mockRejectedValue(new Error("Server unavailable"));
     mockGetMonthlyHeatmap.mockRejectedValue(new Error("Server unavailable"));
     mockGetPerformanceAttribution.mockRejectedValue(new Error("Server unavailable"));
+    mockCompareSnapshots.mockRejectedValue(new Error("Server unavailable"));
     renderPage();
     await waitFor(() => {
       expect(screen.getByText("Server unavailable")).toBeInTheDocument();
@@ -255,5 +276,16 @@ describe("PerformancePage", () => {
     });
     expect(mockGetRollingSharpe).toHaveBeenCalled();
     expect(mockGetMonthlyHeatmap).toHaveBeenCalled();
+  });
+
+  it("renders Portfolio Snapshot Comparison section", async () => {
+    mockAllApis();
+    renderPage();
+    await waitFor(() => {
+      expect(
+        screen.getByText("Portfolio Snapshot Comparison"),
+      ).toBeInTheDocument();
+    });
+    expect(screen.getByText("Compare")).toBeInTheDocument();
   });
 });

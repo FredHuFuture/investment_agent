@@ -167,6 +167,23 @@ describe("AnalyzePage", () => {
     });
   });
 
+  it("renders signal strength gauge with signal and confidence when analysis loads", async () => {
+    mockAnalyzeTicker.mockResolvedValue({
+      data: mockResult as never,
+      warnings: [],
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId("gauge-center-label")).toBeInTheDocument();
+    });
+    // The gauge should display the signal text and confidence
+    const label = screen.getByTestId("gauge-center-label");
+    expect(label).toHaveTextContent("BUY");
+    expect(label).toHaveTextContent("72.0%");
+    // Raw score marker should be present
+    expect(screen.getByTestId("raw-score-marker")).toBeInTheDocument();
+  });
+
   it("renders Compare button in mode toggle", async () => {
     mockAnalyzeTicker.mockResolvedValue({
       data: mockResult as never,

@@ -38,6 +38,17 @@ class AlertConfigRequest(BaseModel):
     enabled: bool = True
 
 
+class BulkAddItem(BaseModel):
+    ticker: str
+    asset_type: str = "stock"
+    notes: str = ""
+    target_buy_price: float | None = None
+
+
+class BulkAddRequest(BaseModel):
+    items: list[BulkAddItem]
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -69,6 +80,41 @@ async def add_to_watchlist(
         raise HTTPException(status_code=409, detail=str(exc))
     item = await mgr.get_ticker(body.ticker.upper())
     return {"data": item, "warnings": []}
+
+
+@router.post("/bulk-add")
+async def bulk_add_to_watchlist(
+    body: BulkAddRequest,
+    db_path: str = Depends(get_db_path),
+):
+    """Add multiple tickers to the watchlist at once."""
+    mgr = WatchlistManager(db_path)
+    added = 0
+    skipped = 0
+    errors: list[dict[str, str]] = []
+
+    for item in body.items:
+        ticker = item.ticker.strip().upper()
+        if not ticker:
+            continue
+        try:
+            await mgr.add_ticker(
+                ticker=ticker,
+                asset_type=item.asset_type,
+                notes=item.notes,
+                target_buy_price=item.target_buy_price,
+            )
+            added += 1
+        except ValueError:
+            # Already exists on the watchlist
+            skipped += 1
+        except Exception as exc:
+            errors.append({"ticker": ticker, "reason": str(exc)})
+
+    return {
+        "data": {"added": added, "skipped": skipped, "errors": errors},
+        "warnings": [],
+    }
 
 
 @router.delete("/{ticker}")

@@ -23,6 +23,7 @@ import SignalFilterBar, {
   type SignalFilter,
 } from "../components/watchlist/SignalFilterBar";
 import ComparisonTable from "../components/watchlist/ComparisonTable";
+import BulkAddModal from "../components/watchlist/BulkAddModal";
 
 const MAX_COMPARE = 5;
 
@@ -77,6 +78,9 @@ export default function WatchlistPage() {
   const [expandedAlertTicker, setExpandedAlertTicker] = useState<string | null>(
     null,
   );
+
+  // --- Bulk add modal (Sprint 36) ---
+  const [bulkAddOpen, setBulkAddOpen] = useState(false);
 
   const fetchWatchlist = useCallback(async () => {
     try {
@@ -346,6 +350,14 @@ export default function WatchlistPage() {
             >
               Add
             </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setBulkAddOpen(true)}
+            >
+              Bulk Add
+            </Button>
           </div>
         </form>
       </Card>
@@ -468,6 +480,12 @@ export default function WatchlistPage() {
         description="This will remove the ticker from your watchlist. You can always add it back later."
         confirmLabel="Remove"
         variant="danger"
+      />
+
+      <BulkAddModal
+        open={bulkAddOpen}
+        onClose={() => setBulkAddOpen(false)}
+        onSuccess={() => fetchWatchlist()}
       />
     </div>
   );

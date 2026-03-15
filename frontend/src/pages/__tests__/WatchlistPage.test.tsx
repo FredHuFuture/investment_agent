@@ -13,6 +13,7 @@ vi.mock("../../api/endpoints", () => ({
   updateWatchlistItem: vi.fn(),
   getWatchlistAlertConfigs: vi.fn(),
   setWatchlistAlertConfig: vi.fn(),
+  bulkAddWatchlist: vi.fn(),
 }));
 
 import { getWatchlist, getWatchlistAlertConfigs } from "../../api/endpoints";
@@ -179,6 +180,32 @@ describe("WatchlistPage", () => {
     fireEvent.click(bellButton);
     await waitFor(() => {
       expect(screen.getByText(/Alert Settings/)).toBeInTheDocument();
+    });
+  });
+
+  it("renders 'Bulk Add' button", async () => {
+    mockGetWatchlist.mockResolvedValue({
+      data: [] as never,
+      warnings: [],
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Bulk Add")).toBeInTheDocument();
+    });
+  });
+
+  it("opens BulkAddModal when 'Bulk Add' is clicked", async () => {
+    mockGetWatchlist.mockResolvedValue({
+      data: [] as never,
+      warnings: [],
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Bulk Add")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("Bulk Add"));
+    await waitFor(() => {
+      expect(screen.getByText("Bulk Add to Watchlist")).toBeInTheDocument();
     });
   });
 });

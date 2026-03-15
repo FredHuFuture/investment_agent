@@ -29,6 +29,8 @@ vi.mock("../../api/endpoints", () => ({
   getCatalysts: vi.fn(),
   getPositionPnlHistory: vi.fn(),
   getPositionTimeline: vi.fn(),
+  getDividends: vi.fn(),
+  addDividend: vi.fn(),
 }));
 
 import {
@@ -41,6 +43,8 @@ import {
   getCatalysts,
   getPositionPnlHistory,
   getPositionTimeline,
+  getDividends,
+  addDividend,
 } from "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import PositionDetailPage from "../PositionDetailPage";
@@ -54,6 +58,9 @@ const mockGetAlerts = vi.mocked(getAlerts);
 const mockGetCatalysts = vi.mocked(getCatalysts);
 const mockGetPositionPnlHistory = vi.mocked(getPositionPnlHistory);
 const mockGetPositionTimeline = vi.mocked(getPositionTimeline);
+const mockGetDividends = vi.mocked(getDividends);
+// addDividend is mocked but only called via user interaction; wire it up for the mock module
+void addDividend;
 
 const mockPortfolio = {
   positions: [
@@ -114,6 +121,24 @@ function mockSecondaryApis() {
   mockGetAlerts.mockResolvedValue({ data: [], warnings: [] });
   mockGetCatalysts.mockRejectedValue(new Error("Not available"));
   mockGetPositionPnlHistory.mockResolvedValue({ data: [] as never, warnings: [] });
+  mockGetDividends.mockResolvedValue({
+    data: {
+      entries: [
+        {
+          id: 1,
+          ticker: "AAPL",
+          amount_per_share: 0.24,
+          total_amount: 2.40,
+          ex_date: "2024-02-09",
+          pay_date: "2024-02-15",
+          created_at: "2024-02-09T00:00:00",
+        },
+      ],
+      total_dividends: 2.40,
+      yield_on_cost_pct: 0.16,
+    } as never,
+    warnings: [],
+  });
   mockGetPositionTimeline.mockResolvedValue({
     data: [
       {
@@ -247,6 +272,21 @@ describe("PositionDetailPage", () => {
     await waitFor(() => {
       expect(screen.getByText("Portfolio")).toBeInTheDocument();
     });
+  });
+
+  it("renders the Dividends card with data", async () => {
+    mockGetPortfolio.mockResolvedValue({
+      data: mockPortfolio as never,
+      warnings: [],
+    });
+    mockSecondaryApis();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Dividends")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Total Dividends")).toBeInTheDocument();
+    expect(screen.getByText("Yield on Cost")).toBeInTheDocument();
+    expect(screen.getByText("Record Dividend")).toBeInTheDocument();
   });
 
   it("renders the position timeline section with events", async () => {

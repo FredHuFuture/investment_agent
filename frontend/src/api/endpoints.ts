@@ -55,6 +55,9 @@ import type {
   BulkImportResult,
   WatchlistTarget,
   PerformanceAttribution,
+  DividendSummary,
+  SnapshotComparison,
+  BulkWatchlistResult,
 } from "./types";
 
 // Portfolio
@@ -434,3 +437,19 @@ export const getWatchlistTargets = () =>
 // Performance attribution (Sprint 35)
 export const getPerformanceAttribution = () =>
   apiGet<PerformanceAttribution[]>("/analytics/attribution");
+
+// Dividends (Sprint 36)
+export const getDividends = (ticker: string) =>
+  apiGet<DividendSummary>(`/portfolio/positions/${encodeURIComponent(ticker)}/dividends`);
+export const addDividend = (ticker: string, body: {
+  amount_per_share: number; ex_date: string; pay_date?: string;
+}) => apiPost<{ id: number }>(`/portfolio/positions/${encodeURIComponent(ticker)}/dividends`, body);
+
+// Snapshot comparison (Sprint 36)
+export const compareSnapshots = (dateA: string, dateB: string) =>
+  apiGet<SnapshotComparison>(`/analytics/snapshot-compare?date_a=${dateA}&date_b=${dateB}`);
+
+// Watchlist bulk add (Sprint 36)
+export const bulkAddWatchlist = (tickers: Array<{
+  ticker: string; asset_type?: string; notes?: string; target_buy_price?: number;
+}>) => apiPost<BulkWatchlistResult>("/watchlist/bulk-add", { items: tickers });

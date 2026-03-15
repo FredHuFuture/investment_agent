@@ -29,6 +29,7 @@ import DrawdownChart from "../components/performance/DrawdownChart";
 import RollingSharpeChart from "../components/performance/RollingSharpeChart";
 import MonthlyHeatmapCalendar from "../components/performance/MonthlyHeatmapCalendar";
 import PerformanceAttribution from "../components/performance/PerformanceAttribution";
+import SnapshotComparison from "../components/performance/SnapshotComparison";
 import {
   AreaChart,
   Area,
@@ -388,6 +389,9 @@ export default function PerformancePage() {
 
       {/* P&L Attribution */}
       <PerformanceAttribution />
+
+      {/* Snapshot Comparison */}
+      <SnapshotComparison />
 
       {/* Monthly returns + Top performers */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

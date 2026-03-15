@@ -8,6 +8,7 @@ import aiosqlite
 from fastapi import APIRouter, Depends
 
 from api.deps import get_db_path, map_ticker, resolve_asset_type
+from pydantic import BaseModel
 from api.models import AddPositionRequest, BulkImportRequest, ClosePositionRequest, ScaleRequest, SetCashRequest, SplitRequest, ThesisResponse, UpdateThesisRequest
 from data_providers.factory import get_provider
 from portfolio.manager import PortfolioManager
@@ -374,3 +375,130 @@ async def get_position_timeline(ticker: str, db_path: str = Depends(get_db_path)
     events.sort(key=lambda e: e["date"] or "", reverse=True)
 
     return {"data": events, "warnings": []}
+
+
+# ---------------------------------------------------------------------------
+# Dividend endpoints
+# ---------------------------------------------------------------------------
+
+class AddDividendRequest(BaseModel):
+    amount_per_share: float
+    ex_date: str
+    pay_date: str | None = None
+
+
+@router.get("/positions/{ticker}/dividends")
+async def get_dividends(ticker: str, db_path: str = Depends(get_db_path)):
+    """Return dividend history and yield-on-cost for a position."""
+    upper_ticker = ticker.upper()
+
+    async with aiosqlite.connect(db_path) as conn:
+        conn.row_factory = aiosqlite.Row
+
+        # Ensure dividends table exists
+        await conn.execute(
+            "CREATE TABLE IF NOT EXISTS dividends ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "ticker TEXT NOT NULL, "
+            "amount_per_share REAL NOT NULL, "
+            "total_amount REAL NOT NULL, "
+            "ex_date TEXT NOT NULL, "
+            "pay_date TEXT, "
+            "created_at TEXT DEFAULT (datetime('now'))"
+            ")"
+        )
+        await conn.commit()
+
+        # Fetch all dividends for this ticker
+        cursor = await conn.execute(
+            "SELECT id, ticker, amount_per_share, total_amount, ex_date, pay_date, created_at "
+            "FROM dividends WHERE UPPER(ticker) = ? ORDER BY ex_date DESC",
+            (upper_ticker,),
+        )
+        rows = await cursor.fetchall()
+        entries = [
+            {
+                "id": r["id"],
+                "ticker": r["ticker"],
+                "amount_per_share": r["amount_per_share"],
+                "total_amount": r["total_amount"],
+                "ex_date": r["ex_date"],
+                "pay_date": r["pay_date"],
+                "created_at": r["created_at"],
+            }
+            for r in rows
+        ]
+
+        total_dividends = sum(e["total_amount"] for e in entries)
+
+        # Get avg_cost and quantity from active_positions to compute yield_on_cost
+        cursor = await conn.execute(
+            "SELECT avg_cost, quantity FROM active_positions WHERE UPPER(ticker) = ?",
+            (upper_ticker,),
+        )
+        pos_row = await cursor.fetchone()
+        cost_basis = (pos_row["avg_cost"] * pos_row["quantity"]) if pos_row else 0.0
+        yield_on_cost_pct = (total_dividends / cost_basis) * 100 if cost_basis > 0 else 0.0
+
+    return {
+        "data": {
+            "entries": entries,
+            "total_dividends": total_dividends,
+            "yield_on_cost_pct": yield_on_cost_pct,
+        },
+        "warnings": [],
+    }
+
+
+@router.post("/positions/{ticker}/dividends")
+async def add_dividend(ticker: str, body: AddDividendRequest, db_path: str = Depends(get_db_path)):
+    """Record a new dividend for a position."""
+    upper_ticker = ticker.upper()
+
+    async with aiosqlite.connect(db_path) as conn:
+        conn.row_factory = aiosqlite.Row
+
+        # Ensure dividends table exists
+        await conn.execute(
+            "CREATE TABLE IF NOT EXISTS dividends ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "ticker TEXT NOT NULL, "
+            "amount_per_share REAL NOT NULL, "
+            "total_amount REAL NOT NULL, "
+            "ex_date TEXT NOT NULL, "
+            "pay_date TEXT, "
+            "created_at TEXT DEFAULT (datetime('now'))"
+            ")"
+        )
+
+        # Look up the position's quantity
+        cursor = await conn.execute(
+            "SELECT quantity FROM active_positions WHERE UPPER(ticker) = ?",
+            (upper_ticker,),
+        )
+        pos_row = await cursor.fetchone()
+        if pos_row is None:
+            from fastapi.responses import JSONResponse
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "error": {
+                        "code": "NOT_FOUND",
+                        "message": f"No active position for '{upper_ticker}'",
+                        "detail": None,
+                    }
+                },
+            )
+
+        quantity = pos_row["quantity"]
+        total_amount = body.amount_per_share * quantity
+
+        cursor = await conn.execute(
+            "INSERT INTO dividends (ticker, amount_per_share, total_amount, ex_date, pay_date) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (upper_ticker, body.amount_per_share, total_amount, body.ex_date, body.pay_date),
+        )
+        await conn.commit()
+        new_id = cursor.lastrowid
+
+    return {"data": {"id": new_id}, "warnings": []}
