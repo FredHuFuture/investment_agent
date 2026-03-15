@@ -759,3 +759,34 @@ export interface SectorPerformanceEntry {
   best_ticker: string | null;
   worst_ticker: string | null;
 }
+
+// ---------------------------------------------------------------------------
+// Sprint 38 types
+// ---------------------------------------------------------------------------
+export interface AlertRule {
+  id: number;
+  name: string;
+  metric: string;
+  condition: "gt" | "lt" | "eq";
+  threshold: number;
+  severity: string;
+  enabled: boolean;
+  created_at: string;
+}
+
+export interface PortfolioHealthScore {
+  overall_score: number;
+  diversification_score: number;
+  risk_score: number;
+  thesis_adherence_score: number;
+  momentum_score: number;
+  details: Record<string, string>;
+}
+
+export interface JournalInsight {
+  type: string;
+  title: string;
+  detail: string;
+  metric_value: number | null;
+  severity: "positive" | "neutral" | "negative";
+}

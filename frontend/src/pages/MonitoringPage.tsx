@@ -4,6 +4,7 @@ import { getAlerts, batchAcknowledgeAlerts } from "../api/endpoints";
 import type { Alert } from "../api/types";
 import AlertTimeline from "../components/monitoring/AlertTimeline";
 import AlertAnalyticsPanel from "../components/monitoring/AlertAnalyticsPanel";
+import AlertRulesPanel from "../components/monitoring/AlertRulesPanel";
 import AlertSummaryChips from "../components/monitoring/AlertSummaryChips";
 import SeverityFilterBar from "../components/monitoring/SeverityFilterBar";
 import MonitorCheckButton from "../components/monitoring/MonitorCheckButton";
@@ -218,6 +219,9 @@ export default function MonitoringPage() {
           </table>
         </div>
       )}
+
+      {/* Alert Rules */}
+      <AlertRulesPanel />
     </div>
   );
 }

@@ -27,6 +27,7 @@ vi.mock("../../api/endpoints", () => ({
   getValueHistory: vi.fn(),
   getStressScenarios: vi.fn(),
   getMonteCarloSimulation: vi.fn(),
+  getPortfolioHealthScore: vi.fn(),
 }));
 
 import {
@@ -35,6 +36,7 @@ import {
   getValueHistory,
   getStressScenarios,
   getMonteCarloSimulation,
+  getPortfolioHealthScore,
 } from "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import RiskPage from "../RiskPage";
@@ -44,6 +46,7 @@ const mockGetPortfolioCorrelations = vi.mocked(getPortfolioCorrelations);
 const mockGetValueHistory = vi.mocked(getValueHistory);
 const mockGetStressScenarios = vi.mocked(getStressScenarios);
 const mockGetMonteCarloSimulation = vi.mocked(getMonteCarloSimulation);
+const mockGetPortfolioHealthScore = vi.mocked(getPortfolioHealthScore);
 
 const mockRisk = {
   daily_volatility: 0.012,
@@ -122,6 +125,22 @@ function mockAllApis() {
     } as never,
     warnings: [],
   });
+  mockGetPortfolioHealthScore.mockResolvedValue({
+    data: {
+      overall_score: 72,
+      diversification_score: 65,
+      risk_score: 80,
+      thesis_adherence_score: 60,
+      momentum_score: 83,
+      details: {
+        diversification: "3 positions across 2 sectors",
+        risk: "Low volatility, moderate drawdown",
+        thesis_adherence: "2 of 3 positions have thesis",
+        momentum: "Most positions in profit",
+      },
+    } as never,
+    warnings: [],
+  });
 }
 
 function renderPage() {
@@ -145,6 +164,7 @@ describe("RiskPage", () => {
     mockGetPortfolioCorrelations.mockReturnValue(new Promise(() => {}));
     mockGetValueHistory.mockReturnValue(new Promise(() => {}));
     mockGetStressScenarios.mockReturnValue(new Promise(() => {}));
+    mockGetPortfolioHealthScore.mockReturnValue(new Promise(() => {}));
     renderPage();
     const skeletons = document.querySelectorAll(".animate-pulse");
     expect(skeletons.length).toBeGreaterThan(0);
@@ -162,6 +182,22 @@ describe("RiskPage", () => {
     });
     mockGetStressScenarios.mockResolvedValue({
       data: mockStressScenarios as never,
+      warnings: [],
+    });
+    mockGetPortfolioHealthScore.mockResolvedValue({
+      data: {
+        overall_score: 72,
+        diversification_score: 65,
+        risk_score: 80,
+        thesis_adherence_score: 60,
+        momentum_score: 83,
+        details: {
+          diversification: "3 positions across 2 sectors",
+          risk: "Low volatility, moderate drawdown",
+          thesis_adherence: "2 of 3 positions have thesis",
+          momentum: "Most positions in profit",
+        },
+      } as never,
       warnings: [],
     });
     renderPage();
@@ -237,6 +273,7 @@ describe("RiskPage", () => {
     mockGetPortfolioCorrelations.mockReturnValue(new Promise(() => {}));
     mockGetValueHistory.mockReturnValue(new Promise(() => {}));
     mockGetStressScenarios.mockReturnValue(new Promise(() => {}));
+    mockGetPortfolioHealthScore.mockReturnValue(new Promise(() => {}));
     renderPage();
     const skeletons = document.querySelectorAll(".animate-pulse");
     // Main page skeletons + stress test skeleton
@@ -257,5 +294,14 @@ describe("RiskPage", () => {
     // Verify the concentration risk badge renders
     const badges = screen.getAllByText("MODERATE");
     expect(badges.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("renders Portfolio Health card with score", async () => {
+    mockAllApis();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Portfolio Health")).toBeInTheDocument();
+    });
+    expect(screen.getByText("72")).toBeInTheDocument();
   });
 });

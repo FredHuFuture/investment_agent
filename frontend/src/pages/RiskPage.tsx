@@ -15,6 +15,7 @@ import ErrorAlert from "../components/shared/ErrorAlert";
 import StressTestPanel from "../components/risk/StressTestPanel";
 import MonteCarloPanel from "../components/risk/MonteCarloPanel";
 import CorrelationHeatmap from "../components/risk/CorrelationHeatmap";
+import HealthScoreCard from "../components/risk/HealthScoreCard";
 import { Card, CardHeader, CardBody } from "../components/ui/Card";
 import { SkeletonCard } from "../components/ui/Skeleton";
 import { usePageTitle } from "../hooks/usePageTitle";
@@ -467,6 +468,9 @@ export default function RiskPage() {
           trend="down"
         />
       </div>
+
+      {/* Portfolio Health Score */}
+      <HealthScoreCard />
 
       {/* Row 3: Win/Loss distribution + Correlation matrix */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

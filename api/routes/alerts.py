@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Optional
 
+import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 
 from api.deps import get_db_path
 from monitoring.monitor import PortfolioMonitor
@@ -149,3 +152,147 @@ async def run_monitor_check(db_path: str = Depends(get_db_path)):
     monitor = PortfolioMonitor(db_path=db_path)
     result = await monitor.run_check()
     return {"data": result, "warnings": result.get("warnings", [])}
+
+
+# ---------------------------------------------------------------------------
+# Alert Rules CRUD
+# ---------------------------------------------------------------------------
+
+_ALERT_RULES_DDL = """
+CREATE TABLE IF NOT EXISTS alert_rules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  metric TEXT NOT NULL,
+  condition TEXT NOT NULL CHECK(condition IN ('gt','lt','eq')),
+  threshold REAL NOT NULL,
+  severity TEXT NOT NULL DEFAULT 'medium',
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+)
+"""
+
+
+class CreateAlertRuleBody(BaseModel):
+    name: str
+    metric: str
+    condition: str = Field(..., pattern=r"^(gt|lt|eq)$")
+    threshold: float
+    severity: Optional[str] = "medium"
+
+
+class ToggleAlertRuleBody(BaseModel):
+    enabled: bool
+
+
+async def _ensure_alert_rules_table(conn: aiosqlite.Connection) -> None:
+    await conn.execute(_ALERT_RULES_DDL)
+    await conn.commit()
+
+
+@router.get("/alerts/rules")
+async def list_alert_rules(db_path: str = Depends(get_db_path)):
+    """List all alert rules."""
+    async with aiosqlite.connect(db_path) as conn:
+        await _ensure_alert_rules_table(conn)
+        conn.row_factory = aiosqlite.Row
+        cursor = await conn.execute(
+            "SELECT id, name, metric, condition, threshold, severity, enabled, created_at FROM alert_rules ORDER BY id DESC"
+        )
+        rows = await cursor.fetchall()
+        rules = [
+            {
+                "id": row["id"],
+                "name": row["name"],
+                "metric": row["metric"],
+                "condition": row["condition"],
+                "threshold": row["threshold"],
+                "severity": row["severity"],
+                "enabled": bool(row["enabled"]),
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
+    return {"data": rules, "warnings": []}
+
+
+@router.post("/alerts/rules")
+async def create_alert_rule(
+    body: CreateAlertRuleBody,
+    db_path: str = Depends(get_db_path),
+):
+    """Create a new alert rule."""
+    async with aiosqlite.connect(db_path) as conn:
+        await _ensure_alert_rules_table(conn)
+        cursor = await conn.execute(
+            "INSERT INTO alert_rules (name, metric, condition, threshold, severity) VALUES (?, ?, ?, ?, ?)",
+            (body.name, body.metric, body.condition, body.threshold, body.severity),
+        )
+        await conn.commit()
+        rule_id = cursor.lastrowid
+        conn.row_factory = aiosqlite.Row
+        cursor = await conn.execute(
+            "SELECT id, name, metric, condition, threshold, severity, enabled, created_at FROM alert_rules WHERE id = ?",
+            (rule_id,),
+        )
+        row = await cursor.fetchone()
+        rule = {
+            "id": row["id"],
+            "name": row["name"],
+            "metric": row["metric"],
+            "condition": row["condition"],
+            "threshold": row["threshold"],
+            "severity": row["severity"],
+            "enabled": bool(row["enabled"]),
+            "created_at": row["created_at"],
+        }
+    return {"data": rule, "warnings": []}
+
+
+@router.delete("/alerts/rules/{rule_id}")
+async def delete_alert_rule(
+    rule_id: int,
+    db_path: str = Depends(get_db_path),
+):
+    """Delete an alert rule."""
+    async with aiosqlite.connect(db_path) as conn:
+        await _ensure_alert_rules_table(conn)
+        cursor = await conn.execute("DELETE FROM alert_rules WHERE id = ?", (rule_id,))
+        await conn.commit()
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Alert rule not found")
+    return {"data": {"deleted": True}, "warnings": []}
+
+
+@router.patch("/alerts/rules/{rule_id}")
+async def toggle_alert_rule(
+    rule_id: int,
+    body: ToggleAlertRuleBody,
+    db_path: str = Depends(get_db_path),
+):
+    """Toggle the enabled flag on an alert rule."""
+    async with aiosqlite.connect(db_path) as conn:
+        await _ensure_alert_rules_table(conn)
+        cursor = await conn.execute(
+            "UPDATE alert_rules SET enabled = ? WHERE id = ?",
+            (int(body.enabled), rule_id),
+        )
+        await conn.commit()
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Alert rule not found")
+        conn.row_factory = aiosqlite.Row
+        cursor = await conn.execute(
+            "SELECT id, name, metric, condition, threshold, severity, enabled, created_at FROM alert_rules WHERE id = ?",
+            (rule_id,),
+        )
+        row = await cursor.fetchone()
+        rule = {
+            "id": row["id"],
+            "name": row["name"],
+            "metric": row["metric"],
+            "condition": row["condition"],
+            "threshold": row["threshold"],
+            "severity": row["severity"],
+            "enabled": bool(row["enabled"]),
+            "created_at": row["created_at"],
+        }
+    return {"data": rule, "warnings": []}

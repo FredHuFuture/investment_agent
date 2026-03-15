@@ -93,13 +93,43 @@ describe("SettingsPage", () => {
     expect(screen.getByText("Clear Cache")).toBeInTheDocument();
   });
 
-  it("renders Export section with download links", () => {
+  it("renders Export Hub section with all download links", () => {
     renderPage();
-    expect(screen.getByText("Export")).toBeInTheDocument();
+    expect(screen.getByText("Export Hub")).toBeInTheDocument();
+    // Original export links
     expect(screen.getByText("Portfolio CSV")).toBeInTheDocument();
     expect(screen.getByText("Trade Journal CSV")).toBeInTheDocument();
     expect(screen.getByText("Full Report")).toBeInTheDocument();
     expect(screen.getByText("All Signals CSV")).toBeInTheDocument();
+    // New export links
+    expect(screen.getByText("Alerts CSV")).toBeInTheDocument();
+    expect(screen.getByText("Performance CSV")).toBeInTheDocument();
+    expect(screen.getByText("Risk CSV")).toBeInTheDocument();
+  });
+
+  it("renders all 7 export buttons across 5 categories", () => {
+    renderPage();
+    const expectedLabels = [
+      "Portfolio CSV",
+      "Trade Journal CSV",
+      "Full Report",
+      "Performance CSV",
+      "Risk CSV",
+      "All Signals CSV",
+      "Alerts CSV",
+    ];
+    for (const label of expectedLabels) {
+      const link = screen.getByText(label);
+      expect(link).toBeInTheDocument();
+      expect(link.tagName).toBe("A");
+      expect(link).toHaveAttribute("download");
+    }
+    // Verify all 5 category headings
+    expect(screen.getByText("Portfolio")).toBeInTheDocument();
+    expect(screen.getByText("Performance")).toBeInTheDocument();
+    expect(screen.getByText("Risk")).toBeInTheDocument();
+    expect(screen.getByText("Signals")).toBeInTheDocument();
+    expect(screen.getByText("Alerts")).toBeInTheDocument();
   });
 
   it("renders configuration guidance section", () => {

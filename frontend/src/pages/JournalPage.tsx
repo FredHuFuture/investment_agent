@@ -14,6 +14,7 @@ import DataTable, { type Column } from "../components/shared/DataTable";
 import TradeAnnotationPanel from "../components/journal/TradeAnnotationPanel";
 import LessonSummary from "../components/journal/LessonSummary";
 import LessonAnalytics from "../components/journal/LessonAnalytics";
+import JournalInsights from "../components/journal/JournalInsights";
 import {
   BarChart,
   Bar,
@@ -350,6 +351,9 @@ export default function JournalPage() {
               trend={pnlTrend}
             />
           </div>
+
+          {/* Trading Insights */}
+          <JournalInsights />
 
           {/* Best / Worst Trade */}
           {(perf.best_trade || perf.worst_trade) && (

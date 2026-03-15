@@ -27,15 +27,20 @@ vi.mock("../../api/endpoints", () => ({
   batchAcknowledgeAlerts: vi.fn(),
   getAlertTimeline: vi.fn(),
   getAlertStats: vi.fn(),
+  getAlertRules: vi.fn(),
+  createAlertRule: vi.fn(),
+  deleteAlertRule: vi.fn(),
+  toggleAlertRule: vi.fn(),
 }));
 
-import { getAlerts, getAlertTimeline, getAlertStats } from "../../api/endpoints";
+import { getAlerts, getAlertTimeline, getAlertStats, getAlertRules } from "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import MonitoringPage from "../MonitoringPage";
 
 const mockGetAlerts = vi.mocked(getAlerts);
 const mockGetAlertTimeline = vi.mocked(getAlertTimeline);
 const mockGetAlertStats = vi.mocked(getAlertStats);
+const mockGetAlertRules = vi.mocked(getAlertRules);
 
 function renderPage() {
   return render(
@@ -53,6 +58,22 @@ describe("MonitoringPage", () => {
     invalidateCache();
     // Default: timeline returns empty
     mockGetAlertTimeline.mockResolvedValue({ data: [], warnings: [] });
+    // Default: alert rules returns sample rule
+    mockGetAlertRules.mockResolvedValue({
+      data: [
+        {
+          id: 1,
+          name: "High Drawdown",
+          metric: "drawdown_pct",
+          condition: "gt",
+          threshold: 10,
+          severity: "high",
+          enabled: true,
+          created_at: "2024-01-01T00:00:00",
+        },
+      ],
+      warnings: [],
+    });
     // Default: alert stats returns zeros
     mockGetAlertStats.mockResolvedValue({
       data: {
@@ -178,5 +199,14 @@ describe("MonitoringPage", () => {
       expect(screen.getByText("Low")).toBeInTheDocument();
       expect(screen.getByText("Info")).toBeInTheDocument();
     });
+  });
+
+  it("renders Alert Rules panel with rules", async () => {
+    mockGetAlerts.mockResolvedValue({ data: [], warnings: [] });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("High Drawdown")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Alert Rules")).toBeInTheDocument();
   });
 });

@@ -62,6 +62,9 @@ import type {
   PortfolioGoal,
   PositionNote,
   SectorPerformanceEntry,
+  AlertRule,
+  PortfolioHealthScore,
+  JournalInsight,
 } from "./types";
 
 // Portfolio
@@ -480,3 +483,23 @@ export const addPositionNote = (ticker: string, body: { note_text: string }) =>
 // Sector performance (Sprint 37)
 export const getSectorPerformance = () =>
   apiGet<SectorPerformanceEntry[]>("/analytics/sector-performance");
+
+// Alert rules (Sprint 38)
+export const getAlertRules = () =>
+  apiGet<AlertRule[]>("/alerts/rules");
+export const createAlertRule = (body: {
+  name: string; metric: string; condition: "gt" | "lt" | "eq";
+  threshold: number; severity?: string;
+}) => apiPost<AlertRule>("/alerts/rules", body);
+export const deleteAlertRule = (id: number) =>
+  apiDelete<{ deleted: boolean }>(`/alerts/rules/${id}`);
+export const toggleAlertRule = (id: number, enabled: boolean) =>
+  apiPatch<AlertRule>(`/alerts/rules/${id}`, { enabled });
+
+// Portfolio health score (Sprint 38)
+export const getPortfolioHealthScore = () =>
+  apiGet<PortfolioHealthScore>("/risk/health-score");
+
+// Journal insights (Sprint 38)
+export const getJournalInsights = () =>
+  apiGet<JournalInsight[]>("/journal/insights");

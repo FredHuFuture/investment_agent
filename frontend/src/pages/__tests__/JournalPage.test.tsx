@@ -29,6 +29,7 @@ vi.mock("../../api/endpoints", () => ({
   getTradeAnnotations: vi.fn(),
   createTradeAnnotation: vi.fn(),
   getLessonTagStats: vi.fn(),
+  getJournalInsights: vi.fn(),
 }));
 
 import {
@@ -37,6 +38,7 @@ import {
   getTradeAnnotations,
   createTradeAnnotation,
   getLessonTagStats,
+  getJournalInsights,
 } from "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import JournalPage from "../JournalPage";
@@ -46,6 +48,7 @@ const mockGetPerformanceSummary = vi.mocked(getPerformanceSummary);
 const mockGetTradeAnnotations = vi.mocked(getTradeAnnotations);
 const mockCreateTradeAnnotation = vi.mocked(createTradeAnnotation);
 const mockGetLessonTagStats = vi.mocked(getLessonTagStats);
+const mockGetJournalInsights = vi.mocked(getJournalInsights);
 
 const mockClosedPosition = {
   ticker: "AAPL",
@@ -123,11 +126,19 @@ describe("JournalPage", () => {
       data: [] as never,
       warnings: [],
     });
+    mockGetJournalInsights.mockResolvedValue({
+      data: [
+        { type: "win_rate", title: "Strong Win Rate", detail: "Your win rate of 60% is above the 50% benchmark", metric_value: 60, severity: "positive" },
+        { type: "hold_time", title: "Hold Time Analysis", detail: "Average hold of 25 days is within your target range", metric_value: 25, severity: "neutral" },
+      ] as never,
+      warnings: [],
+    });
   });
 
   it("renders skeleton while loading", () => {
     mockGetPositionHistory.mockReturnValue(new Promise(() => {}));
     mockGetPerformanceSummary.mockReturnValue(new Promise(() => {}));
+    mockGetJournalInsights.mockReturnValue(new Promise(() => {}));
     renderPage();
     const skeletons = document.querySelectorAll(".animate-pulse");
     expect(skeletons.length).toBeGreaterThan(0);
@@ -136,6 +147,7 @@ describe("JournalPage", () => {
   it("renders error alert when API rejects", async () => {
     mockGetPositionHistory.mockRejectedValue(new Error("Server unavailable"));
     mockGetPerformanceSummary.mockRejectedValue(new Error("Server unavailable"));
+    mockGetJournalInsights.mockRejectedValue(new Error("Server unavailable"));
     renderPage();
     await waitFor(() => {
       expect(screen.getByText("Server unavailable")).toBeInTheDocument();
@@ -315,5 +327,15 @@ describe("JournalPage", () => {
     await waitFor(() => {
       expect(screen.getByText(/consider reviewing this pattern/)).toBeInTheDocument();
     });
+  });
+
+  it("renders Trading Insights section", async () => {
+    mockGetPositionHistory.mockResolvedValue({ data: [mockClosedPosition] as never, warnings: [] });
+    mockGetPerformanceSummary.mockResolvedValue({ data: mockPerformanceSummary as never, warnings: [] });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Strong Win Rate")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Trading Insights")).toBeInTheDocument();
   });
 });
