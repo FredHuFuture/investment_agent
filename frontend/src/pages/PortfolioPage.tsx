@@ -9,6 +9,7 @@ import AddPositionForm from "../components/portfolio/AddPositionForm";
 import type { AddPositionInitialValues } from "../components/portfolio/AddPositionForm";
 import AllocationChart from "../components/portfolio/AllocationChart";
 import ClosePositionModal from "../components/portfolio/ClosePositionModal";
+import ConfirmModal from "../components/ui/ConfirmModal";
 import ClosedPositionsTable from "../components/portfolio/ClosedPositionsTable";
 import DashboardAlertsList from "../components/monitoring/DashboardAlertsList";
 import WeeklySummaryCard from "../components/summary/WeeklySummaryCard";
@@ -146,6 +147,7 @@ export default function PortfolioPage() {
   const [adding, setAdding] = useState(false);
   const [breakdownMode, setBreakdownMode] = useState<BreakdownMode>("ticker");
   const [closingPosition, setClosingPosition] = useState<Position | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
   const [posTab, setPosTab] = useState<"open" | "closed">("open");
 
   // Read query params for pre-fill from Analyze -> Add flow
@@ -221,12 +223,15 @@ export default function PortfolioPage() {
     }
   }
 
-  async function handleRemove(ticker: string) {
+  async function handleConfirmRemove() {
+    if (!confirmRemove) return;
+    const ticker = confirmRemove;
     try {
       await removePosition(ticker);
       invalidateCache("dashboard");
       invalidateCache("portfolio");
       invalidateCache("perf");
+      setConfirmRemove(null);
       refetch();
       toast.success("Position removed", ticker + " removed");
     } catch (err) {
@@ -419,7 +424,7 @@ export default function PortfolioPage() {
           ) : (
             <PositionsTable
               positions={data.positions}
-              onRemove={handleRemove}
+              onRemove={setConfirmRemove}
               onClose={setClosingPosition}
             />
           )
@@ -440,6 +445,16 @@ export default function PortfolioPage() {
           onConfirm={handleClose}
         />
       )}
+
+      <ConfirmModal
+        open={confirmRemove !== null}
+        onClose={() => setConfirmRemove(null)}
+        onConfirm={handleConfirmRemove}
+        title={`Remove ${confirmRemove}?`}
+        description="This will permanently remove this position from your portfolio. This action cannot be undone."
+        confirmLabel="Remove Position"
+        variant="danger"
+      />
 
       {/* -- Add Position form -- */}
       <Card padding="md">

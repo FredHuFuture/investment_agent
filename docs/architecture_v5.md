@@ -58,13 +58,13 @@ Core moat: Expected vs Actual ROI dual-track + thesis accountability feedback lo
 ```
 +-----------------------------------------------------------------------+
 |                      React Frontend (Vite + TypeScript)                |
-|  13 pages  |  60+ components  |  25+ UI primitives (design system)   |
+|  14 pages  |  60+ components  |  25+ UI primitives (design system)   |
 |  Tailwind + Recharts  |  SWR cache  |  Command palette (Ctrl+K)      |
 +---------------------------+-------------------------------------------+
                             | /api proxy (localhost:3000 -> :8000)
 +---------------------------v-------------------------------------------+
 |                      FastAPI REST API Layer                            |
-|  50 endpoints across 12 route modules  |  Pydantic v2 validation     |
+|  52 endpoints across 12 route modules  |  Pydantic v2 validation     |
 |  CORS  |  Error handlers  |  Lifespan DB init                        |
 +--------+----------+-----------+-----------+-----------+---------------+
          |          |           |           |           |
@@ -102,9 +102,9 @@ Tech stack:
 - **Store**: SQLite (WAL mode, aiosqlite, single-file, zero-ops)
 - **Charts**: plotly (dark theme, HTML export) + Recharts (frontend)
 - **Scheduler**: APScheduler 3.x (cron-based async daemon)
-- **API**: FastAPI + uvicorn + Pydantic v2 (50 endpoints)
+- **API**: FastAPI + uvicorn + Pydantic v2 (52 endpoints)
 - **Frontend**: React 18 + Vite + TypeScript + Tailwind CSS + Recharts
-- **Frontend perf**: In-memory SWR cache (stale-while-revalidate), TTL-based invalidation
+- **Frontend perf**: In-memory SWR cache (stale-while-revalidate), TTL-based invalidation, route-based code splitting (React.lazy)
 - **Notifications**: SMTP email + Telegram Bot API (aiohttp)
 - **LLM**: Claude API via Anthropic SDK (SentimentAgent, SummaryAgent, optional)
 
@@ -125,7 +125,7 @@ investment_agent/
     sentiment.py               #   SentimentAgent (Claude API, news analysis)
     summary_agent.py           #   SummaryAgent (Claude API, weekly portfolio review)
 
-  api/                         # FastAPI REST API (50 endpoints)
+  api/                         # FastAPI REST API (52 endpoints)
     app.py                     #   App factory, CORS, lifespan, error handlers
     models.py                  #   Pydantic v2 request/response schemas
     deps.py                    #   Shared dependencies (crypto detection, ticker mapping)
@@ -139,7 +139,7 @@ investment_agent/
       weights.py               #   /weights
       summary.py               #   /summary/generate, /summary/latest
       watchlist.py             #   /watchlist CRUD, /watchlist/analyze-all
-      analytics.py             #   /analytics/value-history, /analytics/performance, etc.
+      analytics.py             #   /analytics/value-history, /analytics/performance, /analytics/risk, /analytics/correlations, etc.
       profiles.py              #   /portfolios CRUD, /portfolios/default
       export.py                #   /export/portfolio, /export/trades, /export/report, etc.
       regime.py                #   /regime/current
@@ -192,7 +192,7 @@ investment_agent/
     aggregator.py              #   SignalAggregator, AggregatedSignal, aggregate_with_regime()
     pipeline.py                #   AnalysisPipeline (parallel agent execution + regime integration)
     regime.py                  #   RegimeDetector (5 market regimes, weight adjustments)
-    analytics.py               #   PortfolioAnalytics (value history, performance, monthly returns)
+    analytics.py               #   PortfolioAnalytics (value history, performance, monthly returns, risk metrics)
     drift_analyzer.py          #   DriftAnalyzer (entry/return/hold drift)
     weight_adapter.py          #   WeightAdapter (EWMA + Sharpe-based adaptive weights)
     sector.py                  #   Sector rotation matrix + get_sector_modifier()
@@ -228,18 +228,18 @@ investment_agent/
     store.py                   #   SignalStore (persist + query signals)
     tracker.py                 #   SignalTracker (accuracy, calibration, agent perf)
 
-  tests/                       # 416 tests, 1 skipped (network)
+  tests/                       # 416+ tests, 1 skipped (network)
     test_001 - test_040        #   40 test files covering all packages
 
   frontend/                    # React frontend (Vite + TypeScript)
     src/
-      pages/                   #   13 pages: Dashboard, Analyze, Portfolio, Journal,
-                               #   PositionDetail, Performance, Watchlist,
-                               #   Backtest, Signals, Monitoring, Weights,
-                               #   Daemon, Settings
+      pages/                   #   14 pages: Dashboard, Analyze, Portfolio, Journal,
+                               #   PositionDetail, Performance, Risk,
+                               #   Watchlist, Backtest, Signals, Monitoring,
+                               #   Weights, Daemon, Settings
       components/
         ui/                    #   Design system: Button, Input, Card, Skeleton,
-                               #   ErrorBoundary, Toast, CommandPalette (20+ primitives)
+                               #   ErrorBoundary, Toast, ConfirmModal, CommandPalette (20+ primitives)
         shared/                #   DataTable (w/ pagination + search), Breadcrumb,
                                #   MetricCard, SignalBadge, etc.
         layout/                #   AppShell (responsive), Sidebar (mobile drawer)
@@ -1085,7 +1085,10 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 | Sprint 12 | 042-045 | Email alerts (SMTP), Telegram bot, CSV/JSON export (5 endpoints), Settings page | +28 |
 | Sprint 13 | 046-049 | Watchlist, performance analytics, tech debt fixes, multi-portfolio support | +49 |
 | Sprint 14 | 050-053 | Regime detection engine, L2 weight switching, batch watchlist, dashboard enhancements | +52 |
-| **Total** | **53 tasks** | **105+ source files, 9 CLIs, 50 API endpoints, 12 UI pages, 10 tables** | **416 passed, 1 skipped** |
+| Sprint 15 | UI primitives (design system: Button, Input, Card, Skeleton, Toast), SWR cache | +0 (infra) |
+| Sprint 16 | Design system 100% adoption, toast wiring, Trade Journal page, ToastContainer mount | +0 (UX) |
+| Sprint 17 | Risk Dashboard (Sharpe/Sortino/VaR/drawdown/correlations), code splitting, ConfirmModal | +0 (risk/perf) |
+| **Total** | **53+ tasks** | **110+ source files, 9 CLIs, 52 API endpoints, 14 UI pages, 10 tables** | **416 passed, 1 skipped** |
 
 ### Planned
 
@@ -1098,7 +1101,8 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 | Sprint 13 | **Watchlist + Analytics + Tech Debt + Multi-Portfolio** | P2 (workflow) | **COMPLETE** |
 | Sprint 14 | **Advanced Intelligence** -- Regime detection, L2 weight switching, batch analysis, dashboard | P2 (intelligence) | **COMPLETE** |
 | Sprint 16 | Design system adoption (100%), toast notifications, Trade Journal page | P0 (UX consistency) | COMPLETE |
-| Sprint 17+ | OnChainAgent, ValidationAgent, desktop app (Tauri) | P3+ (deferred) | PLANNED |
+| Sprint 17 | Risk Dashboard, code splitting, confirmation modals, portfolio correlations API | P1 (risk + perf) | COMPLETE |
+| Sprint 18+ | OnChainAgent, ValidationAgent, desktop app (Tauri) | P3+ (deferred) | PLANNED |
 
 -----
 

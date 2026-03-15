@@ -14,6 +14,7 @@ import { TextInput, SelectInput } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 import { SkeletonTable } from "../components/ui/Skeleton";
 import { useToast } from "../contexts/ToastContext";
+import ConfirmModal from "../components/ui/ConfirmModal";
 
 export default function WatchlistPage() {
   usePageTitle("Watchlist");
@@ -27,6 +28,8 @@ export default function WatchlistPage() {
   const [notes, setNotes] = useState("");
   const [targetPrice, setTargetPrice] = useState("");
   const [adding, setAdding] = useState(false);
+
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
 
   // Analyzing state
   const [analyzingTicker, setAnalyzingTicker] = useState<string | null>(null);
@@ -74,10 +77,12 @@ export default function WatchlistPage() {
     }
   }
 
-  async function handleRemove(t: string) {
+  async function handleConfirmRemove() {
+    if (!confirmRemove) return;
     try {
-      await removeFromWatchlist(t);
-      toast.success("Removed", t + " removed from watchlist");
+      await removeFromWatchlist(confirmRemove);
+      toast.success("Removed", confirmRemove + " removed from watchlist");
+      setConfirmRemove(null);
       await fetchWatchlist();
     } catch (err) {
       toast.error("Failed to remove", err instanceof Error ? err.message : "Unknown error");
@@ -261,7 +266,7 @@ export default function WatchlistPage() {
                       <Button
                         variant="danger"
                         size="sm"
-                        onClick={() => handleRemove(item.ticker)}
+                        onClick={() => setConfirmRemove(item.ticker)}
                       >
                         Remove
                       </Button>
@@ -273,6 +278,16 @@ export default function WatchlistPage() {
           </table>
         )}
       </Card>
+
+      <ConfirmModal
+        open={confirmRemove !== null}
+        onClose={() => setConfirmRemove(null)}
+        onConfirm={handleConfirmRemove}
+        title={`Remove ${confirmRemove}?`}
+        description="This will remove the ticker from your watchlist. You can always add it back later."
+        confirmLabel="Remove"
+        variant="danger"
+      />
     </div>
   );
 }

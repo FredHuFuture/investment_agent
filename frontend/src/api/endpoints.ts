@@ -24,6 +24,8 @@ import type {
   MonthlyReturn,
   TopPerformers,
   WatchlistItem,
+  PortfolioRisk,
+  CorrelationData,
 } from "./types";
 
 // Portfolio
@@ -221,6 +223,12 @@ export const getMonthlyReturns = () =>
   apiGet<MonthlyReturn[]>("/analytics/monthly-returns");
 export const getTopPerformers = (limit = 5) =>
   apiGet<TopPerformers>(`/analytics/top-performers?limit=${limit}`);
+
+// Risk Analytics
+export const getPortfolioRisk = (days = 90) =>
+  apiGet<PortfolioRisk>(`/analytics/risk?days=${days}`);
+export const getPortfolioCorrelations = (lookbackDays = 90) =>
+  apiGet<CorrelationData>(`/analytics/correlations?lookback_days=${lookbackDays}`);
 
 // Watchlist
 export const getWatchlist = () => apiGet<WatchlistItem[]>("/watchlist");

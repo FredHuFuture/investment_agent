@@ -368,3 +368,30 @@ export interface WatchlistItem {
   last_signal: string | null;
   last_confidence: number | null;
 }
+
+// ---------------------------------------------------------------------------
+// Risk Analytics
+// ---------------------------------------------------------------------------
+export interface PortfolioRisk {
+  daily_volatility: number;
+  annualized_volatility: number;
+  sharpe_ratio: number | null;
+  sortino_ratio: number | null;
+  max_drawdown_pct: number;
+  current_drawdown_pct: number;
+  var_95: number;
+  cvar_95: number;
+  best_day_pct: number;
+  worst_day_pct: number;
+  positive_days: number;
+  negative_days: number;
+  data_points: number;
+}
+
+export interface CorrelationData {
+  correlation_matrix: Record<string, number>;
+  avg_correlation: number;
+  high_correlation_pairs: Array<[string, string, number]>;
+  concentration_risk: "HIGH" | "MODERATE" | "LOW";
+  tickers: string[];
+}

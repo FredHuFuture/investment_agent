@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { Routes, Route } from "react-router-dom";
 import AppShell from "./components/layout/AppShell";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
@@ -6,19 +6,43 @@ import { ToastContainer } from "./components/ui/Toast";
 import { ToastProvider } from "./contexts/ToastContext";
 import CommandPalette from "./components/ui/CommandPalette";
 import { useHotkeys } from "./hooks/useHotkeys";
-import DashboardPage from "./pages/DashboardPage";
-import AnalyzePage from "./pages/AnalyzePage";
-import PortfolioPage from "./pages/PortfolioPage";
-import PositionDetailPage from "./pages/PositionDetailPage";
-import BacktestPage from "./pages/BacktestPage";
-import SignalsPage from "./pages/SignalsPage";
-import MonitoringPage from "./pages/MonitoringPage";
-import WeightsPage from "./pages/WeightsPage";
-import DaemonPage from "./pages/DaemonPage";
-import PerformancePage from "./pages/PerformancePage";
-import WatchlistPage from "./pages/WatchlistPage";
-import SettingsPage from "./pages/SettingsPage";
-import JournalPage from "./pages/JournalPage";
+import { SkeletonCard, SkeletonTable } from "./components/ui/Skeleton";
+
+// ---------------------------------------------------------------------------
+// Route-based code splitting — each page is lazy-loaded on first visit
+// ---------------------------------------------------------------------------
+const DashboardPage = lazy(() => import("./pages/DashboardPage"));
+const AnalyzePage = lazy(() => import("./pages/AnalyzePage"));
+const PortfolioPage = lazy(() => import("./pages/PortfolioPage"));
+const PositionDetailPage = lazy(() => import("./pages/PositionDetailPage"));
+const PerformancePage = lazy(() => import("./pages/PerformancePage"));
+const RiskPage = lazy(() => import("./pages/RiskPage"));
+const WatchlistPage = lazy(() => import("./pages/WatchlistPage"));
+const JournalPage = lazy(() => import("./pages/JournalPage"));
+const BacktestPage = lazy(() => import("./pages/BacktestPage"));
+const SignalsPage = lazy(() => import("./pages/SignalsPage"));
+const MonitoringPage = lazy(() => import("./pages/MonitoringPage"));
+const WeightsPage = lazy(() => import("./pages/WeightsPage"));
+const DaemonPage = lazy(() => import("./pages/DaemonPage"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+
+// ---------------------------------------------------------------------------
+// Lazy-load fallback — matches the skeleton loading state used on pages
+// ---------------------------------------------------------------------------
+function PageFallback() {
+  return (
+    <div className="space-y-6">
+      <div className="h-8 w-48 rounded bg-gray-800 animate-pulse" />
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <SkeletonCard />
+        <SkeletonCard />
+        <SkeletonCard />
+        <SkeletonCard />
+      </div>
+      <SkeletonTable rows={5} columns={6} />
+    </div>
+  );
+}
 
 function AppContent() {
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -30,21 +54,24 @@ function AppContent() {
 
   return (
     <AppShell>
-      <Routes>
-        <Route path="/" element={<DashboardPage />} />
-        <Route path="/analyze" element={<AnalyzePage />} />
-        <Route path="/portfolio" element={<PortfolioPage />} />
-        <Route path="/portfolio/:ticker" element={<PositionDetailPage />} />
-        <Route path="/performance" element={<PerformancePage />} />
-        <Route path="/watchlist" element={<WatchlistPage />} />
-        <Route path="/journal" element={<JournalPage />} />
-        <Route path="/backtest" element={<BacktestPage />} />
-        <Route path="/signals" element={<SignalsPage />} />
-        <Route path="/monitoring" element={<MonitoringPage />} />
-        <Route path="/weights" element={<WeightsPage />} />
-        <Route path="/daemon" element={<DaemonPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-      </Routes>
+      <Suspense fallback={<PageFallback />}>
+        <Routes>
+          <Route path="/" element={<DashboardPage />} />
+          <Route path="/analyze" element={<AnalyzePage />} />
+          <Route path="/portfolio" element={<PortfolioPage />} />
+          <Route path="/portfolio/:ticker" element={<PositionDetailPage />} />
+          <Route path="/performance" element={<PerformancePage />} />
+          <Route path="/risk" element={<RiskPage />} />
+          <Route path="/watchlist" element={<WatchlistPage />} />
+          <Route path="/journal" element={<JournalPage />} />
+          <Route path="/backtest" element={<BacktestPage />} />
+          <Route path="/signals" element={<SignalsPage />} />
+          <Route path="/monitoring" element={<MonitoringPage />} />
+          <Route path="/weights" element={<WeightsPage />} />
+          <Route path="/daemon" element={<DaemonPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+        </Routes>
+      </Suspense>
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
       <ToastContainer />
     </AppShell>
