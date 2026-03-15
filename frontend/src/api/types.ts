@@ -515,3 +515,39 @@ export interface StressScenario {
   portfolio_impact_pct: number;
   affected_positions: Array<{ ticker: string; impact_pct: number }>;
 }
+
+// ---------------------------------------------------------------------------
+// Sprint 30 types
+// ---------------------------------------------------------------------------
+export interface PortfolioProfile {
+  id: number;
+  name: string;
+  description: string;
+  cash: number;
+  created_at: string;
+  is_default: number;
+}
+
+export interface RegimeHistoryPoint {
+  date: string;
+  regime: string;
+  confidence: number;
+  duration_days: number;
+}
+
+export interface WatchlistAlertConfig {
+  ticker: string;
+  alert_on_signal_change: boolean;
+  min_confidence: number;
+  alert_on_price_below: number | null;
+  enabled: boolean;
+}
+
+export interface LessonTagStats {
+  tag: string;
+  count: number;
+  win_count: number;
+  loss_count: number;
+  win_rate: number;
+  avg_return_pct: number;
+}

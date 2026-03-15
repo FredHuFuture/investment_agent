@@ -115,3 +115,92 @@ class WatchlistManager:
             )
             await conn.commit()
             return cursor.rowcount > 0
+
+    # ------------------------------------------------------------------
+    # Alert configuration methods (Sprint 30)
+    # ------------------------------------------------------------------
+
+    async def set_alert_config(
+        self,
+        ticker: str,
+        alert_on_signal_change: bool = True,
+        min_confidence: float = 60.0,
+        alert_on_price_below: float | None = None,
+        enabled: bool = True,
+    ) -> dict:
+        """Upsert alert config for a watchlist ticker."""
+        ticker = ticker.upper()
+        now = datetime.now(timezone.utc).isoformat()
+        async with aiosqlite.connect(self.db_path) as conn:
+            await conn.execute(
+                """
+                INSERT INTO watchlist_alert_configs
+                    (ticker, alert_on_signal_change, min_confidence,
+                     alert_on_price_below, enabled, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(ticker) DO UPDATE SET
+                    alert_on_signal_change = excluded.alert_on_signal_change,
+                    min_confidence = excluded.min_confidence,
+                    alert_on_price_below = excluded.alert_on_price_below,
+                    enabled = excluded.enabled,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    ticker,
+                    int(alert_on_signal_change),
+                    min_confidence,
+                    alert_on_price_below,
+                    int(enabled),
+                    now,
+                    now,
+                ),
+            )
+            await conn.commit()
+
+            conn.row_factory = aiosqlite.Row
+            row = await (
+                await conn.execute(
+                    "SELECT * FROM watchlist_alert_configs WHERE ticker = ?",
+                    (ticker,),
+                )
+            ).fetchone()
+            return self._alert_row_to_dict(dict(row))  # type: ignore[arg-type]
+
+    async def get_alert_configs(self) -> list[dict]:
+        """Get all alert configurations."""
+        async with aiosqlite.connect(self.db_path) as conn:
+            conn.row_factory = aiosqlite.Row
+            rows = await (
+                await conn.execute(
+                    "SELECT * FROM watchlist_alert_configs ORDER BY ticker"
+                )
+            ).fetchall()
+            return [self._alert_row_to_dict(dict(row)) for row in rows]
+
+    async def get_alert_config(self, ticker: str) -> dict | None:
+        """Get alert config for a specific ticker."""
+        ticker = ticker.upper()
+        async with aiosqlite.connect(self.db_path) as conn:
+            conn.row_factory = aiosqlite.Row
+            row = await (
+                await conn.execute(
+                    "SELECT * FROM watchlist_alert_configs WHERE ticker = ?",
+                    (ticker,),
+                )
+            ).fetchone()
+            if row is None:
+                return None
+            return self._alert_row_to_dict(dict(row))
+
+    @staticmethod
+    def _alert_row_to_dict(row: dict) -> dict:
+        """Convert DB row integers to booleans for the API response."""
+        return {
+            "ticker": row["ticker"],
+            "alert_on_signal_change": bool(row["alert_on_signal_change"]),
+            "min_confidence": row["min_confidence"],
+            "alert_on_price_below": row["alert_on_price_below"],
+            "enabled": bool(row["enabled"]),
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        }

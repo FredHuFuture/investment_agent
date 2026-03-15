@@ -18,6 +18,11 @@ vi.mock("../../api/endpoints", () => ({
   getLatestSummary: vi.fn(),
   generateSummary: vi.fn(),
   updateThesis: vi.fn(),
+  listProfiles: vi.fn(),
+  createProfile: vi.fn(),
+  updateProfile: vi.fn(),
+  deleteProfile: vi.fn(),
+  setDefaultProfile: vi.fn(),
 }));
 
 import {
@@ -25,6 +30,7 @@ import {
   getAlerts,
   getPositionHistory,
   getLatestSummary,
+  listProfiles,
 } from "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import PortfolioPage from "../PortfolioPage";
@@ -33,6 +39,7 @@ const mockGetPortfolio = vi.mocked(getPortfolio);
 const mockGetAlerts = vi.mocked(getAlerts);
 const mockGetPositionHistory = vi.mocked(getPositionHistory);
 const mockGetLatestSummary = vi.mocked(getLatestSummary);
+const mockListProfiles = vi.mocked(listProfiles);
 
 const mockPortfolio = {
   positions: [
@@ -99,10 +106,20 @@ const mockPortfolio = {
   ],
 };
 
+const mockDefaultProfile = {
+  id: 1,
+  name: "Default",
+  description: "",
+  cash: 50000,
+  created_at: "2024-01-01T00:00:00Z",
+  is_default: 1,
+};
+
 function mockSecondaryApis() {
   mockGetAlerts.mockResolvedValue({ data: [], warnings: [] });
   mockGetPositionHistory.mockResolvedValue({ data: [], warnings: [] });
   mockGetLatestSummary.mockRejectedValue({ status: 404, message: "Not found" });
+  mockListProfiles.mockResolvedValue({ data: [mockDefaultProfile as never], warnings: [] });
 }
 
 function renderPage() {

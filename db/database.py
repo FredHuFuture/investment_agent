@@ -465,6 +465,41 @@ async def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
             """
         )
 
+        # Sprint 30: regime history snapshots
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS regime_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                regime TEXT NOT NULL,
+                confidence REAL NOT NULL,
+                vix REAL,
+                yield_spread REAL,
+                detected_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+            """
+        )
+        await conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_regime_history_detected_at
+            ON regime_history(detected_at);
+            """
+        )
+
+        # Sprint 30: watchlist alert configs
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS watchlist_alert_configs (
+                ticker TEXT PRIMARY KEY,
+                alert_on_signal_change INTEGER NOT NULL DEFAULT 1,
+                min_confidence REAL NOT NULL DEFAULT 60.0,
+                alert_on_price_below REAL,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+            """
+        )
+
         # Sprint 13.4: multi-portfolio support
         await _migrate_add_portfolios(conn)
 

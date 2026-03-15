@@ -4,9 +4,11 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Query
 
+from api.deps import get_db_path
 from engine.regime import RegimeDetector
+from engine.regime_history import RegimeHistoryStore
 
 logger = logging.getLogger(__name__)
 
@@ -102,3 +104,14 @@ async def get_current_regime() -> dict[str, Any]:
     )
 
     return {"data": result, "warnings": warnings}
+
+
+@router.get("/history")
+async def regime_history(
+    days: int = Query(90, ge=1, le=365),
+    db_path: str = Depends(get_db_path),
+) -> dict[str, Any]:
+    """Return regime detection history with duration information."""
+    store = RegimeHistoryStore(db_path)
+    data = await store.get_history(days)
+    return {"data": data, "warnings": []}

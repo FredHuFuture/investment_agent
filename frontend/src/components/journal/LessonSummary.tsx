@@ -1,4 +1,4 @@
-import type { TradeAnnotation } from "../../api/types";
+import type { TradeAnnotation, LessonTagStats } from "../../api/types";
 import { Card, CardHeader, CardBody } from "../ui/Card";
 
 const LESSON_TAG_COLORS: Record<string, string> = {
@@ -19,9 +19,20 @@ function formatLessonTag(tag: string): string {
 
 interface LessonSummaryProps {
   annotations: TradeAnnotation[];
+  tagStats?: LessonTagStats[];
 }
 
-export default function LessonSummary({ annotations }: LessonSummaryProps) {
+/** Return a Tailwind text-color class based on win/loss outcome for a tag. */
+function tagOutcomeColor(tag: string, tagStats?: LessonTagStats[]): string | undefined {
+  if (!tagStats) return undefined;
+  const stat = tagStats.find((s) => s.tag === tag);
+  if (!stat || (stat.win_count === 0 && stat.loss_count === 0)) return undefined;
+  if (stat.win_count > stat.loss_count) return "text-emerald-400";
+  if (stat.loss_count > stat.win_count) return "text-red-400";
+  return undefined; // tied — use default color
+}
+
+export default function LessonSummary({ annotations, tagStats }: LessonSummaryProps) {
   // Count lesson tags
   const tagCounts = new Map<string, number>();
   for (const a of annotations) {
@@ -62,21 +73,24 @@ export default function LessonSummary({ annotations }: LessonSummaryProps) {
               Top Lessons
             </div>
             <div className="space-y-1.5">
-              {top3.map(([tag, count], i) => (
-                <div key={tag} className="flex items-center gap-2">
-                  <span className="text-gray-500 text-xs font-mono w-4">
-                    {i + 1}.
-                  </span>
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded-full border ${LESSON_TAG_COLORS[tag] ?? "bg-gray-600/20 text-gray-400 border-gray-600/30"}`}
-                  >
-                    {formatLessonTag(tag)}
-                  </span>
-                  <span className="text-gray-400 text-xs font-mono">
-                    {count}x
-                  </span>
-                </div>
-              ))}
+              {top3.map(([tag, count], i) => {
+                const outcomeClr = tagOutcomeColor(tag, tagStats);
+                return (
+                  <div key={tag} className="flex items-center gap-2">
+                    <span className="text-gray-500 text-xs font-mono w-4">
+                      {i + 1}.
+                    </span>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full border ${LESSON_TAG_COLORS[tag] ?? "bg-gray-600/20 text-gray-400 border-gray-600/30"}`}
+                    >
+                      <span className={outcomeClr ?? ""}>{formatLessonTag(tag)}</span>
+                    </span>
+                    <span className="text-gray-400 text-xs font-mono">
+                      {count}x
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -88,15 +102,18 @@ export default function LessonSummary({ annotations }: LessonSummaryProps) {
               All Tags
             </div>
             <div className="flex flex-wrap gap-2">
-              {sorted.map(([tag, count]) => (
-                <span
-                  key={tag}
-                  className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border ${LESSON_TAG_COLORS[tag] ?? "bg-gray-600/20 text-gray-400 border-gray-600/30"}`}
-                >
-                  {formatLessonTag(tag)}
-                  <span className="font-mono opacity-70">{count}</span>
-                </span>
-              ))}
+              {sorted.map(([tag, count]) => {
+                const outcomeClr = tagOutcomeColor(tag, tagStats);
+                return (
+                  <span
+                    key={tag}
+                    className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border ${LESSON_TAG_COLORS[tag] ?? "bg-gray-600/20 text-gray-400 border-gray-600/30"}`}
+                  >
+                    <span className={outcomeClr ?? ""}>{formatLessonTag(tag)}</span>
+                    <span className="font-mono opacity-70">{count}</span>
+                  </span>
+                );
+              })}
             </div>
           </div>
         )}

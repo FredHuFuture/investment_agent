@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from api.deps import get_db_path
+from engine.journal_analytics import JournalAnalytics
 
 router = APIRouter()
 
@@ -99,4 +100,12 @@ async def create_annotation(
         "lesson_tag": row["lesson_tag"],
         "created_at": row["created_at"],
     }
+    return {"data": data, "warnings": []}
+
+
+@router.get("/lesson-stats")
+async def lesson_stats(db_path: str = Depends(get_db_path)):
+    """Compute win-rate-by-tag analytics for lesson annotations."""
+    analytics = JournalAnalytics(db_path)
+    data = await analytics.get_lesson_tag_stats()
     return {"data": data, "warnings": []}

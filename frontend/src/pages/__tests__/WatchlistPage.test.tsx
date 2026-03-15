@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { ToastProvider } from "../../contexts/ToastContext";
 
-// Mock ALL endpoint functions imported by WatchlistPage
+// Mock ALL endpoint functions imported by WatchlistPage and AlertConfigPanel
 vi.mock("../../api/endpoints", () => ({
   getWatchlist: vi.fn(),
   addToWatchlist: vi.fn(),
@@ -11,13 +11,16 @@ vi.mock("../../api/endpoints", () => ({
   analyzeWatchlistTicker: vi.fn(),
   analyzeAllWatchlist: vi.fn(),
   updateWatchlistItem: vi.fn(),
+  getWatchlistAlertConfigs: vi.fn(),
+  setWatchlistAlertConfig: vi.fn(),
 }));
 
-import { getWatchlist } from "../../api/endpoints";
+import { getWatchlist, getWatchlistAlertConfigs } from "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import WatchlistPage from "../WatchlistPage";
 
 const mockGetWatchlist = vi.mocked(getWatchlist);
+const mockGetAlertConfigs = vi.mocked(getWatchlistAlertConfigs);
 
 const mockWatchlistItem = {
   id: 1,
@@ -144,5 +147,38 @@ describe("WatchlistPage", () => {
     expect(screen.getByText("Edit")).toBeInTheDocument();
     expect(screen.getByText("Analyze")).toBeInTheDocument();
     expect(screen.getByText("Remove")).toBeInTheDocument();
+  });
+
+  it("renders bell icon for alert settings on each row", async () => {
+    mockGetWatchlist.mockResolvedValue({
+      data: [mockWatchlistItem] as never,
+      warnings: [],
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("AAPL")).toBeInTheDocument();
+    });
+    const bellButton = screen.getByLabelText("Alert settings for AAPL");
+    expect(bellButton).toBeInTheDocument();
+  });
+
+  it("opens AlertConfigPanel when bell icon is clicked", async () => {
+    mockGetWatchlist.mockResolvedValue({
+      data: [mockWatchlistItem] as never,
+      warnings: [],
+    });
+    mockGetAlertConfigs.mockResolvedValue({
+      data: [] as never,
+      warnings: [],
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("AAPL")).toBeInTheDocument();
+    });
+    const bellButton = screen.getByLabelText("Alert settings for AAPL");
+    fireEvent.click(bellButton);
+    await waitFor(() => {
+      expect(screen.getByText(/Alert Settings/)).toBeInTheDocument();
+    });
   });
 });

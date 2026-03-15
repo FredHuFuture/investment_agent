@@ -30,6 +30,13 @@ class UpdateTickerRequest(BaseModel):
     alert_below_price: float | None = None
 
 
+class AlertConfigRequest(BaseModel):
+    alert_on_signal_change: bool = True
+    min_confidence: float = 60.0
+    alert_on_price_below: float | None = None
+    enabled: bool = True
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -142,6 +149,32 @@ async def analyze_all_watchlist(db_path: str = Depends(get_db_path)):
         },
         "warnings": warnings,
     }
+
+
+@router.put("/{ticker}/alerts")
+async def set_alert_config(
+    ticker: str,
+    body: AlertConfigRequest,
+    db_path: str = Depends(get_db_path),
+):
+    """Upsert alert configuration for a watchlist ticker."""
+    mgr = WatchlistManager(db_path)
+    config = await mgr.set_alert_config(
+        ticker.upper(),
+        alert_on_signal_change=body.alert_on_signal_change,
+        min_confidence=body.min_confidence,
+        alert_on_price_below=body.alert_on_price_below,
+        enabled=body.enabled,
+    )
+    return {"data": config, "warnings": []}
+
+
+@router.get("/alert-configs")
+async def get_alert_configs(db_path: str = Depends(get_db_path)):
+    """Return all watchlist alert configurations."""
+    mgr = WatchlistManager(db_path)
+    configs = await mgr.get_alert_configs()
+    return {"data": configs, "warnings": []}
 
 
 @router.post("/{ticker}/analyze")

@@ -39,6 +39,10 @@ import type {
   MonthlyHeatmapCell,
   TradeAnnotation,
   StressScenario,
+  PortfolioProfile,
+  RegimeHistoryPoint,
+  WatchlistAlertConfig,
+  LessonTagStats,
 } from "./types";
 
 // Portfolio
@@ -320,3 +324,31 @@ export const createTradeAnnotation = (
 // Risk stress test (Sprint 29)
 export const getStressScenarios = () =>
   apiGet<StressScenario[]>("/risk/stress-test");
+
+// Portfolio profiles (Sprint 30)
+export const listProfiles = () =>
+  apiGet<PortfolioProfile[]>("/portfolios");
+export const createProfile = (body: { name: string; description?: string; initial_cash?: number }) =>
+  apiPost<PortfolioProfile>("/portfolios", body);
+export const updateProfile = (id: number, body: { name?: string; description?: string }) =>
+  apiPut<PortfolioProfile>(`/portfolios/${id}`, body);
+export const deleteProfile = (id: number) =>
+  apiDelete<{ deleted: boolean }>(`/portfolios/${id}`);
+export const setDefaultProfile = (id: number) =>
+  apiPost<{ default_profile_id: number }>(`/portfolios/${id}/set-default`, {});
+
+// Regime history (Sprint 30)
+export const getRegimeHistory = (days = 90) =>
+  apiGet<RegimeHistoryPoint[]>(`/regime/history?days=${days}`);
+
+// Watchlist alert config (Sprint 30)
+export const setWatchlistAlertConfig = (
+  ticker: string,
+  body: { alert_on_signal_change?: boolean; min_confidence?: number; alert_on_price_below?: number | null; enabled?: boolean },
+) => apiPut<WatchlistAlertConfig>(`/watchlist/${ticker}/alerts`, body);
+export const getWatchlistAlertConfigs = () =>
+  apiGet<WatchlistAlertConfig[]>("/watchlist/alert-configs");
+
+// Journal lesson analytics (Sprint 30)
+export const getLessonTagStats = () =>
+  apiGet<LessonTagStats[]>("/journal/lesson-stats");

@@ -10,6 +10,10 @@ vi.mock("recharts", () => ({
     React.createElement("div", { "data-testid": "responsive-container" }, children),
   AreaChart: ({ children }: { children: React.ReactNode }) =>
     React.createElement("div", { "data-testid": "area-chart" }, children),
+  BarChart: ({ children }: { children: React.ReactNode }) =>
+    React.createElement("div", { "data-testid": "bar-chart" }, children),
+  Bar: () => null,
+  Cell: () => null,
   Area: () => null,
   XAxis: () => null,
   YAxis: () => null,
@@ -24,6 +28,7 @@ vi.mock("../../api/endpoints", () => ({
   getValueHistory: vi.fn(),
   getWatchlist: vi.fn(),
   getRegime: vi.fn(),
+  getRegimeHistory: vi.fn(),
   runMonitorCheck: vi.fn(),
   getLatestSummary: vi.fn(),
   generateSummary: vi.fn(),
@@ -38,6 +43,7 @@ import {
   getValueHistory,
   getWatchlist,
   getRegime,
+  getRegimeHistory,
   getLatestSummary,
   getSignalHistory,
   getAccuracyStats,
@@ -51,6 +57,7 @@ const mockGetPositionHistory = vi.mocked(getPositionHistory);
 const mockGetValueHistory = vi.mocked(getValueHistory);
 const mockGetWatchlist = vi.mocked(getWatchlist);
 const mockGetRegime = vi.mocked(getRegime);
+const mockGetRegimeHistory = vi.mocked(getRegimeHistory);
 const mockGetLatestSummary = vi.mocked(getLatestSummary);
 const mockGetSignalHistory = vi.mocked(getSignalHistory);
 const mockGetAccuracyStats = vi.mocked(getAccuracyStats);
@@ -100,6 +107,13 @@ function mockSecondaryApis() {
   mockGetWatchlist.mockResolvedValue({ data: [], warnings: [] });
   mockGetRegime.mockResolvedValue({
     data: { regime: "normal", confidence: 0.8, details: {} } as never,
+    warnings: [],
+  });
+  mockGetRegimeHistory.mockResolvedValue({
+    data: [
+      { date: "2024-01-01", regime: "bull_market", confidence: 75, duration_days: 10 },
+      { date: "2024-01-11", regime: "sideways", confidence: 60, duration_days: 5 },
+    ],
     warnings: [],
   });
   // WeeklySummaryCard calls getLatestSummary directly (not via useApi)
@@ -211,6 +225,33 @@ describe("DashboardPage", () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByText("Signal Summary")).toBeInTheDocument();
+    });
+  });
+
+  it("renders Market Regime History card", async () => {
+    mockGetPortfolio.mockResolvedValue({
+      data: mockPortfolio as never,
+      warnings: [],
+    });
+    mockSecondaryApis();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Market Regime History")).toBeInTheDocument();
+    });
+  });
+
+  it("renders regime history empty state when no data", async () => {
+    mockGetPortfolio.mockResolvedValue({
+      data: mockPortfolio as never,
+      warnings: [],
+    });
+    mockSecondaryApis();
+    mockGetRegimeHistory.mockResolvedValue({ data: [], warnings: [] });
+    renderPage();
+    await waitFor(() => {
+      expect(
+        screen.getByText("No regime history recorded yet."),
+      ).toBeInTheDocument();
     });
   });
 });

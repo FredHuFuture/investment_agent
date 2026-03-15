@@ -35,6 +35,7 @@ import WarningsBanner from "../components/shared/WarningsBanner";
 import WeeklySummaryCard from "../components/summary/WeeklySummaryCard";
 import TopMoversCard from "../components/dashboard/TopMoversCard";
 import SignalSummaryCard from "../components/dashboard/SignalSummaryCard";
+import RegimeTimeline from "../components/dashboard/RegimeTimeline";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { SkeletonCard, SkeletonTable } from "../components/ui/Skeleton";
@@ -302,6 +303,9 @@ export default function DashboardPage() {
           </ResponsiveContainer>
         )}
       </Card>
+
+      {/* ── Regime History Timeline ── */}
+      <RegimeTimeline />
 
       {/* ── Sector Allocation + Thesis Drift ── */}
       {(() => {

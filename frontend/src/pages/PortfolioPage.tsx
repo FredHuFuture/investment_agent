@@ -13,6 +13,7 @@ import ClosePositionModal from "../components/portfolio/ClosePositionModal";
 import ConfirmModal from "../components/ui/ConfirmModal";
 import ClosedPositionsTable from "../components/portfolio/ClosedPositionsTable";
 import DashboardAlertsList from "../components/monitoring/DashboardAlertsList";
+import ProfileSwitcher from "../components/portfolio/ProfileSwitcher";
 import WeeklySummaryCard from "../components/summary/WeeklySummaryCard";
 import ErrorAlert from "../components/shared/ErrorAlert";
 import EmptyState from "../components/shared/EmptyState";
@@ -285,7 +286,10 @@ export default function PortfolioPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-white">Portfolio</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-white">Portfolio</h1>
+            <div className="h-[44px] w-36 animate-pulse rounded-lg bg-gray-800" />
+          </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <SkeletonCard />
@@ -306,7 +310,17 @@ export default function PortfolioPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Portfolio</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-white">Portfolio</h1>
+          <ProfileSwitcher onProfileChange={() => {
+            invalidateCache("portfolio");
+            invalidateCache("dashboard");
+            invalidateCache("perf");
+            refetch();
+            historyApi.refetch();
+            alertsApi.refetch();
+          }} />
+        </div>
         <div className="flex items-center gap-3">
           {lastUpdated && (
             <span className="text-xs text-gray-500">

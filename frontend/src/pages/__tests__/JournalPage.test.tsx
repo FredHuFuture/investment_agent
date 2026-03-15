@@ -28,6 +28,7 @@ vi.mock("../../api/endpoints", () => ({
   getPerformanceSummary: vi.fn(),
   getTradeAnnotations: vi.fn(),
   createTradeAnnotation: vi.fn(),
+  getLessonTagStats: vi.fn(),
 }));
 
 import {
@@ -35,6 +36,7 @@ import {
   getPerformanceSummary,
   getTradeAnnotations,
   createTradeAnnotation,
+  getLessonTagStats,
 } from "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import JournalPage from "../JournalPage";
@@ -43,6 +45,7 @@ const mockGetPositionHistory = vi.mocked(getPositionHistory);
 const mockGetPerformanceSummary = vi.mocked(getPerformanceSummary);
 const mockGetTradeAnnotations = vi.mocked(getTradeAnnotations);
 const mockCreateTradeAnnotation = vi.mocked(createTradeAnnotation);
+const mockGetLessonTagStats = vi.mocked(getLessonTagStats);
 
 const mockClosedPosition = {
   ticker: "AAPL",
@@ -114,6 +117,10 @@ describe("JournalPage", () => {
         lesson_tag: null,
         created_at: "2024-03-01 00:00:00",
       } as never,
+      warnings: [],
+    });
+    mockGetLessonTagStats.mockResolvedValue({
+      data: [] as never,
       warnings: [],
     });
   });
@@ -241,6 +248,72 @@ describe("JournalPage", () => {
     renderPage();
     await waitFor(() => {
       expect(mockGetTradeAnnotations).toHaveBeenCalledWith("AAPL");
+    });
+  });
+
+  it("renders LessonAnalytics when tag stats are available", async () => {
+    mockGetPositionHistory.mockResolvedValue({
+      data: [mockClosedPosition] as never,
+      warnings: [],
+    });
+    mockGetPerformanceSummary.mockResolvedValue({
+      data: mockPerformanceSummary as never,
+      warnings: [],
+    });
+    mockGetLessonTagStats.mockResolvedValue({
+      data: [
+        {
+          tag: "entry_timing",
+          count: 5,
+          win_count: 3,
+          loss_count: 2,
+          win_rate: 60.0,
+          avg_return_pct: 4.5,
+        },
+        {
+          tag: "position_sizing",
+          count: 3,
+          win_count: 1,
+          loss_count: 2,
+          win_rate: 33.3,
+          avg_return_pct: -2.1,
+        },
+      ] as never,
+      warnings: [],
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Lesson Tag Analytics")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Entry Timing")).toBeInTheDocument();
+    expect(screen.getByText("Position Sizing")).toBeInTheDocument();
+  });
+
+  it("renders pattern alert for low win-rate tags", async () => {
+    mockGetPositionHistory.mockResolvedValue({
+      data: [mockClosedPosition] as never,
+      warnings: [],
+    });
+    mockGetPerformanceSummary.mockResolvedValue({
+      data: mockPerformanceSummary as never,
+      warnings: [],
+    });
+    mockGetLessonTagStats.mockResolvedValue({
+      data: [
+        {
+          tag: "emotional",
+          count: 4,
+          win_count: 1,
+          loss_count: 3,
+          win_rate: 25.0,
+          avg_return_pct: -8.5,
+        },
+      ] as never,
+      warnings: [],
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText(/consider reviewing this pattern/)).toBeInTheDocument();
     });
   });
 });

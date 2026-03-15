@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useApi } from "../hooks/useApi";
-import { getPositionHistory, getPerformanceSummary, getTradeAnnotations } from "../api/endpoints";
-import type { Position, PerformanceSummary, TradeAnnotation } from "../api/types";
+import { getPositionHistory, getPerformanceSummary, getTradeAnnotations, getLessonTagStats } from "../api/endpoints";
+import type { Position, PerformanceSummary, TradeAnnotation, LessonTagStats } from "../api/types";
 import { Card, CardHeader, CardBody } from "../components/ui/Card";
 import { SkeletonTable, SkeletonCard } from "../components/ui/Skeleton";
 import MetricCard from "../components/shared/MetricCard";
@@ -13,6 +13,7 @@ import { usePageTitle } from "../hooks/usePageTitle";
 import DataTable, { type Column } from "../components/shared/DataTable";
 import TradeAnnotationPanel from "../components/journal/TradeAnnotationPanel";
 import LessonSummary from "../components/journal/LessonSummary";
+import LessonAnalytics from "../components/journal/LessonAnalytics";
 import {
   BarChart,
   Bar,
@@ -216,6 +217,11 @@ export default function JournalPage() {
   const summaryApi = useApi<PerformanceSummary>(
     () => getPerformanceSummary(),
     { cacheKey: "journal:summary", ttlMs: 60_000 },
+  );
+
+  const lessonStatsApi = useApi<LessonTagStats[]>(
+    () => getLessonTagStats(),
+    { cacheKey: "journal:lesson-stats", ttlMs: 60_000 },
   );
 
   const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
@@ -496,7 +502,12 @@ export default function JournalPage() {
 
       {/* Lesson Summary */}
       {!loading && closedPositions.length > 0 && (
-        <LessonSummary annotations={allAnnotations} />
+        <LessonSummary annotations={allAnnotations} tagStats={lessonStatsApi.data ?? undefined} />
+      )}
+
+      {/* Lesson Tag Analytics */}
+      {!loading && closedPositions.length > 0 && (
+        <LessonAnalytics />
       )}
 
       {/* Closed Positions Table */}
