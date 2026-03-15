@@ -35,6 +35,8 @@ import WarningsBanner from "../components/shared/WarningsBanner";
 import WeeklySummaryCard from "../components/summary/WeeklySummaryCard";
 import TopMoversCard from "../components/dashboard/TopMoversCard";
 import SignalSummaryCard from "../components/dashboard/SignalSummaryCard";
+import DailyReturnCard from "../components/dashboard/DailyReturnCard";
+import RiskSummaryWidget from "../components/dashboard/RiskSummaryWidget";
 import RegimeTimeline from "../components/dashboard/RegimeTimeline";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
@@ -166,7 +168,8 @@ export default function DashboardPage() {
   if (loading)
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 xl:grid-cols-5 gap-4">
+          <SkeletonCard />
           <SkeletonCard />
           <SkeletonCard />
           <SkeletonCard />
@@ -208,8 +211,8 @@ export default function DashboardPage() {
       </div>
       <WarningsBanner warnings={[...warnings, ...alertsApi.warnings]} />
 
-      {/* ── Top row: 4 metric cards ── */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* ── Top row: 5 metric cards ── */}
+      <div className="grid grid-cols-1 md:grid-cols-4 xl:grid-cols-5 gap-4">
         <MetricCard
           label="Portfolio Value"
           value={formatCurrency(data.total_value)}
@@ -232,12 +235,18 @@ export default function DashboardPage() {
           value={formatCurrency(data.cash)}
           sub={`${(data.cash_pct * 100).toFixed(1)}% of portfolio`}
         />
+        <DailyReturnCard />
       </div>
 
-      {/* ── Top Movers + Signal Summary ── */}
+      {/* ── Top Movers + Signal Summary + Risk Overview ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <TopMoversCard positions={data.positions} />
         <SignalSummaryCard />
+      </div>
+
+      {/* ── Risk Summary Widget ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <RiskSummaryWidget />
       </div>
 
       {/* ── Portfolio value sparkline ── */}

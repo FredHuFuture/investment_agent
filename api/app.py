@@ -111,12 +111,13 @@ def create_app(db_path: str = str(DEFAULT_DB_PATH)) -> FastAPI:
     app.include_router(alert_analytics_router, tags=["monitoring"])
     app.include_router(analysis_history_router, prefix="/analysis", tags=["analysis"])
 
-    # Risk router (Agent B — Sprint 29 Task 3)
-    try:
-        from api.routes.risk import router as risk_router
-        app.include_router(risk_router, prefix="/risk", tags=["risk"])
-    except ImportError:
-        pass  # risk route not yet implemented
+    # Risk router (includes Monte Carlo — Sprint 33)
+    from api.routes.risk import router as risk_router
+    app.include_router(risk_router, prefix="/risk", tags=["risk"])
+
+    # System info (Sprint 33)
+    from api.routes.system import router as system_router
+    app.include_router(system_router, prefix="/system", tags=["system"])
 
     return app
 

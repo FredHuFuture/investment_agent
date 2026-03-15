@@ -34,6 +34,8 @@ vi.mock("../../api/endpoints", () => ({
   generateSummary: vi.fn(),
   getSignalHistory: vi.fn(),
   getAccuracyStats: vi.fn(),
+  getDailyReturn: vi.fn(),
+  getPortfolioRisk: vi.fn(),
 }));
 
 import {
@@ -47,6 +49,8 @@ import {
   getLatestSummary,
   getSignalHistory,
   getAccuracyStats,
+  getDailyReturn,
+  getPortfolioRisk,
 } from "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import DashboardPage from "../DashboardPage";
@@ -61,6 +65,8 @@ const mockGetRegimeHistory = vi.mocked(getRegimeHistory);
 const mockGetLatestSummary = vi.mocked(getLatestSummary);
 const mockGetSignalHistory = vi.mocked(getSignalHistory);
 const mockGetAccuracyStats = vi.mocked(getAccuracyStats);
+const mockGetDailyReturn = vi.mocked(getDailyReturn);
+const mockGetPortfolioRisk = vi.mocked(getPortfolioRisk);
 
 const mockPortfolio = {
   positions: [
@@ -139,6 +145,14 @@ function mockSecondaryApis() {
       by_asset_type: {},
       by_regime: {},
     },
+    warnings: [],
+  });
+  mockGetDailyReturn.mockResolvedValue({
+    data: { return_pct: 0.5, return_dollars: 250, date: "2025-03-15", previous_value: 51450, current_value: 51700 },
+    warnings: [],
+  });
+  mockGetPortfolioRisk.mockResolvedValue({
+    data: { daily_volatility: 0.01, annualized_volatility: 0.16, sharpe_ratio: 1.5, sortino_ratio: 2.0, max_drawdown_pct: -0.1, current_drawdown_pct: -0.02, var_95: -0.02, cvar_95: -0.03, best_day_pct: 0.03, worst_day_pct: -0.02, positive_days: 50, negative_days: 40, data_points: 90 } as never,
     warnings: [],
   });
 }

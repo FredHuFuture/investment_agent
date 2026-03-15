@@ -5,6 +5,8 @@ import { TextInput } from "../components/ui/Input";
 import ThemeToggle from "../components/settings/ThemeToggle";
 import NotificationPreferences from "../components/settings/NotificationPreferences";
 import CacheSettings from "../components/settings/CacheSettings";
+import RiskParametersCard from "../components/settings/RiskParametersCard";
+import SystemInfoCard from "../components/settings/SystemInfoCard";
 
 export default function SettingsPage() {
   usePageTitle("Settings");
@@ -102,6 +104,12 @@ export default function SettingsPage() {
           </div>
         </CardBody>
       </Card>
+
+      {/* -- Risk Parameters -- */}
+      <RiskParametersCard />
+
+      {/* -- System Info -- */}
+      <SystemInfoCard />
     </div>
   );
 }

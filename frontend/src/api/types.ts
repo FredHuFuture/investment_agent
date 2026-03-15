@@ -589,3 +589,32 @@ export interface AnalysisHistoryEntry {
   reasoning: string;
   created_at: string;
 }
+
+// ---------------------------------------------------------------------------
+// Sprint 33 types
+// ---------------------------------------------------------------------------
+export interface MonteCarloResult {
+  percentiles: Record<string, number[]>;
+  horizon_days: number;
+  simulations: number;
+  dates: string[];
+  current_value: number;
+}
+
+export interface DailyReturn {
+  return_pct: number;
+  return_dollars: number;
+  date: string;
+  previous_value: number;
+  current_value: number;
+}
+
+export interface SystemInfo {
+  status: string;
+  db_path: string;
+  version: string;
+  total_positions: number;
+  total_closed: number;
+  total_signals: number;
+  total_alerts: number;
+}

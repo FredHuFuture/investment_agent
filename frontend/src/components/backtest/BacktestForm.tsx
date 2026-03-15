@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import type { BacktestPreset } from "../../lib/backtestPresets";
 
 interface Props {
   onSubmit: (params: {
@@ -15,9 +16,11 @@ interface Props {
     sell_threshold: number;
   }) => void;
   loading?: boolean;
+  presetValues?: BacktestPreset | null;
+  presetKey?: number;
 }
 
-export default function BacktestForm({ onSubmit, loading }: Props) {
+export default function BacktestForm({ onSubmit, loading, presetValues, presetKey }: Props) {
   const [ticker, setTicker] = useState("AAPL");
   const [startDate, setStartDate] = useState("2023-01-01");
   const [endDate, setEndDate] = useState("2025-12-31");
@@ -29,6 +32,24 @@ export default function BacktestForm({ onSubmit, loading }: Props) {
   const [takeProfit, setTakeProfit] = useState("20");
   const [buyThreshold, setBuyThreshold] = useState("0.30");
   const [sellThreshold, setSellThreshold] = useState("-0.30");
+
+  // Apply preset values when presetKey changes (a new preset was loaded)
+  useEffect(() => {
+    if (presetValues) {
+      setTicker(presetValues.ticker);
+      setStartDate(presetValues.startDate);
+      setEndDate(presetValues.endDate);
+      setAssetType(presetValues.assetType);
+      setCapital(presetValues.capital);
+      setFrequency(presetValues.frequency);
+      setPosSize(presetValues.posSize);
+      setStopLoss(presetValues.stopLoss);
+      setTakeProfit(presetValues.takeProfit);
+      setBuyThreshold(presetValues.buyThreshold);
+      setSellThreshold(presetValues.sellThreshold);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [presetKey]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

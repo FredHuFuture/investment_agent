@@ -3,10 +3,14 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { ToastProvider } from "../../contexts/ToastContext";
 
-// Mock endpoint functions used by NotificationPreferences (called on button click only)
+// Mock endpoint functions used by NotificationPreferences and SystemInfoCard
 vi.mock("../../api/endpoints", () => ({
   testEmailNotification: vi.fn(),
   testTelegramNotification: vi.fn(),
+  getSystemInfo: vi.fn().mockResolvedValue({
+    data: { status: "ok", db_path: "test.db", version: "5.33", total_positions: 5, total_closed: 3, total_signals: 100, total_alerts: 50 },
+    warnings: [],
+  }),
 }));
 
 import { invalidateCache } from "../../lib/cache";

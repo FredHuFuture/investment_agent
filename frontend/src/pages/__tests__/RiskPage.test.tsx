@@ -10,19 +10,23 @@ vi.mock("recharts", () => ({
     React.createElement("div", { "data-testid": "responsive-container" }, children),
   AreaChart: ({ children }: { children: React.ReactNode }) =>
     React.createElement("div", { "data-testid": "area-chart" }, children),
+  ComposedChart: ({ children }: { children: React.ReactNode }) =>
+    React.createElement("div", { "data-testid": "composed-chart" }, children),
   Area: () => null,
+  Line: () => null,
   XAxis: () => null,
   YAxis: () => null,
   Tooltip: () => null,
   ReferenceLine: () => null,
 }));
 
-// Mock ALL endpoint functions imported by RiskPage (and StressTestPanel)
+// Mock ALL endpoint functions imported by RiskPage (and StressTestPanel + MonteCarloPanel)
 vi.mock("../../api/endpoints", () => ({
   getPortfolioRisk: vi.fn(),
   getPortfolioCorrelations: vi.fn(),
   getValueHistory: vi.fn(),
   getStressScenarios: vi.fn(),
+  getMonteCarloSimulation: vi.fn(),
 }));
 
 import {
@@ -30,6 +34,7 @@ import {
   getPortfolioCorrelations,
   getValueHistory,
   getStressScenarios,
+  getMonteCarloSimulation,
 } from "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import RiskPage from "../RiskPage";
@@ -38,6 +43,7 @@ const mockGetPortfolioRisk = vi.mocked(getPortfolioRisk);
 const mockGetPortfolioCorrelations = vi.mocked(getPortfolioCorrelations);
 const mockGetValueHistory = vi.mocked(getValueHistory);
 const mockGetStressScenarios = vi.mocked(getStressScenarios);
+const mockGetMonteCarloSimulation = vi.mocked(getMonteCarloSimulation);
 
 const mockRisk = {
   daily_volatility: 0.012,
@@ -104,6 +110,16 @@ function mockAllApis() {
   });
   mockGetStressScenarios.mockResolvedValue({
     data: mockStressScenarios as never,
+    warnings: [],
+  });
+  mockGetMonteCarloSimulation.mockResolvedValue({
+    data: {
+      percentiles: { p5: [100], p25: [105], p50: [110], p75: [115], p95: [120] },
+      horizon_days: 30,
+      simulations: 1000,
+      dates: ["2025-03-15"],
+      current_value: 100000,
+    } as never,
     warnings: [],
   });
 }

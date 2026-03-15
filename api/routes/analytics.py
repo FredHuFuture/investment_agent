@@ -153,6 +153,51 @@ async def portfolio_correlations(
     return {"data": result, "warnings": result.pop("warnings", [])}
 
 
+@router.get("/daily-return")
+async def daily_return(db_path: str = Depends(get_db_path)):
+    """Daily portfolio return (latest vs previous snapshot)."""
+    async with aiosqlite.connect(db_path) as conn:
+        conn.row_factory = aiosqlite.Row
+        rows = await (
+            await conn.execute(
+                "SELECT date, total_value FROM value_snapshots "
+                "ORDER BY date DESC LIMIT 2"
+            )
+        ).fetchall()
+
+    if len(rows) < 2:
+        return {
+            "data": {
+                "return_pct": 0.0,
+                "return_dollars": 0.0,
+                "date": rows[0]["date"] if rows else "",
+                "previous_value": 0.0,
+                "current_value": rows[0]["total_value"] if rows else 0.0,
+            },
+            "warnings": ["Insufficient snapshots to compute daily return."],
+        }
+
+    current = rows[0]
+    previous = rows[1]
+    dollar_change = current["total_value"] - previous["total_value"]
+    pct_change = (
+        (dollar_change / previous["total_value"]) * 100
+        if previous["total_value"]
+        else 0.0
+    )
+
+    return {
+        "data": {
+            "return_pct": round(pct_change, 4),
+            "return_dollars": round(dollar_change, 2),
+            "date": current["date"],
+            "previous_value": previous["total_value"],
+            "current_value": current["total_value"],
+        },
+        "warnings": [],
+    }
+
+
 @router.get("/drawdown-series")
 async def drawdown_series(
     days: int = Query(90, ge=1, le=365),

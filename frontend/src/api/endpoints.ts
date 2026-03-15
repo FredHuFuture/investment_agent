@@ -46,6 +46,9 @@ import type {
   DaemonRunEntry,
   AlertStats,
   AnalysisHistoryEntry,
+  MonteCarloResult,
+  DailyReturn,
+  SystemInfo,
 } from "./types";
 
 // Portfolio
@@ -385,3 +388,15 @@ export const getAnalysisHistory = (params?: {
 };
 export const getAnalyzedTickers = () =>
   apiGet<string[]>("/analysis/history/tickers");
+
+// Monte Carlo simulation (Sprint 33)
+export const getMonteCarloSimulation = (days = 90, simulations = 1000, horizon = 30) =>
+  apiGet<MonteCarloResult>(`/risk/monte-carlo?days=${days}&simulations=${simulations}&horizon=${horizon}`);
+
+// Daily return (Sprint 33)
+export const getDailyReturn = () =>
+  apiGet<DailyReturn>("/analytics/daily-return");
+
+// System info (Sprint 33)
+export const getSystemInfo = () =>
+  apiGet<SystemInfo>("/system/info");
