@@ -310,3 +310,61 @@ export interface DaemonJobStatus {
 }
 
 export type DaemonStatus = Record<string, DaemonJobStatus>;
+
+// ---------------------------------------------------------------------------
+// Analytics / Performance
+// ---------------------------------------------------------------------------
+export interface ValueHistoryPoint {
+  date: string;
+  total_value: number;
+  cash: number;
+  invested: number;
+}
+
+export interface PerformanceSummary {
+  total_realized_pnl: number;
+  win_count: number;
+  loss_count: number;
+  win_rate: number;
+  avg_win_pct: number;
+  avg_loss_pct: number;
+  best_trade: { ticker: string; return_pct: number; pnl: number } | null;
+  worst_trade: { ticker: string; return_pct: number; pnl: number } | null;
+  avg_hold_days: number;
+  total_trades: number;
+}
+
+export interface MonthlyReturn {
+  month: string;
+  pnl: number;
+  trade_count: number;
+}
+
+export interface TradePerformer {
+  ticker: string;
+  return_pct: number;
+  pnl: number;
+  entry_date: string;
+  exit_date: string;
+}
+
+export interface TopPerformers {
+  best: TradePerformer[];
+  worst: TradePerformer[];
+}
+
+// ---------------------------------------------------------------------------
+// Watchlist
+// ---------------------------------------------------------------------------
+export interface WatchlistItem {
+  id: number;
+  ticker: string;
+  asset_type: string;
+  notes: string;
+  target_buy_price: number | null;
+  alert_below_price: number | null;
+  added_at: string;
+  last_analysis_at: string | null;
+  last_signal: string | null;
+  last_confidence: number | null;
+}

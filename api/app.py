@@ -77,16 +77,21 @@ def create_app(db_path: str = str(DEFAULT_DB_PATH)) -> FastAPI:
 
     from api.routes.analyze import router as analyze_router
     from api.routes.alerts import router as alerts_router
+    from api.routes.analytics import router as analytics_router
     from api.routes.backtest import router as backtest_router
     from api.routes.daemon import router as daemon_router
     from api.routes.export import router as export_router
     from api.routes.portfolio import router as portfolio_router
+    from api.routes.profiles import router as profiles_router
     from api.routes.signals import router as signals_router
     from api.routes.summary import router as summary_router
+    from api.routes.watchlist import router as watchlist_router
     from api.routes.weights import router as weights_router
 
     app.include_router(analyze_router, prefix="/analyze", tags=["analysis"])
+    app.include_router(analytics_router, prefix="/analytics", tags=["analytics"])
     app.include_router(portfolio_router, prefix="/portfolio", tags=["portfolio"])
+    app.include_router(profiles_router, prefix="/portfolios", tags=["portfolios"])
     app.include_router(alerts_router, tags=["monitoring"])
     app.include_router(backtest_router, prefix="/backtest", tags=["backtesting"])
     app.include_router(signals_router, prefix="/signals", tags=["signals"])
@@ -94,6 +99,7 @@ def create_app(db_path: str = str(DEFAULT_DB_PATH)) -> FastAPI:
     app.include_router(summary_router, prefix="/summary", tags=["summary"])
     app.include_router(weights_router, tags=["weights"])
     app.include_router(export_router, prefix="/api/export", tags=["export"])
+    app.include_router(watchlist_router, prefix="/watchlist", tags=["watchlist"])
 
     return app
 

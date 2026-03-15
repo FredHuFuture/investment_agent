@@ -1,7 +1,7 @@
 # Investment Analysis Agent -- Product & Technical Roadmap
 
 **Last updated:** 2026-03-14
-**Current state:** Sprint 12 complete (315 tests, 90+ source files, 38 API endpoints, 10 pages, 6 agents)
+**Current state:** Sprint 13 complete (364 tests, 100+ source files, 48 API endpoints, 12 pages, 6 agents)
 
 ---
 
@@ -116,7 +116,30 @@ The Investment Analysis Agent is a self-hosted, multi-agent portfolio analysis a
 
 ---
 
-### Sprint 13+: Advanced (Deferred)
+### Sprint 13: Watchlist + Performance Analytics + Tech Debt + Multi-Portfolio -- COMPLETE
+
+| Task | Description | Status |
+|------|-------------|--------|
+| 13.1 Watchlist | DB table, CRUD API (5 endpoints), WatchlistPage with add/analyze/remove, sidebar nav | DONE |
+| 13.2 Performance Analytics | Portfolio value history, win/loss stats, monthly returns, top performers, PerformancePage | DONE |
+| 13.3 Tech Debt | SHORT position drift sign inversion fix, stock split thesis price adjustment | DONE |
+| 13.4 Multi-Portfolio | Portfolio profiles (CRUD + default switching), DB migration, 6 API endpoints | DONE |
+
+**Delivered:**
+- `watchlist/manager.py` -- WatchlistManager with CRUD + analysis integration
+- `engine/analytics.py` -- PortfolioAnalytics (value history, performance summary, monthly returns, top performers)
+- `portfolio/profiles.py` -- PortfolioProfileManager for multiple portfolio profiles
+- `api/routes/watchlist.py` -- 5 watchlist endpoints
+- `api/routes/analytics.py` -- 4 analytics endpoints
+- `api/routes/profiles.py` -- 6 portfolio profile endpoints
+- WatchlistPage + PerformancePage (2 new frontend pages)
+- SHORT drift inversion fix in monitoring/checker.py
+- Stock split thesis price adjustment in portfolio/manager.py
+- +49 tests (12 watchlist, 10 analytics, 6 tech debt, 10 multi-portfolio, 11 frontend)
+
+---
+
+### Sprint 14+: Advanced (Deferred)
 
 | Feature | Priority | Rationale |
 |---------|----------|-----------|
@@ -135,8 +158,8 @@ The Investment Analysis Agent is a self-hosted, multi-agent portfolio analysis a
 |------|--------|---------------|
 | ~~Portfolio exposure uses cost_basis not market_value~~ | ~~Inaccurate exposure %~~ | **FIXED in Sprint 9** |
 | Expected/Actual data across 3 tables | Complex queries | Sprint 11 (consolidate to trade_records) |
-| SHORT position drift sign inversion | Wrong drift for shorts | Sprint 11 |
-| Stock split invalidates thesis prices | Target/stop loss break after split | Sprint 11 |
+| ~~SHORT position drift sign inversion~~ | ~~Wrong drift for shorts~~ | **FIXED in Sprint 13** |
+| ~~Stock split invalidates thesis prices~~ | ~~Target/stop loss break after split~~ | **FIXED in Sprint 13** |
 | pandas_ta Pandas 3.x deprecation warning | Console noise | Wait for upstream fix |
 | ~~active_positions.ticker UNIQUE constraint~~ | ~~Can't re-open same ticker after close~~ | **FIXED in Sprint 9** (partial unique index) |
 
@@ -144,14 +167,14 @@ The Investment Analysis Agent is a self-hosted, multi-agent portfolio analysis a
 
 ## Key Metrics to Track
 
-| Metric | Current (Sprint 12) | Sprint 13 Target | Sprint 14 Target |
+| Metric | Current (Sprint 13) | Sprint 14 Target | Sprint 15 Target |
 |--------|---------------------|------------------|------------------|
-| Test count | 315 | 340+ | 370+ |
-| API endpoints | 38 | 40+ | 44+ |
-| Frontend pages | 10 | 11+ | 12+ |
+| Test count | 364 | 390+ | 420+ |
+| API endpoints | 48 | 52+ | 56+ |
+| Frontend pages | 12 | 13+ | 14+ |
 | Agents | 6 | 7+ | 8+ |
 | Signal accuracy (resolved) | TBD | Baseline established | > 55% win rate |
-| Daily active use | Automated alerts | Multi-channel notifications | Fully autonomous |
+| Daily active use | Full workflow | Multi-channel + watchlist | Fully autonomous |
 
 ---
 

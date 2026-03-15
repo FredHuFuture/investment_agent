@@ -19,6 +19,11 @@ import type {
   CatalystData,
   PortfolioImpact,
   CorrelationEntry,
+  ValueHistoryPoint,
+  PerformanceSummary,
+  MonthlyReturn,
+  TopPerformers,
+  WatchlistItem,
 } from "./types";
 
 // Portfolio
@@ -206,3 +211,34 @@ export async function testEmailNotification(): Promise<{data: {sent: boolean; me
 export async function testTelegramNotification(): Promise<{data: {sent: boolean; message?: string}; warnings: string[]}> {
   return apiPost<{sent: boolean; message?: string}>('/alerts/test-telegram', {});
 }
+
+// Analytics
+export const getValueHistory = (days = 90) =>
+  apiGet<ValueHistoryPoint[]>(`/analytics/value-history?days=${days}`);
+export const getPerformanceSummary = () =>
+  apiGet<PerformanceSummary>("/analytics/performance");
+export const getMonthlyReturns = () =>
+  apiGet<MonthlyReturn[]>("/analytics/monthly-returns");
+export const getTopPerformers = (limit = 5) =>
+  apiGet<TopPerformers>(`/analytics/top-performers?limit=${limit}`);
+
+// Watchlist
+export const getWatchlist = () => apiGet<WatchlistItem[]>("/watchlist");
+export const addToWatchlist = (body: {
+  ticker: string;
+  asset_type?: string;
+  notes?: string;
+  target_buy_price?: number;
+  alert_below_price?: number;
+}) => apiPost<WatchlistItem>("/watchlist", body);
+export const removeFromWatchlist = (ticker: string) =>
+  apiDelete<{ ticker: string; removed: boolean }>(`/watchlist/${ticker}`);
+export const updateWatchlistItem = (
+  ticker: string,
+  body: { notes?: string; target_buy_price?: number; alert_below_price?: number },
+) => apiPut<WatchlistItem>(`/watchlist/${ticker}`, body);
+export const analyzeWatchlistTicker = (ticker: string) =>
+  apiPost<{ watchlist_item: WatchlistItem; analysis: unknown }>(
+    `/watchlist/${ticker}/analyze`,
+    {},
+  );

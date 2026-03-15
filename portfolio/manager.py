@@ -686,8 +686,33 @@ class PortfolioManager:
                 """,
                 (ratio, ratio, ticker),
             )
+            if cursor.rowcount == 0:
+                await conn.commit()
+                return False
+
+            # Also adjust thesis prices (target_price, stop_loss) for the split.
+            # Fetch the linked thesis id from the position.
+            row = await (
+                await conn.execute(
+                    "SELECT original_analysis_id FROM active_positions WHERE ticker = ?",
+                    (ticker,),
+                )
+            ).fetchone()
+            thesis_id = row[0] if row else None
+
+            if thesis_id is not None:
+                await conn.execute(
+                    """
+                    UPDATE positions_thesis
+                    SET expected_target_price = expected_target_price / ?,
+                        expected_stop_loss = expected_stop_loss / ?
+                    WHERE id = ?
+                    """,
+                    (ratio, ratio, thesis_id),
+                )
+
             await conn.commit()
-            return cursor.rowcount > 0
+            return True
 
         return await self._with_conn(_op)
 

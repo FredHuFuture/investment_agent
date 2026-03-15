@@ -1021,7 +1021,8 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 | Sprint 10 | 033-037 | SentimentAgent (Claude API), WebNewsProvider, aggregator integration, catalyst scanner, news feed UI | +30 |
 | Sprint 11 | 038-041 | Concentration check, correlation analysis, position sizing, portfolio impact preview UI | +18 |
 | Sprint 12 | 042-045 | Email alerts (SMTP), Telegram bot, CSV/JSON export (5 endpoints), Settings page | +28 |
-| **Total** | **45 tasks** | **90+ source files, 9 CLIs, 38 API endpoints, 10 UI pages, 9 tables** | **315 passed, 1 skipped** |
+| Sprint 13 | 046-049 | Watchlist, performance analytics, tech debt fixes, multi-portfolio support | +49 |
+| **Total** | **49 tasks** | **100+ source files, 9 CLIs, 48 API endpoints, 12 UI pages, 10 tables** | **364 passed, 1 skipped** |
 
 ### Planned
 
@@ -1031,7 +1032,8 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 | Sprint 10 | **SentimentAgent** -- Claude-powered news/catalyst eval + daemon catalyst scanner | P1 (differentiation) | **COMPLETE** |
 | Sprint 11 | Portfolio-aware analysis (concentration limits, correlation checks, position sizing) | P2 (optimization) | **COMPLETE** |
 | Sprint 12 | **Notifications + Integrations** -- Email/Telegram alerts, CSV/JSON export, Settings page | P3 (expansion) | **COMPLETE** |
-| Sprint 13+ | OnChainAgent, L2 regime switching, desktop app (Tauri), ValidationAgent | P3+ (deferred) | PLANNED |
+| Sprint 13 | **Watchlist + Analytics + Tech Debt + Multi-Portfolio** | P2 (workflow) | **COMPLETE** |
+| Sprint 14+ | OnChainAgent, L2 regime switching, desktop app (Tauri), ValidationAgent | P3+ (deferred) | PLANNED |
 
 -----
 

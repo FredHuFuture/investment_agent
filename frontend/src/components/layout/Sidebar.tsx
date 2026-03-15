@@ -118,6 +118,24 @@ const NAV_ICONS: Record<string, () => JSX.Element> = {
       ]}
     />
   ),
+  // Watchlist — eye icon
+  Watchlist: () => (
+    <MultiIcon
+      paths={[
+        "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z",
+        "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
+      ]}
+    />
+  ),
+  // Performance — trending-up chart
+  Performance: () => (
+    <MultiIcon
+      paths={[
+        "M22 12l-4-4-6 6-4-4-6 6",
+        "M22 6v6h-6",
+      ]}
+    />
+  ),
   // Settings — sliders / adjustments
   Settings: () => (
     <MultiIcon
@@ -133,6 +151,8 @@ const links = [
   { to: "/", label: "Dashboard" },
   { to: "/analyze", label: "Analysis" },
   { to: "/portfolio", label: "Portfolio" },
+  { to: "/watchlist", label: "Watchlist" },
+  { to: "/performance", label: "Performance" },
   { to: "/backtest", label: "Backtest" },
   { to: "/signals", label: "Signals" },
   { to: "/monitoring", label: "Monitoring" },

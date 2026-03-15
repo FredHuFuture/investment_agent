@@ -22,6 +22,52 @@ async def _ensure_column(
         )
 
 
+async def _migrate_add_portfolios(conn: aiosqlite.Connection) -> None:
+    """Add the ``portfolios`` table and link existing positions to a default portfolio.
+
+    The migration is idempotent: safe to run on every startup.
+    """
+    # 1. Create the portfolios table
+    await conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS portfolios (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            description TEXT DEFAULT '',
+            cash REAL NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            is_default INTEGER NOT NULL DEFAULT 0
+        );
+        """
+    )
+
+    # 2. Add portfolio_id column to active_positions if missing
+    await _ensure_column(conn, "active_positions", "portfolio_id", "INTEGER NOT NULL DEFAULT 1")
+
+    # 3. Add portfolio_id column to closed_positions (which is active_positions with status='closed')
+    # active_positions already holds both open and closed rows, so the column above covers it.
+    # If a separate closed_positions table existed we'd migrate it here; it doesn't, so this is a no-op.
+
+    # 4. Create the "Default" portfolio row (id=1, is_default=1) if it doesn't already exist
+    existing = await (
+        await conn.execute("SELECT id FROM portfolios WHERE id = 1")
+    ).fetchone()
+    if existing is None:
+        # Copy cash from portfolio_meta if it exists
+        cash_row = await (
+            await conn.execute("SELECT value FROM portfolio_meta WHERE key = 'cash'")
+        ).fetchone()
+        initial_cash = float(cash_row[0]) if cash_row is not None else 0.0
+
+        await conn.execute(
+            """
+            INSERT INTO portfolios (id, name, description, cash, is_default)
+            VALUES (1, 'Default', 'Default portfolio', ?, 1)
+            """,
+            (initial_cash,),
+        )
+
+
 async def _migrate_ticker_unique_to_partial(conn: aiosqlite.Connection) -> None:
     """Replace the blanket UNIQUE on active_positions.ticker with a partial
     unique index that only constrains *open* positions.
@@ -329,6 +375,28 @@ async def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
             );
             """
         )
+
+        # Sprint 13.1: watchlist
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS watchlist (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ticker TEXT NOT NULL,
+                asset_type TEXT NOT NULL DEFAULT 'stock',
+                notes TEXT DEFAULT '',
+                target_buy_price REAL,
+                alert_below_price REAL,
+                added_at TEXT NOT NULL DEFAULT (datetime('now')),
+                last_analysis_at TEXT,
+                last_signal TEXT,
+                last_confidence REAL,
+                UNIQUE(ticker)
+            );
+            """
+        )
+
+        # Sprint 13.4: multi-portfolio support
+        await _migrate_add_portfolios(conn)
 
         await conn.commit()
 

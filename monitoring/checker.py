@@ -29,10 +29,14 @@ def check_position(
     """
     alerts: list[Alert] = []
 
-    unrealized_pnl_pct = (
+    raw_pnl_pct = (
         (current_price - position.avg_cost) / position.avg_cost
         if position.avg_cost != 0 else 0.0
     )
+    # SHORT positions: negative quantity means price increases are losses.
+    # Invert the drift sign so positive price movement shows negative drift.
+    is_short = position.quantity < 0
+    unrealized_pnl_pct = -raw_pnl_pct if is_short else raw_pnl_pct
 
     stop_loss_hit = False
     target_hit = False

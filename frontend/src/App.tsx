@@ -9,6 +9,8 @@ import SignalsPage from "./pages/SignalsPage";
 import MonitoringPage from "./pages/MonitoringPage";
 import WeightsPage from "./pages/WeightsPage";
 import DaemonPage from "./pages/DaemonPage";
+import PerformancePage from "./pages/PerformancePage";
+import WatchlistPage from "./pages/WatchlistPage";
 import SettingsPage from "./pages/SettingsPage";
 
 export default function App() {
@@ -19,6 +21,8 @@ export default function App() {
         <Route path="/analyze" element={<AnalyzePage />} />
         <Route path="/portfolio" element={<PortfolioPage />} />
         <Route path="/portfolio/:ticker" element={<PositionDetailPage />} />
+        <Route path="/performance" element={<PerformancePage />} />
+        <Route path="/watchlist" element={<WatchlistPage />} />
         <Route path="/backtest" element={<BacktestPage />} />
         <Route path="/signals" element={<SignalsPage />} />
         <Route path="/monitoring" element={<MonitoringPage />} />
