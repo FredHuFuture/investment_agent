@@ -1170,7 +1170,8 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 | Sprint 35 | Bulk CSV import, watchlist price targets banner, performance attribution chart, backtest comparison panel | P1 (workflow + analytics) | COMPLETE |
 | Sprint 36 | Dividend tracker, signal strength gauge, snapshot comparison, watchlist bulk add | P1 (tracking + workflow) | COMPLETE |
 | Sprint 37 | Earnings calendar, portfolio goal tracker, position quick notes, sector performance | P1 (planning + analytics) | COMPLETE |
-| Sprint 38+ | OnChainAgent, ValidationAgent, desktop app (Tauri) | P3+ (deferred) | PLANNED |
+| Sprint 38 | Export hub, alert rules engine, portfolio health score, journal insights | P1 (config + analytics) | COMPLETE |
+| Sprint 39+ | OnChainAgent, ValidationAgent, desktop app (Tauri) | P3+ (deferred) | PLANNED |
 
 -----
 
