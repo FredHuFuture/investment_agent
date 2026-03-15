@@ -79,6 +79,7 @@ def create_app(db_path: str = str(DEFAULT_DB_PATH)) -> FastAPI:
     from api.routes.alerts import router as alerts_router
     from api.routes.backtest import router as backtest_router
     from api.routes.daemon import router as daemon_router
+    from api.routes.export import router as export_router
     from api.routes.portfolio import router as portfolio_router
     from api.routes.signals import router as signals_router
     from api.routes.summary import router as summary_router
@@ -92,6 +93,7 @@ def create_app(db_path: str = str(DEFAULT_DB_PATH)) -> FastAPI:
     app.include_router(daemon_router, prefix="/daemon", tags=["daemon"])
     app.include_router(summary_router, prefix="/summary", tags=["summary"])
     app.include_router(weights_router, tags=["weights"])
+    app.include_router(export_router, prefix="/api/export", tags=["export"])
 
     return app
 

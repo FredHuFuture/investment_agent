@@ -1,7 +1,7 @@
 # Investment Analysis Agent -- Product & Technical Roadmap
 
 **Last updated:** 2026-03-14
-**Current state:** Sprint 11 complete (287 tests, 81 source files, 31 API endpoints, 9 pages, 6 agents)
+**Current state:** Sprint 12 complete (315 tests, 90+ source files, 38 API endpoints, 10 pages, 6 agents)
 
 ---
 
@@ -26,8 +26,9 @@ The Investment Analysis Agent is a self-hosted, multi-agent portfolio analysis a
 | **Sprint 9** | **Dashboard + Workflow** | **Dashboard home, analyze-to-add flow, thesis editing, alert management, position detail page** | **+11** |
 | **Sprint 10** | **SentimentAgent + Catalyst Scanner** | **SentimentAgent (Claude API), WebNewsProvider (Google RSS), aggregator integration, catalyst scanner daemon, news feed UI** | **+30** |
 | **Sprint 11** | **Portfolio-Aware Analysis** | **Concentration check, correlation analysis, position sizing, portfolio impact preview UI** | **+18** |
+| **Sprint 12** | **Notifications + Integrations** | **Email alerts (SMTP), Telegram bot, CSV/JSON export (5 endpoints), Settings page** | **+28** |
 
-**Total: 287 tests, 0 failures**
+**Total: 315 tests, 0 failures**
 
 ---
 
@@ -94,14 +95,24 @@ The Investment Analysis Agent is a self-hosted, multi-agent portfolio analysis a
 
 ---
 
-### Sprint 12: Notifications + Integrations (P3 -- Expansion)
+### Sprint 12: Notifications + Integrations (P3 -- Expansion) -- COMPLETE
 
-| Task | Description |
-|------|-------------|
-| 12.1 Email Alerts | SendGrid/SES integration for CRITICAL alerts |
-| 12.2 Telegram Bot | Alert forwarding to Telegram channel |
-| 12.3 Export System | PDF/Excel portfolio reports, trade journal export |
-| 12.4 Multi-Portfolio | Support multiple portfolio profiles (e.g., retirement vs trading) |
+| Task | Description | Status |
+|------|-------------|--------|
+| 12.1 Email Alerts | SMTP email dispatcher with HTML templates, test endpoint | DONE |
+| 12.2 Telegram Bot | Telegram Bot API dispatcher with HTML formatting, test endpoint | DONE |
+| 12.3 Export System | CSV/JSON export (portfolio, trades, signals, alerts, full report) -- 5 streaming endpoints | DONE |
+| 12.4 Settings Page | Notification test UI, export download links, configuration guide | DONE |
+
+**Delivered:**
+- `notifications/email_dispatcher.py` -- SMTP with dark-theme HTML templates, async via thread executor
+- `notifications/telegram_dispatcher.py` -- Telegram Bot API with severity emojis, aiohttp
+- `export/portfolio_report.py` -- 5 async export methods (CSV + JSON)
+- `api/routes/export.py` -- 5 GET endpoints with StreamingResponse
+- `POST /alerts/test-email` + `POST /alerts/test-telegram` test endpoints
+- Daemon integration: auto-dispatch alerts to email + Telegram after daily checks
+- Settings page with notification testing and export downloads
+- +28 tests (8 email, 9 telegram, 8 export, 3 frontend type-check)
 
 ---
 
@@ -133,14 +144,14 @@ The Investment Analysis Agent is a self-hosted, multi-agent portfolio analysis a
 
 ## Key Metrics to Track
 
-| Metric | Current (Sprint 11) | Sprint 12 Target | Sprint 13 Target |
+| Metric | Current (Sprint 12) | Sprint 13 Target | Sprint 14 Target |
 |--------|---------------------|------------------|------------------|
-| Test count | 287 | 310+ | 340+ |
-| API endpoints | 31 | 35+ | 38+ |
-| Frontend pages | 9 | 10+ | 11+ |
-| Agents | 6 | 6 | 7+ |
+| Test count | 315 | 340+ | 370+ |
+| API endpoints | 38 | 40+ | 44+ |
+| Frontend pages | 10 | 11+ | 12+ |
+| Agents | 6 | 7+ | 8+ |
 | Signal accuracy (resolved) | TBD | Baseline established | > 55% win rate |
-| Daily active use | Dashboard available | Daily dashboard check | Automated alerts |
+| Daily active use | Automated alerts | Multi-channel notifications | Fully autonomous |
 
 ---
 

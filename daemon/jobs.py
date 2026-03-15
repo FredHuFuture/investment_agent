@@ -60,6 +60,49 @@ async def run_daily_check(
         for w in result.get("warnings", []):
             logger.warning("  %s", w)
 
+        # --- Telegram notification for critical/high alerts ---
+        try:
+            from notifications.telegram_dispatcher import TelegramDispatcher
+
+            tg = TelegramDispatcher()
+            if tg.is_configured:
+                raw_alerts = result.get("alerts", [])
+                critical_alerts = [
+                    a.to_dict() if hasattr(a, "to_dict") else a
+                    for a in raw_alerts
+                    if (a.severity if hasattr(a, "severity") else a.get("severity"))
+                    in ("CRITICAL", "HIGH")
+                ]
+                if critical_alerts:
+                    await tg.send_alert_digest(critical_alerts)
+        except Exception as tg_exc:
+            logger.warning("Telegram dispatch failed: %s", tg_exc)
+
+        # --- Email notification for critical/high alerts ---
+        try:
+            from notifications.email_dispatcher import EmailDispatcher
+
+            raw_alerts = result.get("alerts", [])
+            critical_alerts_email = [
+                a.to_dict() if hasattr(a, "to_dict") else a
+                for a in raw_alerts
+                if (a.severity if hasattr(a, "severity") else a.get("severity", ""))
+                .upper() in ("CRITICAL", "HIGH")
+            ]
+            if critical_alerts_email:
+                email_dispatcher = EmailDispatcher()
+                if email_dispatcher.is_configured:
+                    sent = await email_dispatcher.send_alert_digest(critical_alerts_email)
+                    if sent:
+                        logger.info(
+                            "Email digest sent for %d critical/high alerts",
+                            len(critical_alerts_email),
+                        )
+                    else:
+                        logger.warning("Email digest dispatch returned False")
+        except Exception as email_exc:
+            logger.warning("Email dispatch failed (non-fatal): %s", email_exc)
+
         await _record_daemon_run(
             db_path=db_path,
             job_name="daily_check",

@@ -9,6 +9,7 @@ import SignalsPage from "./pages/SignalsPage";
 import MonitoringPage from "./pages/MonitoringPage";
 import WeightsPage from "./pages/WeightsPage";
 import DaemonPage from "./pages/DaemonPage";
+import SettingsPage from "./pages/SettingsPage";
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
         <Route path="/monitoring" element={<MonitoringPage />} />
         <Route path="/weights" element={<WeightsPage />} />
         <Route path="/daemon" element={<DaemonPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
       </Routes>
     </AppShell>
   );

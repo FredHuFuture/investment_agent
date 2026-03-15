@@ -197,3 +197,12 @@ export const generateSummary = () =>
 export const getDaemonStatus = () => apiGet<DaemonStatus>("/daemon/status");
 export const daemonRunOnce = (job: "daily" | "weekly") =>
   apiPost<Record<string, unknown>>("/daemon/run-once", { job });
+
+// Notifications
+export async function testEmailNotification(): Promise<{data: {sent: boolean; message?: string}; warnings: string[]}> {
+  return apiPost<{sent: boolean; message?: string}>('/alerts/test-email', {});
+}
+
+export async function testTelegramNotification(): Promise<{data: {sent: boolean; message?: string}; warnings: string[]}> {
+  return apiPost<{sent: boolean; message?: string}>('/alerts/test-telegram', {});
+}

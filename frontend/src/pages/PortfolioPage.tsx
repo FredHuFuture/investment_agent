@@ -269,6 +269,19 @@ export default function PortfolioPage() {
         />
       </div>
 
+      {/* ── Export actions ── */}
+      <div className="flex gap-2">
+        <a href="/api/export/portfolio/csv" download className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-xs font-medium text-gray-300 transition-colors">
+          Export CSV
+        </a>
+        <a href="/api/export/trades/csv" download className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-xs font-medium text-gray-300 transition-colors">
+          Trade Journal
+        </a>
+        <a href="/api/export/portfolio/report" download className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-xs font-medium text-gray-300 transition-colors">
+          Full Report
+        </a>
+      </div>
+
       {/* ── Allocation + Thesis Check ── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Allocation (3/5) */}
