@@ -36,6 +36,7 @@ vi.mock("../../api/endpoints", () => ({
   getAccuracyStats: vi.fn(),
   getDailyReturn: vi.fn(),
   getPortfolioRisk: vi.fn(),
+  getActivityFeed: vi.fn(),
 }));
 
 import {
@@ -51,6 +52,7 @@ import {
   getAccuracyStats,
   getDailyReturn,
   getPortfolioRisk,
+  getActivityFeed,
 } from "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import DashboardPage from "../DashboardPage";
@@ -67,6 +69,7 @@ const mockGetSignalHistory = vi.mocked(getSignalHistory);
 const mockGetAccuracyStats = vi.mocked(getAccuracyStats);
 const mockGetDailyReturn = vi.mocked(getDailyReturn);
 const mockGetPortfolioRisk = vi.mocked(getPortfolioRisk);
+const mockGetActivityFeed = vi.mocked(getActivityFeed);
 
 const mockPortfolio = {
   positions: [
@@ -153,6 +156,14 @@ function mockSecondaryApis() {
   });
   mockGetPortfolioRisk.mockResolvedValue({
     data: { daily_volatility: 0.01, annualized_volatility: 0.16, sharpe_ratio: 1.5, sortino_ratio: 2.0, max_drawdown_pct: -0.1, current_drawdown_pct: -0.02, var_95: -0.02, cvar_95: -0.03, best_day_pct: 0.03, worst_day_pct: -0.02, positive_days: 50, negative_days: 40, data_points: 90 } as never,
+    warnings: [],
+  });
+  mockGetActivityFeed.mockResolvedValue({
+    data: [
+      { type: "daemon_run", timestamp: "2025-03-15T10:00:00Z", title: "daily_scan \u2014 success", detail: "Completed in 1200ms", severity: "info", icon: "cog" },
+      { type: "alert", timestamp: "2025-03-15T09:30:00Z", title: "price_drop \u2014 AAPL", detail: "Price dropped 5%", severity: "high", icon: "bell" },
+      { type: "signal", timestamp: "2025-03-15T09:00:00Z", title: "GOOG \u2192 BUY", detail: "Confidence: 78%", severity: "info", icon: "chart" },
+    ] as never,
     warnings: [],
   });
 }
@@ -267,5 +278,19 @@ describe("DashboardPage", () => {
         screen.getByText("No regime history recorded yet."),
       ).toBeInTheDocument();
     });
+  });
+
+  it("renders Recent Activity card with feed entries", async () => {
+    mockGetPortfolio.mockResolvedValue({
+      data: mockPortfolio as never,
+      warnings: [],
+    });
+    mockSecondaryApis();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Recent Activity")).toBeInTheDocument();
+    });
+    expect(screen.getByText("daily_scan \u2014 success")).toBeInTheDocument();
+    expect(screen.getByText("Price dropped 5%")).toBeInTheDocument();
   });
 });

@@ -40,6 +40,7 @@ import Breadcrumb from "../components/shared/Breadcrumb";
 import ThesisEditForm from "../components/portfolio/ThesisEditForm";
 import { Button } from "../components/ui/Button";
 import PnlTimelineChart from "../components/position/PnlTimelineChart";
+import PositionTimeline from "../components/position/PositionTimeline";
 
 function statusBadge(status: string) {
   const isOpen = status === "open";
@@ -833,6 +834,9 @@ export default function PositionDetailPage() {
 
       {/* -- News & Catalysts -- */}
       <CatalystPanel ticker={ticker!} assetType={assetType} />
+
+      {/* -- Position Timeline -- */}
+      <PositionTimeline ticker={ticker!} />
     </div>
   );
 }

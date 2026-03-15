@@ -37,6 +37,7 @@ import TopMoversCard from "../components/dashboard/TopMoversCard";
 import SignalSummaryCard from "../components/dashboard/SignalSummaryCard";
 import DailyReturnCard from "../components/dashboard/DailyReturnCard";
 import RiskSummaryWidget from "../components/dashboard/RiskSummaryWidget";
+import ActivityFeedWidget from "../components/dashboard/ActivityFeedWidget";
 import RegimeTimeline from "../components/dashboard/RegimeTimeline";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
@@ -244,9 +245,10 @@ export default function DashboardPage() {
         <SignalSummaryCard />
       </div>
 
-      {/* ── Risk Summary Widget ── */}
+      {/* ── Risk Summary + Activity Feed ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <RiskSummaryWidget />
+        <ActivityFeedWidget />
       </div>
 
       {/* ── Portfolio value sparkline ── */}

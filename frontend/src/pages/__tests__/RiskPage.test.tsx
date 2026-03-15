@@ -62,11 +62,11 @@ const mockRisk = {
 };
 
 const mockCorrelations = {
-  correlation_matrix: {},
-  avg_correlation: 0.5,
-  high_correlation_pairs: [],
-  concentration_risk: "LOW",
-  tickers: ["AAPL"],
+  correlation_matrix: { "AAPL:MSFT": 0.85, "AAPL:GOOG": 0.45, "MSFT:GOOG": 0.62 },
+  avg_correlation: 0.64,
+  high_correlation_pairs: [["AAPL", "MSFT", 0.85]] as Array<[string, string, number]>,
+  concentration_risk: "MODERATE",
+  tickers: ["AAPL", "MSFT", "GOOG"],
 };
 
 const mockValueHistory = [
@@ -241,5 +241,21 @@ describe("RiskPage", () => {
     const skeletons = document.querySelectorAll(".animate-pulse");
     // Main page skeletons + stress test skeleton
     expect(skeletons.length).toBeGreaterThan(0);
+  });
+
+  it("renders Correlation Matrix card with heatmap data", async () => {
+    mockAllApis();
+    renderPage();
+    await waitFor(() => {
+      // Both the inline CorrelationMatrix and CorrelationHeatmap render "Correlation Matrix"
+      const headings = screen.getAllByText("Correlation Matrix");
+      expect(headings.length).toBeGreaterThanOrEqual(1);
+    });
+    // Verify correlation values from the heatmap are rendered
+    const cells085 = screen.getAllByText("0.85");
+    expect(cells085.length).toBeGreaterThanOrEqual(1);
+    // Verify the concentration risk badge renders
+    const badges = screen.getAllByText("MODERATE");
+    expect(badges.length).toBeGreaterThanOrEqual(1);
   });
 });

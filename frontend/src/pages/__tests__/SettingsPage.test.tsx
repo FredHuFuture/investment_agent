@@ -3,12 +3,46 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { ToastProvider } from "../../contexts/ToastContext";
 
-// Mock endpoint functions used by NotificationPreferences and SystemInfoCard
+// Mock endpoint functions used by NotificationPreferences, SystemInfoCard, and NotificationConfigCard
 vi.mock("../../api/endpoints", () => ({
   testEmailNotification: vi.fn(),
   testTelegramNotification: vi.fn(),
   getSystemInfo: vi.fn().mockResolvedValue({
     data: { status: "ok", db_path: "test.db", version: "5.33", total_positions: 5, total_closed: 3, total_signals: 100, total_alerts: 50 },
+    warnings: [],
+  }),
+  getNotificationConfig: vi.fn().mockResolvedValue({
+    data: {
+      smtp_host: "",
+      smtp_port: 587,
+      smtp_user: "",
+      smtp_password: "",
+      smtp_enabled: false,
+      telegram_bot_token: "",
+      telegram_chat_id: "",
+      telegram_enabled: false,
+      notify_critical: true,
+      notify_high: true,
+      notify_warning: false,
+      notify_info: false,
+    },
+    warnings: [],
+  }),
+  saveNotificationConfig: vi.fn().mockResolvedValue({
+    data: {
+      smtp_host: "",
+      smtp_port: 587,
+      smtp_user: "",
+      smtp_password: "",
+      smtp_enabled: false,
+      telegram_bot_token: "",
+      telegram_chat_id: "",
+      telegram_enabled: false,
+      notify_critical: true,
+      notify_high: true,
+      notify_warning: false,
+      notify_info: false,
+    },
     warnings: [],
   }),
 }));
@@ -86,5 +120,13 @@ describe("SettingsPage", () => {
     renderPage();
     expect(screen.getByText("Email")).toBeInTheDocument();
     expect(screen.getByText("Telegram")).toBeInTheDocument();
+  });
+
+  it("renders Notification Configuration card", async () => {
+    renderPage();
+    expect(await screen.findByText("Notification Configuration")).toBeInTheDocument();
+    expect(screen.getByText("Email (SMTP)")).toBeInTheDocument();
+    expect(screen.getByText("Alert Severity Filters")).toBeInTheDocument();
+    expect(screen.getByText("Save Configuration")).toBeInTheDocument();
   });
 });

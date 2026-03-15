@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
+import aiosqlite
 from fastapi import APIRouter, Depends
 
 from api.deps import get_db_path, map_ticker, resolve_asset_type
@@ -205,3 +206,122 @@ async def get_positions_by_sector(sector: str, db_path: str = Depends(get_db_pat
             row = p if isinstance(p, dict) else p.to_dict()
             filtered.append(row)
     return {"data": filtered, "warnings": []}
+
+
+@router.get("/positions/{ticker}/timeline")
+async def get_position_timeline(ticker: str, db_path: str = Depends(get_db_path)):
+    """Aggregate events from multiple tables into a chronological timeline."""
+    upper_ticker = ticker.upper()
+    events: list[dict] = []
+
+    db_path_resolved = db_path
+    async with aiosqlite.connect(db_path_resolved) as conn:
+        conn.row_factory = aiosqlite.Row
+
+        # 1. Entry event from active_positions
+        cursor = await conn.execute(
+            "SELECT entry_date, ticker, avg_cost, quantity, status, "
+            "exit_date, exit_price, exit_reason, realized_pnl "
+            "FROM active_positions WHERE UPPER(ticker) = ?",
+            (upper_ticker,),
+        )
+        pos_rows = await cursor.fetchall()
+
+        for row in pos_rows:
+            events.append({
+                "type": "entry",
+                "date": row["entry_date"],
+                "title": f"Opened position in {row['ticker']}",
+                "detail": f"Bought {row['quantity']} shares @ ${row['avg_cost']:.2f}",
+                "severity": None,
+                "metadata": {
+                    "avg_cost": row["avg_cost"],
+                    "quantity": row["quantity"],
+                },
+            })
+
+            # 5. Exit event (if closed)
+            if row["status"] == "closed" and row["exit_date"]:
+                events.append({
+                    "type": "exit",
+                    "date": row["exit_date"],
+                    "title": f"Closed position in {row['ticker']}",
+                    "detail": (
+                        f"Exit @ ${row['exit_price']:.2f}"
+                        + (f" — {row['exit_reason']}" if row["exit_reason"] else "")
+                        + (f" — P&L: ${row['realized_pnl']:.2f}" if row["realized_pnl"] is not None else "")
+                    ),
+                    "severity": "critical",
+                    "metadata": {
+                        "exit_price": row["exit_price"],
+                        "exit_reason": row["exit_reason"],
+                        "realized_pnl": row["realized_pnl"],
+                    },
+                })
+
+        # 2. Signals from signal_history
+        cursor = await conn.execute(
+            "SELECT created_at, final_signal, final_confidence, reasoning "
+            "FROM signal_history WHERE UPPER(ticker) = ? ORDER BY created_at DESC",
+            (upper_ticker,),
+        )
+        for row in await cursor.fetchall():
+            reasoning = row["reasoning"] or ""
+            events.append({
+                "type": "signal",
+                "date": row["created_at"],
+                "title": f"Signal: {row['final_signal']} ({row['final_confidence']:.0%})",
+                "detail": reasoning[:200] if reasoning else None,
+                "severity": None,
+                "metadata": {
+                    "final_signal": row["final_signal"],
+                    "final_confidence": row["final_confidence"],
+                },
+            })
+
+        # 3. Alerts from monitoring_alerts
+        cursor = await conn.execute(
+            "SELECT created_at, alert_type, severity, message "
+            "FROM monitoring_alerts WHERE UPPER(ticker) = ? ORDER BY created_at DESC",
+            (upper_ticker,),
+        )
+        for row in await cursor.fetchall():
+            events.append({
+                "type": "alert",
+                "date": row["created_at"],
+                "title": f"Alert: {row['alert_type']}",
+                "detail": row["message"],
+                "severity": row["severity"].lower() if row["severity"] else None,
+                "metadata": {
+                    "alert_type": row["alert_type"],
+                    "severity": row["severity"],
+                },
+            })
+
+        # 4. Annotations from trade_annotations
+        try:
+            cursor = await conn.execute(
+                "SELECT created_at, annotation_text, lesson_tag "
+                "FROM trade_annotations WHERE UPPER(position_ticker) = ? ORDER BY created_at DESC",
+                (upper_ticker,),
+            )
+            for row in await cursor.fetchall():
+                tag = row["lesson_tag"]
+                events.append({
+                    "type": "annotation",
+                    "date": row["created_at"],
+                    "title": f"Annotation" + (f" [{tag}]" if tag else ""),
+                    "detail": row["annotation_text"],
+                    "severity": None,
+                    "metadata": {
+                        "lesson_tag": tag,
+                    },
+                })
+        except Exception:
+            # Table may not exist yet
+            pass
+
+    # Sort all events by date descending (newest first)
+    events.sort(key=lambda e: e["date"] or "", reverse=True)
+
+    return {"data": events, "warnings": []}

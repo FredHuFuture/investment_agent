@@ -618,3 +618,39 @@ export interface SystemInfo {
   total_signals: number;
   total_alerts: number;
 }
+
+// ---------------------------------------------------------------------------
+// Sprint 34 types
+// ---------------------------------------------------------------------------
+export interface NotificationConfig {
+  smtp_host: string;
+  smtp_port: number;
+  smtp_user: string;
+  smtp_password: string;
+  smtp_enabled: boolean;
+  telegram_bot_token: string;
+  telegram_chat_id: string;
+  telegram_enabled: boolean;
+  notify_critical: boolean;
+  notify_high: boolean;
+  notify_warning: boolean;
+  notify_info: boolean;
+}
+
+export interface PositionEvent {
+  type: "entry" | "signal" | "alert" | "thesis_change" | "annotation" | "exit";
+  date: string;
+  title: string;
+  detail: string | null;
+  severity: string | null;
+  metadata: Record<string, unknown>;
+}
+
+export interface ActivityFeedEntry {
+  type: "daemon_run" | "alert" | "signal" | "trade";
+  timestamp: string;
+  title: string;
+  detail: string | null;
+  severity: string | null;
+  icon: string;
+}

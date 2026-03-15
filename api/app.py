@@ -119,6 +119,10 @@ def create_app(db_path: str = str(DEFAULT_DB_PATH)) -> FastAPI:
     from api.routes.system import router as system_router
     app.include_router(system_router, prefix="/system", tags=["system"])
 
+    # Notification config (Sprint 34)
+    from api.routes.notifications import router as notifications_router
+    app.include_router(notifications_router, prefix="/notifications", tags=["notifications"])
+
     return app
 
 

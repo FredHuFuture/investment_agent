@@ -49,6 +49,9 @@ import type {
   MonteCarloResult,
   DailyReturn,
   SystemInfo,
+  NotificationConfig,
+  PositionEvent,
+  ActivityFeedEntry,
 } from "./types";
 
 // Portfolio
@@ -400,3 +403,17 @@ export const getDailyReturn = () =>
 // System info (Sprint 33)
 export const getSystemInfo = () =>
   apiGet<SystemInfo>("/system/info");
+
+// Notification config (Sprint 34)
+export const getNotificationConfig = () =>
+  apiGet<NotificationConfig>("/notifications/config");
+export const saveNotificationConfig = (body: Partial<NotificationConfig>) =>
+  apiPut<NotificationConfig>("/notifications/config", body);
+
+// Position timeline (Sprint 34)
+export const getPositionTimeline = (ticker: string) =>
+  apiGet<PositionEvent[]>(`/portfolio/positions/${encodeURIComponent(ticker)}/timeline`);
+
+// Activity feed (Sprint 34)
+export const getActivityFeed = (limit = 20) =>
+  apiGet<ActivityFeedEntry[]>(`/analytics/activity-feed?limit=${limit}`);

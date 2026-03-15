@@ -14,6 +14,7 @@ import MetricCard from "../components/shared/MetricCard";
 import ErrorAlert from "../components/shared/ErrorAlert";
 import StressTestPanel from "../components/risk/StressTestPanel";
 import MonteCarloPanel from "../components/risk/MonteCarloPanel";
+import CorrelationHeatmap from "../components/risk/CorrelationHeatmap";
 import { Card, CardHeader, CardBody } from "../components/ui/Card";
 import { SkeletonCard } from "../components/ui/Skeleton";
 import { usePageTitle } from "../hooks/usePageTitle";
@@ -564,6 +565,9 @@ export default function RiskPage() {
 
       {/* Monte Carlo Simulation */}
       <MonteCarloPanel />
+
+      {/* Correlation Heatmap */}
+      <CorrelationHeatmap />
     </div>
   );
 }

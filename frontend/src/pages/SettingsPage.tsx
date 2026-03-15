@@ -6,6 +6,7 @@ import ThemeToggle from "../components/settings/ThemeToggle";
 import NotificationPreferences from "../components/settings/NotificationPreferences";
 import CacheSettings from "../components/settings/CacheSettings";
 import RiskParametersCard from "../components/settings/RiskParametersCard";
+import NotificationConfigCard from "../components/settings/NotificationConfigCard";
 import SystemInfoCard from "../components/settings/SystemInfoCard";
 
 export default function SettingsPage() {
@@ -107,6 +108,9 @@ export default function SettingsPage() {
 
       {/* -- Risk Parameters -- */}
       <RiskParametersCard />
+
+      {/* -- Notification Configuration -- */}
+      <NotificationConfigCard />
 
       {/* -- System Info -- */}
       <SystemInfoCard />

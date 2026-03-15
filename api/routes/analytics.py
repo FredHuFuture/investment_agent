@@ -227,3 +227,101 @@ async def monthly_heatmap(db_path: str = Depends(get_db_path)):
     analytics = PortfolioAnalytics(db_path)
     data = await analytics.get_monthly_heatmap()
     return {"data": data, "warnings": []}
+
+
+@router.get("/activity-feed")
+async def activity_feed(
+    limit: int = Query(20, ge=1, le=100),
+    db_path: str = Depends(get_db_path),
+):
+    """Unified activity feed aggregating daemon runs, alerts, and signals."""
+    entries: list[dict] = []
+
+    async with aiosqlite.connect(db_path) as conn:
+        conn.row_factory = aiosqlite.Row
+
+        # 1. Daemon runs
+        try:
+            rows = await (
+                await conn.execute(
+                    "SELECT job_name, status, started_at, duration_ms, error_message "
+                    "FROM daemon_runs ORDER BY started_at DESC LIMIT ?",
+                    (limit,),
+                )
+            ).fetchall()
+            for row in rows:
+                status = row["status"] or "unknown"
+                severity = "critical" if status in ("error", "failed") else "info"
+                if row["error_message"]:
+                    detail = row["error_message"]
+                elif row["duration_ms"] is not None:
+                    detail = f"Completed in {row['duration_ms']}ms"
+                else:
+                    detail = None
+                entries.append(
+                    {
+                        "type": "daemon_run",
+                        "timestamp": row["started_at"],
+                        "title": f"{row['job_name']} \u2014 {status}",
+                        "detail": detail,
+                        "severity": severity,
+                        "icon": "cog",
+                    }
+                )
+        except Exception:
+            pass  # table may not exist yet
+
+        # 2. Monitoring alerts
+        try:
+            rows = await (
+                await conn.execute(
+                    "SELECT ticker, alert_type, severity, message, created_at "
+                    "FROM monitoring_alerts ORDER BY created_at DESC LIMIT ?",
+                    (limit,),
+                )
+            ).fetchall()
+            for row in rows:
+                entries.append(
+                    {
+                        "type": "alert",
+                        "timestamp": row["created_at"],
+                        "title": f"{row['alert_type']} \u2014 {row['ticker'] or 'System'}",
+                        "detail": row["message"],
+                        "severity": row["severity"],
+                        "icon": "bell",
+                    }
+                )
+        except Exception:
+            pass
+
+        # 3. Signal history
+        try:
+            rows = await (
+                await conn.execute(
+                    "SELECT ticker, final_signal, final_confidence, created_at "
+                    "FROM signal_history ORDER BY created_at DESC LIMIT ?",
+                    (limit,),
+                )
+            ).fetchall()
+            for row in rows:
+                confidence_pct = (
+                    round(row["final_confidence"] * 100)
+                    if row["final_confidence"] is not None
+                    else 0
+                )
+                entries.append(
+                    {
+                        "type": "signal",
+                        "timestamp": row["created_at"],
+                        "title": f"{row['ticker']} \u2192 {row['final_signal']}",
+                        "detail": f"Confidence: {confidence_pct}%",
+                        "severity": "info",
+                        "icon": "chart",
+                    }
+                )
+        except Exception:
+            pass
+
+    # Merge and sort by timestamp descending, take top `limit`
+    entries.sort(key=lambda e: e["timestamp"] or "", reverse=True)
+    return {"data": entries[:limit], "warnings": []}

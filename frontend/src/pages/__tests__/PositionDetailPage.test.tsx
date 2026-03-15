@@ -28,6 +28,7 @@ vi.mock("../../api/endpoints", () => ({
   updateThesis: vi.fn(),
   getCatalysts: vi.fn(),
   getPositionPnlHistory: vi.fn(),
+  getPositionTimeline: vi.fn(),
 }));
 
 import {
@@ -39,6 +40,7 @@ import {
   getAlerts,
   getCatalysts,
   getPositionPnlHistory,
+  getPositionTimeline,
 } from "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import PositionDetailPage from "../PositionDetailPage";
@@ -51,6 +53,7 @@ const mockGetSignalHistory = vi.mocked(getSignalHistory);
 const mockGetAlerts = vi.mocked(getAlerts);
 const mockGetCatalysts = vi.mocked(getCatalysts);
 const mockGetPositionPnlHistory = vi.mocked(getPositionPnlHistory);
+const mockGetPositionTimeline = vi.mocked(getPositionTimeline);
 
 const mockPortfolio = {
   positions: [
@@ -111,6 +114,35 @@ function mockSecondaryApis() {
   mockGetAlerts.mockResolvedValue({ data: [], warnings: [] });
   mockGetCatalysts.mockRejectedValue(new Error("Not available"));
   mockGetPositionPnlHistory.mockResolvedValue({ data: [] as never, warnings: [] });
+  mockGetPositionTimeline.mockResolvedValue({
+    data: [
+      {
+        type: "entry",
+        date: "2024-01-01",
+        title: "Opened position in AAPL",
+        detail: "Bought 10 shares @ $150.00",
+        severity: null,
+        metadata: { avg_cost: 150, quantity: 10 },
+      },
+      {
+        type: "signal",
+        date: "2024-01-15",
+        title: "Signal: BUY (85%)",
+        detail: "Strong momentum indicators",
+        severity: null,
+        metadata: { final_signal: "BUY", final_confidence: 0.85 },
+      },
+      {
+        type: "alert",
+        date: "2024-02-01",
+        title: "Alert: PRICE_DROP",
+        detail: "Price dropped below threshold",
+        severity: "high",
+        metadata: { alert_type: "PRICE_DROP", severity: "HIGH" },
+      },
+    ] as never,
+    warnings: [],
+  });
 }
 
 function renderPage() {
@@ -215,5 +247,20 @@ describe("PositionDetailPage", () => {
     await waitFor(() => {
       expect(screen.getByText("Portfolio")).toBeInTheDocument();
     });
+  });
+
+  it("renders the position timeline section with events", async () => {
+    mockGetPortfolio.mockResolvedValue({
+      data: mockPortfolio as never,
+      warnings: [],
+    });
+    mockSecondaryApis();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Opened position in AAPL")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Position Timeline")).toBeInTheDocument();
+    expect(screen.getByText("Signal: BUY (85%)")).toBeInTheDocument();
+    expect(screen.getByText("Alert: PRICE_DROP")).toBeInTheDocument();
   });
 });
