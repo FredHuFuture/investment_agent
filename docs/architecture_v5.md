@@ -58,13 +58,13 @@ Core moat: Expected vs Actual ROI dual-track + thesis accountability feedback lo
 ```
 +-----------------------------------------------------------------------+
 |                      React Frontend (Vite + TypeScript)                |
-|  7 pages: Portfolio, Analyze, Backtest, Signals, Monitoring,          |
-|           Weights, Daemon  |  36 components  |  Tailwind + Recharts   |
+|  12 pages  |  60+ components  |  20+ UI primitives                   |
+|  Tailwind + Recharts  |  SWR cache  |  Command palette (Ctrl+K)      |
 +---------------------------+-------------------------------------------+
                             | /api proxy (localhost:3000 -> :8000)
 +---------------------------v-------------------------------------------+
 |                      FastAPI REST API Layer                            |
-|  22 endpoints across 8 route modules  |  Pydantic v2 validation      |
+|  50 endpoints across 12 route modules  |  Pydantic v2 validation     |
 |  CORS  |  Error handlers  |  Lifespan DB init                        |
 +--------+----------+-----------+-----------+-----------+---------------+
          |          |           |           |           |
@@ -81,28 +81,32 @@ Core moat: Expected vs Actual ROI dual-track + thesis accountability feedback lo
          |          |           |           |      +---+---------+
     +----v----------v-----------v-----------v----------v---------+
     |                     Engine Layer                            |
-    | Agents (Technical, Fundamental, Macro, Crypto, Summary)    |
-    | SignalAggregator | DriftAnalyzer | WeightAdapter            |
-    | SignalComparator | SectorRotation | CorrelationTracker      |
+    | Agents: Technical, Fundamental, Macro, Crypto, Sentiment,  |
+    |         Summary (6 agents)                                  |
+    | RegimeDetector | SignalAggregator | DriftAnalyzer            |
+    | WeightAdapter | SectorRotation | CorrelationTracker         |
     +--------+--------------------------------------------------+
              |
     +--------v--------------------------------------------------+
     |                   Data Layer                               |
-    | DataProviders (YFinance, CCXT, FRED)                      |
-    | SQLite (WAL mode, 9 tables, aiosqlite)                    |
+    | DataProviders (YFinance, CCXT, FRED, Google News)         |
+    | SQLite (WAL mode, 10 tables, aiosqlite)                   |
+    | Notifications (SMTP, Telegram) | Export (CSV, JSON)        |
     +-----------------------------------------------------------+
 ```
 
 Tech stack:
 
 - **Runtime**: Python 3.11+ / asyncio
-- **Data**: yfinance + ccxt + FRED + pandas_ta (Phase 1-2, $0/mo)
+- **Data**: yfinance + ccxt + FRED + Google News RSS + pandas_ta ($0/mo)
 - **Store**: SQLite (WAL mode, aiosqlite, single-file, zero-ops)
-- **Charts**: plotly (dark theme, HTML export)
+- **Charts**: plotly (dark theme, HTML export) + Recharts (frontend)
 - **Scheduler**: APScheduler 3.x (cron-based async daemon)
-- **API**: FastAPI + uvicorn + Pydantic v2
+- **API**: FastAPI + uvicorn + Pydantic v2 (50 endpoints)
 - **Frontend**: React 18 + Vite + TypeScript + Tailwind CSS + Recharts
-- **LLM**: Claude API via Anthropic SDK (SummaryAgent, optional dependency)
+- **Frontend perf**: In-memory SWR cache (stale-while-revalidate), TTL-based invalidation
+- **Notifications**: SMTP email + Telegram Bot API (aiohttp)
+- **LLM**: Claude API via Anthropic SDK (SentimentAgent, SummaryAgent, optional)
 
 -----
 
@@ -110,7 +114,7 @@ Tech stack:
 
 ```
 investment_agent/
-  agents/                      # Analysis agents
+  agents/                      # Analysis agents (6)
     __init__.py                #   exports: BaseAgent, AgentInput, AgentOutput, Signal, Regime
     base.py                    #   BaseAgent ABC
     models.py                  #   AgentInput, AgentOutput, Signal, Regime dataclasses
@@ -118,21 +122,27 @@ investment_agent/
     fundamental.py             #   FundamentalAgent (rule-based, 20 metrics)
     macro.py                   #   MacroAgent (rule-based, 11 metrics)
     crypto.py                  #   CryptoAgent (7-factor, crypto-native scoring)
+    sentiment.py               #   SentimentAgent (Claude API, news analysis)
     summary_agent.py           #   SummaryAgent (Claude API, weekly portfolio review)
 
-  api/                         # FastAPI REST API
+  api/                         # FastAPI REST API (50 endpoints)
     app.py                     #   App factory, CORS, lifespan, error handlers
     models.py                  #   Pydantic v2 request/response schemas
     deps.py                    #   Shared dependencies (crypto detection, ticker mapping)
     routes/
       portfolio.py             #   /portfolio, /portfolio/positions, /portfolio/cash, etc.
       analyze.py               #   /analyze/{ticker}, /analyze/{ticker}/price-history
-      alerts.py                #   /alerts
+      alerts.py                #   /alerts, /alerts/test-email, /alerts/test-telegram
       signals.py               #   /signals/history, /signals/accuracy, /signals/agents, /signals/calibration
       backtest.py              #   /backtest, /backtest/batch
       daemon.py                #   /daemon/status, /daemon/run-once
       weights.py               #   /weights
       summary.py               #   /summary/generate, /summary/latest
+      watchlist.py             #   /watchlist CRUD, /watchlist/analyze-all
+      analytics.py             #   /analytics/value-history, /analytics/performance, etc.
+      profiles.py              #   /portfolios CRUD, /portfolios/default
+      export.py                #   /export/portfolio, /export/trades, /export/report, etc.
+      regime.py                #   /regime/current
 
   backtesting/                 # Walk-forward backtesting engine
     __init__.py
@@ -171,15 +181,18 @@ investment_agent/
     yfinance_provider.py       #   Stocks + crypto via yfinance
     ccxt_provider.py           #   Crypto via Binance (preserved for Phase 2)
     fred_provider.py           #   Macro data (FRED API)
+    news_provider.py           #   Google News RSS headlines
     factory.py                 #   get_provider(asset_type) factory
 
   db/
-    database.py                #   init_db(), 9 tables, WAL mode, indexes
+    database.py                #   init_db(), 10 tables, WAL mode, indexes, migrations
 
   engine/                      # Core analysis engine
     __init__.py
-    aggregator.py              #   SignalAggregator, AggregatedSignal
-    pipeline.py                #   AnalysisPipeline (parallel agent execution)
+    aggregator.py              #   SignalAggregator, AggregatedSignal, aggregate_with_regime()
+    pipeline.py                #   AnalysisPipeline (parallel agent execution + regime integration)
+    regime.py                  #   RegimeDetector (5 market regimes, weight adjustments)
+    analytics.py               #   PortfolioAnalytics (value history, performance, monthly returns)
     drift_analyzer.py          #   DriftAnalyzer (entry/return/hold drift)
     weight_adapter.py          #   WeightAdapter (EWMA + Sharpe-based adaptive weights)
     sector.py                  #   Sector rotation matrix + get_sector_modifier()
@@ -195,38 +208,63 @@ investment_agent/
   portfolio/                   # Portfolio management
     __init__.py
     models.py                  #   Position, Portfolio dataclasses
-    manager.py                 #   PortfolioManager (CRUD + snapshots)
+    manager.py                 #   PortfolioManager (CRUD + snapshots + splits)
+    profiles.py                #   PortfolioProfileManager (multi-portfolio CRUD)
+
+  watchlist/                   # Ticker watchlist
+    __init__.py
+    manager.py                 #   WatchlistManager (CRUD + analysis integration)
+
+  notifications/               # Alert dispatchers
+    __init__.py
+    email_dispatcher.py        #   SMTP email with HTML templates
+    telegram_dispatcher.py     #   Telegram Bot API with severity formatting
+
+  export/                      # Portfolio report export
+    portfolio_report.py        #   PortfolioExporter (CSV + JSON streaming)
 
   tracking/                    # Signal tracking & calibration
     __init__.py
     store.py                   #   SignalStore (persist + query signals)
     tracker.py                 #   SignalTracker (accuracy, calibration, agent perf)
 
-  tests/                       # 216 tests, 1 skipped (network)
-    test_001 - test_026        #   26 test files covering all packages
-                               #   DB, drift, portfolio, providers, 4 agents,
-                               #   pipeline, aggregator, report, monitoring,
-                               #   signal tracking, charts, backtesting,
-                               #   daemon, sector/correlation, weight adapter,
-                               #   batch runner, API, thesis tracking, summary agent
+  tests/                       # 416 tests, 1 skipped (network)
+    test_001 - test_040        #   40 test files covering all packages
 
   frontend/                    # React frontend (Vite + TypeScript)
     src/
-      pages/                   #   7 pages: Portfolio, Analyze, Backtest, Signals,
-                               #            Monitoring, Weights, Daemon
-      components/              #   36 components organized by feature area
-      api/                     #   client.ts, endpoints.ts, types.ts
-      hooks/                   #   useApi.ts
+      pages/                   #   12 pages: Dashboard, Analyze, Portfolio,
+                               #   PositionDetail, Performance, Watchlist,
+                               #   Backtest, Signals, Monitoring, Weights,
+                               #   Daemon, Settings
+      components/
+        ui/                    #   Design system: Button, Input, Card, Skeleton,
+                               #   ErrorBoundary, Toast, CommandPalette (20+ primitives)
+        shared/                #   DataTable (w/ pagination + search), Breadcrumb,
+                               #   MetricCard, SignalBadge, etc.
+        layout/                #   AppShell (responsive), Sidebar (mobile drawer)
+        analysis/              #   AnalysisResult, AgentBreakdown, CatalystPanel, etc.
+        portfolio/             #   PositionsTable, AddPositionForm, AllocationChart, etc.
+        backtest/              #   BacktestForm, EquityCurveChart, BatchResults
+        monitoring/            #   AlertsList, MonitorCheckButton
+        signals/               #   AccuracyStats, CalibrationChart, AgentPerformance
+        summary/               #   WeeklySummaryCard
+      api/                     #   client.ts, endpoints.ts (40+ functions), types.ts
+      hooks/                   #   useApi (SWR cache), useMobile, useHotkeys, usePageTitle
+      lib/                     #   cache.ts (TTL), colors.ts, formatters.ts
+      contexts/                #   ToastContext (global notifications)
     vite.config.ts             #   Port 3000, /api proxy -> localhost:8000
 
   docs/
     architecture_v5.md         #   This document
+    ROADMAP.md                 #   Product roadmap + sprint history
     AGENT_SYNC.md              #   Dev agent communication log
     USAGE_GUIDE.md             #   User-facing usage instructions
   tasks/                       #   Task specs (001-026)
   data/                        #   SQLite DB + daemon logs (gitignored)
   demo.py                      #   7-step feature demo script (temp DB)
   seed.py                      #   Seed script for demo data
+  run.ps1                      #   PowerShell launcher (Windows)
   pyproject.toml               #   Project config
 ```
 
@@ -234,7 +272,7 @@ investment_agent/
 
 ## 4. Data Layer
 
-### 4.1 SQLite Schema (9 Tables)
+### 4.1 SQLite Schema (10 Tables)
 
 ```sql
 -- 1. Analysis thesis (expected signal at analysis time)
@@ -357,6 +395,30 @@ CREATE TABLE price_history_cache (
     asset_type TEXT NOT NULL DEFAULT 'stock',
     fetched_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(ticker, date)
+);
+
+-- 9. Watchlist (Sprint 13)
+CREATE TABLE watchlist (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker TEXT NOT NULL UNIQUE,
+    asset_type TEXT NOT NULL DEFAULT 'stock',
+    notes TEXT DEFAULT '',
+    target_buy_price REAL,
+    alert_below_price REAL,
+    added_at TEXT NOT NULL DEFAULT (datetime('now')),
+    last_analysis_at TEXT,
+    last_signal TEXT,
+    last_confidence REAL
+);
+
+-- 10. Portfolio profiles (Sprint 13)
+CREATE TABLE portfolios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT DEFAULT '',
+    cash REAL NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    is_default INTEGER NOT NULL DEFAULT 0
 );
 ```
 
