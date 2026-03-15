@@ -1,7 +1,7 @@
 # Investment Analysis Agent -- Product & Technical Roadmap
 
 **Last updated:** 2026-03-14
-**Current state:** Sprint 13 complete (364 tests, 100+ source files, 48 API endpoints, 12 pages, 6 agents)
+**Current state:** Sprint 14 complete (416 tests, 105+ source files, 50 API endpoints, 12 pages, 6 agents)
 
 ---
 
@@ -139,11 +139,29 @@ The Investment Analysis Agent is a self-hosted, multi-agent portfolio analysis a
 
 ---
 
-### Sprint 14+: Advanced (Deferred)
+### Sprint 14: Advanced Intelligence -- COMPLETE
+
+| Task | Description | Status |
+|------|-------------|--------|
+| 14.1 Regime Detection Engine | Multi-signal regime detector (bull/bear/sideways/high-vol/risk-off) with macro + price analysis | DONE |
+| 14.2 L2 Adaptive Weight Switching | Regime-aware weight adjustments, re-normalization, pipeline integration | DONE |
+| 14.3 Batch Watchlist Analysis | Analyze-all endpoint, batch results, dashboard watchlist widget | DONE |
+| 14.4 Dashboard Enhancements | Portfolio value mini-chart, watchlist highlights on dashboard | DONE |
+
+**Delivered:**
+- `engine/regime.py` -- RegimeDetector with 5 regime types, multi-signal scoring, weight adjustments
+- `api/routes/regime.py` -- GET /regime/current endpoint
+- L2 weight switching in aggregator + pipeline integration
+- POST /watchlist/analyze-all batch endpoint
+- Dashboard: portfolio value sparkline, watchlist highlights widget
+- +52 tests (24 regime, 10 L2 weights, 7 batch watchlist, 11 dashboard)
+
+---
+
+### Sprint 15+: Advanced (Deferred)
 
 | Feature | Priority | Rationale |
 |---------|----------|-----------|
-| L2 Regime Switching | P2 | Auto-adjust weights based on detected macro regime |
 | OnChainAgent | P3 | BTC-specific on-chain metrics (MVRV, SOPR, exchange flows) |
 | ValidationAgent | P3 | LLM cross-checks agent logic consistency |
 | Desktop App (Tauri) | P3 | Native wrapper for offline use |
@@ -167,14 +185,14 @@ The Investment Analysis Agent is a self-hosted, multi-agent portfolio analysis a
 
 ## Key Metrics to Track
 
-| Metric | Current (Sprint 13) | Sprint 14 Target | Sprint 15 Target |
+| Metric | Current (Sprint 14) | Sprint 15 Target | Sprint 16 Target |
 |--------|---------------------|------------------|------------------|
-| Test count | 364 | 390+ | 420+ |
-| API endpoints | 48 | 52+ | 56+ |
+| Test count | 416 | 440+ | 470+ |
+| API endpoints | 50 | 54+ | 58+ |
 | Frontend pages | 12 | 13+ | 14+ |
 | Agents | 6 | 7+ | 8+ |
 | Signal accuracy (resolved) | TBD | Baseline established | > 55% win rate |
-| Daily active use | Full workflow | Multi-channel + watchlist | Fully autonomous |
+| Daily active use | Regime-aware signals | Multi-channel + watchlist | Fully autonomous |
 
 ---
 

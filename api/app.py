@@ -86,6 +86,7 @@ def create_app(db_path: str = str(DEFAULT_DB_PATH)) -> FastAPI:
     from api.routes.signals import router as signals_router
     from api.routes.summary import router as summary_router
     from api.routes.watchlist import router as watchlist_router
+    from api.routes.regime import router as regime_router
     from api.routes.weights import router as weights_router
 
     app.include_router(analyze_router, prefix="/analyze", tags=["analysis"])
@@ -100,6 +101,7 @@ def create_app(db_path: str = str(DEFAULT_DB_PATH)) -> FastAPI:
     app.include_router(weights_router, tags=["weights"])
     app.include_router(export_router, prefix="/api/export", tags=["export"])
     app.include_router(watchlist_router, prefix="/watchlist", tags=["watchlist"])
+    app.include_router(regime_router, prefix="/regime", tags=["regime"])
 
     return app
 

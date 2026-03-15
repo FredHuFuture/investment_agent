@@ -153,7 +153,34 @@ class AnalysisPipeline:
             )
         else:
             aggregator = SignalAggregator()
-        signal = aggregator.aggregate(agent_outputs, ticker, asset_type)
+
+        # 6a. L2 regime-based weight switching
+        regime_adjustments: dict[str, float] | None = None
+        regime_info_dict: dict | None = None
+        try:
+            from engine.regime import RegimeDetector
+            detector = RegimeDetector()
+            regime_info = detector.detect(agent_outputs)
+            # Only apply non-trivial adjustments (skip if all multipliers == 1.0)
+            if any(v != 1.0 for v in regime_info.adjustments.values()):
+                regime_adjustments = regime_info.adjustments
+            regime_info_dict = regime_info.to_dict()
+        except ImportError:
+            pass
+        except Exception as exc:
+            pipeline_warnings.append(f"Regime detection failed: {exc}")
+
+        if regime_adjustments is not None:
+            signal = aggregator.aggregate_with_regime(
+                agent_outputs, ticker, asset_type,
+                regime_adjustments=regime_adjustments,
+            )
+        else:
+            signal = aggregator.aggregate(agent_outputs, ticker, asset_type)
+
+        # Store regime info in metrics if available
+        if regime_info_dict is not None:
+            signal.metrics["regime_info"] = regime_info_dict
 
         # Attach ticker info and pipeline warnings
         signal.ticker_info = ticker_info

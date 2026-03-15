@@ -94,6 +94,56 @@ async def update_watchlist_ticker(
     return {"data": item, "warnings": []}
 
 
+@router.post("/analyze-all")
+async def analyze_all_watchlist(db_path: str = Depends(get_db_path)):
+    """Run analysis on all watchlist tickers. Returns summary results."""
+    mgr = WatchlistManager(db_path)
+    items = await mgr.get_watchlist()
+
+    if not items:
+        return {"data": {"results": [], "total": 0, "success_count": 0}, "warnings": ["Watchlist is empty"]}
+
+    from engine.pipeline import AnalysisPipeline
+
+    pipeline = AnalysisPipeline(db_path=db_path)
+
+    results = []
+    warnings = []
+
+    for item in items:
+        asset_type = resolve_asset_type(item["ticker"], item["asset_type"])
+        yf_ticker = map_ticker(item["ticker"], asset_type)
+        try:
+            result = await pipeline.analyze_ticker(yf_ticker, asset_type)
+            await mgr.update_analysis(item["ticker"], result.final_signal, result.final_confidence)
+            results.append({
+                "ticker": item["ticker"],
+                "signal": result.final_signal.value if hasattr(result.final_signal, "value") else result.final_signal,
+                "confidence": result.final_confidence,
+                "raw_score": result.metrics.get("raw_score", 0) if isinstance(result.metrics, dict) else 0,
+                "status": "success",
+            })
+        except Exception as exc:
+            warnings.append(f"Analysis failed for {item['ticker']}: {exc}")
+            results.append({
+                "ticker": item["ticker"],
+                "signal": None,
+                "confidence": None,
+                "raw_score": None,
+                "status": "error",
+                "error": str(exc),
+            })
+
+    return {
+        "data": {
+            "results": results,
+            "total": len(items),
+            "success_count": sum(1 for r in results if r["status"] == "success"),
+        },
+        "warnings": warnings,
+    }
+
+
 @router.post("/{ticker}/analyze")
 async def analyze_watchlist_ticker(
     ticker: str,

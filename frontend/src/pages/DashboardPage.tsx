@@ -1,9 +1,31 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import { useApi } from "../hooks/useApi";
-import { getPortfolio, getAlerts, getPositionHistory, runMonitorCheck } from "../api/endpoints";
-import type { Portfolio, Alert, Position } from "../api/types";
+import {
+  getPortfolio,
+  getAlerts,
+  getPositionHistory,
+  getValueHistory,
+  getWatchlist,
+  runMonitorCheck,
+} from "../api/endpoints";
+import type {
+  Portfolio,
+  Alert,
+  Position,
+  ValueHistoryPoint,
+  WatchlistItem,
+} from "../api/types";
 import MetricCard from "../components/shared/MetricCard";
+import SignalBadge from "../components/shared/SignalBadge";
 import LoadingSpinner from "../components/shared/LoadingSpinner";
 import ErrorAlert from "../components/shared/ErrorAlert";
 import EmptyState from "../components/shared/EmptyState";
@@ -26,6 +48,10 @@ export default function DashboardPage() {
   );
   const alertsApi = useApi<Alert[]>(() => getAlerts({ limit: 5 }));
   const historyApi = useApi<Position[]>(() => getPositionHistory());
+  const valueHistoryApi = useApi<ValueHistoryPoint[]>(() =>
+    getValueHistory(30),
+  );
+  const watchlistApi = useApi<WatchlistItem[]>(() => getWatchlist());
   const [healthLoading, setHealthLoading] = useState(false);
   const [healthMsg, setHealthMsg] = useState<string | null>(null);
 
@@ -44,6 +70,18 @@ export default function DashboardPage() {
     if (!historyApi.data) return 0;
     return historyApi.data.reduce((s, p) => s + (p.realized_pnl ?? 0), 0);
   }, [historyApi.data]);
+
+  // Chart data: format dates for display
+  const chartData = useMemo(() => {
+    if (!valueHistoryApi.data) return [];
+    return valueHistoryApi.data.map((pt) => ({
+      ...pt,
+      label: new Date(pt.date).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      }),
+    }));
+  }, [valueHistoryApi.data]);
 
   async function handleHealthCheck() {
     setHealthLoading(true);
@@ -96,6 +134,70 @@ export default function DashboardPage() {
           value={formatCurrency(data.cash)}
           sub={`${(data.cash_pct * 100).toFixed(1)}% of portfolio`}
         />
+      </div>
+
+      {/* ── Portfolio value sparkline ── */}
+      <div className="rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-4">
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+          Portfolio Value (30 Days)
+        </h3>
+        {valueHistoryApi.loading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-600 border-t-blue-400" />
+          </div>
+        ) : valueHistoryApi.error ? (
+          <p className="text-xs text-red-400">
+            Failed to load chart data.
+          </p>
+        ) : chartData.length === 0 ? (
+          <EmptyState message="No value history yet." />
+        ) : (
+          <ResponsiveContainer width="100%" height={160}>
+            <AreaChart
+              data={chartData}
+              margin={{ top: 4, right: 4, bottom: 0, left: 4 }}
+            >
+              <defs>
+                <linearGradient id="valGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <XAxis
+                dataKey="label"
+                tick={{ fontSize: 10, fill: "#6b7280" }}
+                axisLine={false}
+                tickLine={false}
+                interval="preserveStartEnd"
+              />
+              <YAxis
+                domain={["auto", "auto"]}
+                tick={{ fontSize: 10, fill: "#6b7280" }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
+                width={48}
+              />
+              <Tooltip
+                contentStyle={{
+                  background: "#1f2937",
+                  border: "1px solid #374151",
+                  borderRadius: 8,
+                  fontSize: 12,
+                }}
+                labelStyle={{ color: "#9ca3af" }}
+                formatter={(v: number) => [formatCurrency(v), "Value"]}
+              />
+              <Area
+                type="monotone"
+                dataKey="total_value"
+                stroke="#3b82f6"
+                strokeWidth={2}
+                fill="url(#valGrad)"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
       {/* ── Middle row: Open positions + Recent alerts ── */}
@@ -200,6 +302,74 @@ export default function DashboardPage() {
             <EmptyState message="No recent alerts." />
           )}
         </div>
+      </div>
+
+      {/* ── Watchlist highlights ── */}
+      <div className="rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            Watchlist
+          </h3>
+          <Link
+            to="/watchlist"
+            className="text-xs text-blue-400 hover:text-blue-300 transition-colors duration-150"
+          >
+            View all &rarr;
+          </Link>
+        </div>
+        {watchlistApi.loading ? (
+          <div className="flex items-center justify-center py-6">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-600 border-t-blue-400" />
+          </div>
+        ) : watchlistApi.error ? (
+          <p className="text-xs text-red-400">
+            Failed to load watchlist.
+          </p>
+        ) : !watchlistApi.data || watchlistApi.data.length === 0 ? (
+          <EmptyState message="Watchlist is empty." />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-gray-500 text-xs uppercase tracking-wider border-b border-gray-800/50">
+                  <th className="text-left py-2 pr-4">Ticker</th>
+                  <th className="text-left py-2 px-4">Signal</th>
+                  <th className="text-right py-2 px-4">Confidence</th>
+                  <th className="text-right py-2 pl-4">Target</th>
+                </tr>
+              </thead>
+              <tbody>
+                {watchlistApi.data.slice(0, 5).map((item) => (
+                  <tr
+                    key={item.ticker}
+                    className="border-b border-gray-800/30 last:border-0"
+                  >
+                    <td className="py-2 pr-4 font-mono text-white font-medium">
+                      {item.ticker}
+                    </td>
+                    <td className="py-2 px-4">
+                      {item.last_signal ? (
+                        <SignalBadge signal={item.last_signal} />
+                      ) : (
+                        <span className="text-xs text-gray-500">--</span>
+                      )}
+                    </td>
+                    <td className="py-2 px-4 text-right text-gray-300">
+                      {item.last_confidence != null
+                        ? `${(item.last_confidence * 100).toFixed(0)}%`
+                        : "--"}
+                    </td>
+                    <td className="py-2 pl-4 text-right text-gray-400">
+                      {item.target_buy_price != null
+                        ? formatCurrency(item.target_buy_price)
+                        : "--"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* ── Bottom row: Quick actions + Weekly summary ── */}

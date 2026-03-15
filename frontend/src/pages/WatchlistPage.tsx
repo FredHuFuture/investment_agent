@@ -4,6 +4,7 @@ import {
   addToWatchlist,
   removeFromWatchlist,
   analyzeWatchlistTicker,
+  analyzeAllWatchlist,
 } from "../api/endpoints";
 import type { WatchlistItem } from "../api/types";
 import SignalBadge from "../components/shared/SignalBadge";
@@ -22,6 +23,11 @@ export default function WatchlistPage() {
 
   // Analyzing state
   const [analyzingTicker, setAnalyzingTicker] = useState<string | null>(null);
+  const [analyzingAll, setAnalyzingAll] = useState(false);
+  const [batchResult, setBatchResult] = useState<{
+    total: number;
+    success_count: number;
+  } | null>(null);
 
   const fetchWatchlist = useCallback(async () => {
     try {
@@ -79,6 +85,23 @@ export default function WatchlistPage() {
       setError(err instanceof Error ? err.message : "Analysis failed");
     } finally {
       setAnalyzingTicker(null);
+    }
+  }
+
+  async function handleAnalyzeAll() {
+    setAnalyzingAll(true);
+    setBatchResult(null);
+    try {
+      const res = await analyzeAllWatchlist();
+      setBatchResult({
+        total: res.data.total,
+        success_count: res.data.success_count,
+      });
+      await fetchWatchlist();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Batch analysis failed");
+    } finally {
+      setAnalyzingAll(false);
     }
   }
 
@@ -164,6 +187,25 @@ export default function WatchlistPage() {
       {error && (
         <div className="rounded-lg bg-red-400/10 border border-red-400/30 px-4 py-3 text-sm text-red-400">
           {error}
+        </div>
+      )}
+
+      {/* Analyze All + Batch Result */}
+      {items.length > 0 && (
+        <div className="flex items-center gap-4">
+          <button
+            onClick={handleAnalyzeAll}
+            disabled={analyzingAll}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-medium text-white transition-colors"
+          >
+            {analyzingAll ? "Analyzing All..." : "Analyze All"}
+          </button>
+          {batchResult && (
+            <span className="text-sm text-gray-400">
+              Completed: {batchResult.success_count}/{batchResult.total}{" "}
+              succeeded
+            </span>
+          )}
         </div>
       )}
 

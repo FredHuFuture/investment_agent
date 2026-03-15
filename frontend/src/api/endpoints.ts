@@ -242,3 +242,16 @@ export const analyzeWatchlistTicker = (ticker: string) =>
     `/watchlist/${ticker}/analyze`,
     {},
   );
+export const analyzeAllWatchlist = () =>
+  apiPost<{
+    results: Array<{
+      ticker: string;
+      signal: string | null;
+      confidence: number | null;
+      raw_score: number | null;
+      status: string;
+      error?: string;
+    }>;
+    total: number;
+    success_count: number;
+  }>("/watchlist/analyze-all", {});

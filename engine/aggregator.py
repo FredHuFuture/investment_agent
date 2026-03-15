@@ -250,3 +250,50 @@ class SignalAggregator:
             metrics=metrics,
             warnings=warnings,
         )
+
+    def aggregate_with_regime(
+        self,
+        agent_outputs: list[AgentOutput],
+        ticker: str,
+        asset_type: str,
+        regime_adjustments: dict[str, float] | None = None,
+    ) -> AggregatedSignal:
+        """Aggregate signals with optional regime-based weight adjustments.
+
+        regime_adjustments: dict mapping agent_name -> multiplier
+            (e.g., 1.2 = 20% more weight).
+        After applying multipliers, weights are re-normalized to sum to 1.0.
+
+        If regime_adjustments is None or empty, falls back to standard aggregate().
+        """
+        if not regime_adjustments:
+            return self.aggregate(agent_outputs, ticker, asset_type)
+
+        # Get base weights for this asset type
+        raw_weights = self._weights.get(asset_type, self._weights.get("stock", {}))
+
+        # Apply regime multipliers
+        adjusted: dict[str, float] = {}
+        for agent_name, base_weight in raw_weights.items():
+            multiplier = regime_adjustments.get(agent_name, 1.0)
+            adjusted[agent_name] = base_weight * multiplier
+
+        # Re-normalize so weights sum to 1.0
+        total = sum(adjusted.values())
+        if total > 0:
+            adjusted = {k: v / total for k, v in adjusted.items()}
+
+        # Build a temporary aggregator with the regime-adjusted weights and
+        # delegate to the standard aggregate() method.
+        regime_aggregator = SignalAggregator(
+            weights={asset_type: adjusted},
+            buy_threshold=self._buy_threshold,
+            sell_threshold=self._sell_threshold,
+        )
+        result = regime_aggregator.aggregate(agent_outputs, ticker, asset_type)
+
+        # Tag metrics so callers know regime adjustments were applied
+        result.metrics["regime_adjustments"] = regime_adjustments
+        result.metrics["regime_adjusted_weights"] = adjusted
+
+        return result

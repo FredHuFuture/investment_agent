@@ -1022,7 +1022,8 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 | Sprint 11 | 038-041 | Concentration check, correlation analysis, position sizing, portfolio impact preview UI | +18 |
 | Sprint 12 | 042-045 | Email alerts (SMTP), Telegram bot, CSV/JSON export (5 endpoints), Settings page | +28 |
 | Sprint 13 | 046-049 | Watchlist, performance analytics, tech debt fixes, multi-portfolio support | +49 |
-| **Total** | **49 tasks** | **100+ source files, 9 CLIs, 48 API endpoints, 12 UI pages, 10 tables** | **364 passed, 1 skipped** |
+| Sprint 14 | 050-053 | Regime detection engine, L2 weight switching, batch watchlist, dashboard enhancements | +52 |
+| **Total** | **53 tasks** | **105+ source files, 9 CLIs, 50 API endpoints, 12 UI pages, 10 tables** | **416 passed, 1 skipped** |
 
 ### Planned
 
@@ -1033,7 +1034,8 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 | Sprint 11 | Portfolio-aware analysis (concentration limits, correlation checks, position sizing) | P2 (optimization) | **COMPLETE** |
 | Sprint 12 | **Notifications + Integrations** -- Email/Telegram alerts, CSV/JSON export, Settings page | P3 (expansion) | **COMPLETE** |
 | Sprint 13 | **Watchlist + Analytics + Tech Debt + Multi-Portfolio** | P2 (workflow) | **COMPLETE** |
-| Sprint 14+ | OnChainAgent, L2 regime switching, desktop app (Tauri), ValidationAgent | P3+ (deferred) | PLANNED |
+| Sprint 14 | **Advanced Intelligence** -- Regime detection, L2 weight switching, batch analysis, dashboard | P2 (intelligence) | **COMPLETE** |
+| Sprint 15+ | OnChainAgent, ValidationAgent, desktop app (Tauri) | P3+ (deferred) | PLANNED |
 
 -----
 
