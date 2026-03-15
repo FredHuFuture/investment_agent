@@ -58,13 +58,13 @@ Core moat: Expected vs Actual ROI dual-track + thesis accountability feedback lo
 ```
 +-----------------------------------------------------------------------+
 |                      React Frontend (Vite + TypeScript)                |
-|  14 pages  |  60+ components  |  25+ UI primitives (design system)   |
+|  15 pages  |  65+ components  |  25+ UI primitives (design system)   |
 |  Tailwind + Recharts  |  SWR cache  |  Command palette (Ctrl+K)      |
 +---------------------------+-------------------------------------------+
                             | /api proxy (localhost:3000 -> :8000)
 +---------------------------v-------------------------------------------+
 |                      FastAPI REST API Layer                            |
-|  55 endpoints across 12 route modules  |  Pydantic v2 validation     |
+|  83 endpoints across 21 route modules  |  Pydantic v2 validation     |
 |  CORS  |  Error handlers  |  Lifespan DB init                        |
 +--------+----------+-----------+-----------+-----------+---------------+
          |          |           |           |           |
@@ -1166,7 +1166,8 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 | Sprint 31 | Automated regime daemon, watchlist alert scan, expanded backtest metrics, daemon UI overhaul | P1 (infrastructure activation) | COMPLETE |
 | Sprint 32 | P&L timeline chart, daemon run history, alert analytics dashboard, analysis history page | P1 (observability + history) | COMPLETE |
 | Sprint 33 | Backtest presets, Monte Carlo simulation, settings risk params + system info, dashboard daily return + risk widget | P1 (UX polish + risk) | COMPLETE |
-| Sprint 34+ | OnChainAgent, ValidationAgent, desktop app (Tauri) | P3+ (deferred) | PLANNED |
+| Sprint 34 | Notification config UI, position event timeline, correlation heatmap, activity feed widget | P1 (observability + config) | COMPLETE |
+| Sprint 35+ | OnChainAgent, ValidationAgent, desktop app (Tauri) | P3+ (deferred) | PLANNED |
 
 -----
 
