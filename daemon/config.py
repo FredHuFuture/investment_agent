@@ -29,6 +29,16 @@ class DaemonConfig:
     # Catalyst scan (stub -- disabled until Task 017)
     catalyst_enabled: bool = False
 
+    # Regime detection schedule (Sprint 31)
+    regime_enabled: bool = True
+    regime_hour: int = 6              # 6 AM ET -- before market open
+    regime_minute: int = 0
+
+    # Watchlist scan schedule (Sprint 31)
+    watchlist_enabled: bool = True
+    watchlist_hour: int = 8           # 8 AM ET
+    watchlist_minute: int = 0
+
     # Timezone
     timezone: str = "US/Eastern"
 

@@ -101,6 +101,15 @@ async def update_watchlist_ticker(
     return {"data": item, "warnings": []}
 
 
+@router.post("/scan")
+async def scan_watchlist_alerts(db_path: str = Depends(get_db_path)):
+    """Manually trigger watchlist alert scan."""
+    from daemon.watchlist_job import run_watchlist_scan
+
+    result = await run_watchlist_scan(db_path)
+    return {"data": result, "warnings": []}
+
+
 @router.post("/analyze-all")
 async def analyze_all_watchlist(db_path: str = Depends(get_db_path)):
     """Run analysis on all watchlist tickers. Returns summary results."""

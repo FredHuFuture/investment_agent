@@ -229,7 +229,7 @@ export const generateSummary = () =>
 
 // Daemon
 export const getDaemonStatus = () => apiGet<DaemonStatus>("/daemon/status");
-export const daemonRunOnce = (job: "daily" | "weekly") =>
+export const daemonRunOnce = (job: "daily" | "weekly" | "regime" | "watchlist") =>
   apiPost<Record<string, unknown>>("/daemon/run-once", { job });
 
 // Notifications

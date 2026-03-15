@@ -545,6 +545,158 @@ async def run_catalyst_scan(
         return {"status": "error", "error": err_msg}
 
 
+async def run_regime_detection(
+    db_path: str = str(DEFAULT_DB_PATH),
+    logger: logging.Logger | None = None,
+) -> dict[str, Any]:
+    """Run regime detection and save the result to regime_history.
+
+    1. Detect current market regime via RegimeDetector
+    2. Save snapshot to regime_history table
+    3. If regime changed from last saved regime, send Telegram/email notification
+
+    Never raises -- all exceptions are caught, logged, and recorded.
+    Returns dict with regime detection results or error details.
+    """
+    from engine.regime import RegimeDetector
+    from engine.regime_history import RegimeHistoryStore
+
+    if logger is None:
+        logger = logging.getLogger("investment_daemon")
+
+    started_at = datetime.now(timezone.utc).isoformat()
+    t0 = time.monotonic()
+
+    try:
+        detector = RegimeDetector()
+        regime_result = detector.detect_regime()
+
+        regime = regime_result["regime"]
+        confidence = regime_result["confidence"]
+        details = regime_result.get("indicators", {})
+        description = regime_result.get("description", "")
+
+        # Extract VIX and yield spread from details if available
+        vix = details.get("vix_current")
+        yield_spread = details.get("yield_curve_spread")
+
+        # Save to regime_history
+        store = RegimeHistoryStore(db_path)
+        row_id = await store.save_regime(regime, confidence, vix, yield_spread)
+
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        logger.info(
+            "Regime detection complete -- %s (%.0f%% confidence)",
+            regime, confidence,
+        )
+
+        # Check if regime changed from the last saved regime for notifications
+        regime_changed = False
+        previous_regime: str | None = None
+        try:
+            # Query the two most recent raw rows (including the one we just saved)
+            async with aiosqlite.connect(db_path) as conn:
+                conn.row_factory = aiosqlite.Row
+                rows = await (
+                    await conn.execute(
+                        """
+                        SELECT regime FROM regime_history
+                        ORDER BY detected_at DESC
+                        LIMIT 2
+                        """,
+                    )
+                ).fetchall()
+                if len(rows) >= 2:
+                    # rows[0] is the one we just saved, rows[1] is the previous
+                    previous_regime = rows[1]["regime"]
+                    regime_changed = previous_regime != regime
+                elif len(rows) == 1:
+                    # First ever detection -- treat as a change
+                    regime_changed = True
+        except Exception as hist_exc:
+            logger.warning("Could not check regime history: %s", hist_exc)
+
+        # --- Telegram notification if regime changed ---
+        if regime_changed:
+            try:
+                from notifications.telegram_dispatcher import TelegramDispatcher
+
+                tg = TelegramDispatcher()
+                if tg.is_configured:
+                    change_msg = (
+                        f"Regime changed: {previous_regime or 'N/A'} -> {regime} "
+                        f"(confidence {confidence:.0f}%)"
+                    )
+                    await tg.send_alert_digest([{
+                        "alert_type": "REGIME_CHANGE",
+                        "severity": "WARNING",
+                        "message": change_msg,
+                        "ticker": "MARKET",
+                    }])
+            except Exception as tg_exc:
+                logger.warning("Telegram dispatch failed: %s", tg_exc)
+
+            # --- Email notification if regime changed ---
+            try:
+                from notifications.email_dispatcher import EmailDispatcher
+
+                email_dispatcher = EmailDispatcher()
+                if email_dispatcher.is_configured:
+                    change_msg = (
+                        f"Regime changed: {previous_regime or 'N/A'} -> {regime} "
+                        f"(confidence {confidence:.0f}%)"
+                    )
+                    sent = await email_dispatcher.send_alert_digest([{
+                        "alert_type": "REGIME_CHANGE",
+                        "severity": "WARNING",
+                        "message": change_msg,
+                        "ticker": "MARKET",
+                    }])
+                    if sent:
+                        logger.info("Regime change email notification sent")
+                    else:
+                        logger.warning("Regime change email dispatch returned False")
+            except Exception as email_exc:
+                logger.warning("Email dispatch failed (non-fatal): %s", email_exc)
+
+        await _record_daemon_run(
+            db_path=db_path,
+            job_name="regime_detection",
+            status="success",
+            started_at=started_at,
+            duration_ms=duration_ms,
+            result_json=json.dumps({
+                "regime": regime,
+                "confidence": confidence,
+                "regime_changed": regime_changed,
+                "previous_regime": previous_regime,
+                "row_id": row_id,
+            }),
+        )
+        return {
+            "regime": regime,
+            "confidence": confidence,
+            "description": description,
+            "regime_changed": regime_changed,
+            "previous_regime": previous_regime,
+            "row_id": row_id,
+        }
+
+    except Exception as exc:
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        err_msg = str(exc)
+        logger.error("Regime detection failed: %s", err_msg, exc_info=True)
+        await _record_daemon_run(
+            db_path=db_path,
+            job_name="regime_detection",
+            status="error",
+            started_at=started_at,
+            duration_ms=duration_ms,
+            error_message=err_msg,
+        )
+        return {"error": err_msg, "regime": None, "confidence": 0}
+
+
 # ---------------------------------------------------------------------------
 # Internal helper
 # ---------------------------------------------------------------------------

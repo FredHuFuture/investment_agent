@@ -3,6 +3,15 @@ import { useApi } from "../hooks/useApi";
 import { getDaemonStatus, daemonRunOnce } from "../api/endpoints";
 import type { DaemonStatus } from "../api/types";
 import { formatDate } from "../lib/formatters";
+
+/** Extended job status including optional fields returned by the backend. */
+interface DaemonJobEntry {
+  status: string;
+  last_run: string | null;
+  duration_ms?: number;
+  result_json?: string;
+  error_message?: string;
+}
 import ErrorAlert from "../components/shared/ErrorAlert";
 import EmptyState from "../components/shared/EmptyState";
 import { Button } from "../components/ui/Button";
@@ -10,10 +19,13 @@ import { Card } from "../components/ui/Card";
 import { SkeletonCard } from "../components/ui/Skeleton";
 import { useToast } from "../contexts/ToastContext";
 import { usePageTitle } from "../hooks/usePageTitle";
+import DaemonJobResultPanel from "../components/monitoring/DaemonJobResultPanel";
+
+type TriggerType = "daily" | "weekly" | "regime" | "watchlist" | null;
 
 const JOB_META: Record<
   string,
-  { label: string; description: string; trigger: "daily" | "weekly" | null }
+  { label: string; description: string; trigger: TriggerType }
 > = {
   daily_check: {
     label: "Daily Check",
@@ -29,6 +41,18 @@ const JOB_META: Record<
     label: "Catalyst Scan",
     description: "Scan news & catalysts for portfolio tickers (requires LLM)",
     trigger: null,
+  },
+  regime_detection: {
+    label: "Regime Detection",
+    description:
+      "Detect current market regime (bull/bear/sideways/high-vol/risk-off) and save to history",
+    trigger: "regime",
+  },
+  watchlist_scan: {
+    label: "Watchlist Scan",
+    description:
+      "Evaluate watchlist alert configs and generate price/signal alerts",
+    trigger: "watchlist",
   },
 };
 
@@ -67,8 +91,9 @@ export default function DaemonPage() {
     () => getDaemonStatus(),
   );
   const [running, setRunning] = useState<string | null>(null);
+  const [expandedJob, setExpandedJob] = useState<string | null>(null);
 
-  async function handleRunOnce(job: "daily" | "weekly") {
+  async function handleRunOnce(job: "daily" | "weekly" | "regime" | "watchlist") {
     setRunning(job);
     try {
       await daemonRunOnce(job);
@@ -87,7 +112,9 @@ export default function DaemonPage() {
   if (loading)
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          <SkeletonCard />
+          <SkeletonCard />
           <SkeletonCard />
           <SkeletonCard />
           <SkeletonCard />
@@ -97,16 +124,21 @@ export default function DaemonPage() {
   if (error) return <ErrorAlert message={error} onRetry={refetch} />;
 
   const jobs = data
-    ? Object.entries(data).map(([name, job]) => ({
-        name,
-        status: job.status,
-        last_run: job.last_run,
-        meta: JOB_META[name] ?? {
-          label: name.replace(/_/g, " "),
-          description: "",
-          trigger: null,
-        },
-      }))
+    ? Object.entries(data).map(([name, rawJob]) => {
+        const job = rawJob as DaemonJobEntry;
+        return {
+          name,
+          status: job.status,
+          last_run: job.last_run,
+          result_json: job.result_json,
+          error_message: job.error_message,
+          meta: JOB_META[name] ?? {
+            label: name.replace(/_/g, " "),
+            description: "",
+            trigger: null as TriggerType,
+          },
+        };
+      })
     : [];
 
   return (
@@ -121,7 +153,7 @@ export default function DaemonPage() {
       {jobs.length === 0 ? (
         <EmptyState message="No daemon jobs configured." />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           {jobs.map((job) => (
             <Card key={job.name} padding="md" className="flex flex-col">
               {/* Header */}
@@ -155,7 +187,7 @@ export default function DaemonPage() {
                   size="sm"
                   loading={running === job.meta.trigger}
                   disabled={running !== null}
-                  onClick={() => handleRunOnce(job.meta.trigger!)}
+                  onClick={() => handleRunOnce(job.meta.trigger as "daily" | "weekly" | "regime" | "watchlist")}
                   className="w-full"
                 >
                   {`Run ${job.meta.label}`}
@@ -165,6 +197,29 @@ export default function DaemonPage() {
                 <div className="w-full text-center py-2 rounded-lg text-xs text-gray-600 bg-gray-800/30 border border-gray-800/30">
                   Requires LLM (Task 023)
                 </div>
+              )}
+
+              {/* Details toggle */}
+              {job.result_json && (
+                <button
+                  type="button"
+                  className="mt-2 text-xs text-blue-400 hover:text-blue-300 transition-colors text-left"
+                  onClick={() =>
+                    setExpandedJob(
+                      expandedJob === job.name ? null : job.name,
+                    )
+                  }
+                >
+                  {expandedJob === job.name ? "Hide Details" : "Details"}
+                </button>
+              )}
+
+              {/* Expandable result panel */}
+              {expandedJob === job.name && job.result_json && (
+                <DaemonJobResultPanel
+                  resultJson={job.result_json}
+                  errorMessage={job.error_message}
+                />
               )}
             </Card>
           ))}

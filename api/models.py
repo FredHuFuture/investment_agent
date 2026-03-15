@@ -129,7 +129,7 @@ class BatchBacktestRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 class RunOnceRequest(BaseModel):
-    job: Literal["daily", "weekly"]
+    job: Literal["daily", "weekly", "regime", "watchlist"]
 
 
 # ---------------------------------------------------------------------------

@@ -12,6 +12,7 @@ import { useApi } from "../../hooks/useApi";
 import { getRegimeHistory } from "../../api/endpoints";
 import type { RegimeHistoryPoint } from "../../api/types";
 import { Card, CardHeader, CardBody } from "../ui/Card";
+import { Button } from "../ui/Button";
 import EmptyState from "../shared/EmptyState";
 
 const REGIME_COLORS: Record<string, string> = {
@@ -74,7 +75,7 @@ function CustomTooltip({
 }
 
 export default function RegimeTimeline() {
-  const { data, loading, error } = useApi<RegimeHistoryPoint[]>(
+  const { data, loading, error, refetch } = useApi<RegimeHistoryPoint[]>(
     () => getRegimeHistory(90),
     { cacheKey: "dashboard:regimeHistory", ttlMs: 120_000 },
   );
@@ -109,7 +110,31 @@ export default function RegimeTimeline() {
 
   return (
     <Card>
-      <CardHeader title="Market Regime History" subtitle="Last 90 days" />
+      <CardHeader
+        title="Market Regime History"
+        subtitle="Last 90 days"
+        action={
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => refetch()}
+            aria-label="Refresh regime history"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="w-4 h-4"
+            >
+              <path
+                fillRule="evenodd"
+                d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311V15.5a.75.75 0 0 1-1.5 0v-4a.75.75 0 0 1 .75-.75h4a.75.75 0 0 1 0 1.5H7.05l.243.242a4 4 0 0 0 6.695-1.793.75.75 0 0 1 1.324.725ZM4.688 8.576a5.5 5.5 0 0 1 9.201-2.466l.312.311V4.5a.75.75 0 0 1 1.5 0v4a.75.75 0 0 1-.75.75h-4a.75.75 0 0 1 0-1.5h1.999l-.243-.242a4 4 0 0 0-6.695 1.793.75.75 0 0 1-1.324-.725Z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </Button>
+        }
+      />
       <CardBody>
         {loading ? (
           <div className="flex items-center justify-center py-8">

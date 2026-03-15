@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import React from "react";
 import { ToastProvider } from "../../contexts/ToastContext";
+import type { BacktestResult } from "../../api/types";
 
 // Mock recharts to avoid canvas/SVG issues in jsdom
 vi.mock("recharts", () => ({
@@ -35,6 +36,7 @@ vi.mock("../../api/endpoints", () => ({
 import "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import BacktestPage from "../BacktestPage";
+import BacktestResults from "../../components/backtest/BacktestResults";
 
 function renderPage() {
   return render(
@@ -44,6 +46,34 @@ function renderPage() {
       </ToastProvider>
     </MemoryRouter>,
   );
+}
+
+/** Mock backtest result with all 14 metrics. */
+const fullMockResult: BacktestResult = {
+  metrics: {
+    total_return_pct: 25.3,
+    annualized_return_pct: 12.1,
+    max_drawdown_pct: -8.5,
+    sharpe_ratio: 1.45,
+    win_rate: 62.5,
+    total_trades: 48,
+    sortino_ratio: 2.10,
+    calmar_ratio: 1.42,
+    profit_factor: 1.85,
+    avg_win_pct: 3.2,
+    avg_loss_pct: -1.8,
+    avg_holding_days: 14.7,
+    max_consecutive_wins: 7,
+    max_consecutive_losses: 3,
+  },
+  trades: [],
+  trades_count: 48,
+  equity_curve: [{ date: "2023-01-01", equity: 100000 }],
+  signals_log: [],
+};
+
+function renderResults(data: BacktestResult = fullMockResult) {
+  return render(<BacktestResults data={data} />);
 }
 
 describe("BacktestPage", () => {
@@ -87,5 +117,81 @@ describe("BacktestPage", () => {
     renderPage();
     expect(screen.getByText("Buy Threshold")).toBeInTheDocument();
     expect(screen.getByText("Sell Threshold")).toBeInTheDocument();
+  });
+});
+
+describe("BacktestResults - Advanced Metrics", () => {
+  it('renders the "Show Advanced Metrics" toggle button', () => {
+    renderResults();
+    expect(screen.getByText("Show Advanced Metrics")).toBeInTheDocument();
+  });
+
+  it("does not show advanced metrics panel by default", () => {
+    renderResults();
+    expect(screen.queryByTestId("advanced-metrics-panel")).not.toBeInTheDocument();
+  });
+
+  it("shows advanced metrics panel when toggle is clicked", () => {
+    renderResults();
+    const toggleBtn = screen.getByTestId("toggle-advanced-metrics");
+    fireEvent.click(toggleBtn);
+    expect(screen.getByTestId("advanced-metrics-panel")).toBeInTheDocument();
+    expect(screen.getByText("Hide Advanced Metrics")).toBeInTheDocument();
+  });
+
+  it("displays sortino_ratio in the expanded section", () => {
+    renderResults();
+    fireEvent.click(screen.getByTestId("toggle-advanced-metrics"));
+    expect(screen.getByText("Sortino Ratio")).toBeInTheDocument();
+    expect(screen.getByText("2.10")).toBeInTheDocument();
+  });
+
+  it("displays profit_factor in the expanded section", () => {
+    renderResults();
+    fireEvent.click(screen.getByTestId("toggle-advanced-metrics"));
+    expect(screen.getByText("Profit Factor")).toBeInTheDocument();
+    expect(screen.getByText("1.85")).toBeInTheDocument();
+  });
+
+  it("displays all 8 advanced metrics when all are defined", () => {
+    renderResults();
+    fireEvent.click(screen.getByTestId("toggle-advanced-metrics"));
+    expect(screen.getByText("Sortino Ratio")).toBeInTheDocument();
+    expect(screen.getByText("Calmar Ratio")).toBeInTheDocument();
+    expect(screen.getByText("Profit Factor")).toBeInTheDocument();
+    expect(screen.getByText("Avg Win")).toBeInTheDocument();
+    expect(screen.getByText("Avg Loss")).toBeInTheDocument();
+    expect(screen.getByText("Avg Holding Days")).toBeInTheDocument();
+    expect(screen.getByText("Max Consecutive Wins")).toBeInTheDocument();
+    expect(screen.getByText("Max Consecutive Losses")).toBeInTheDocument();
+  });
+
+  it("hides the toggle when no advanced metrics are defined", () => {
+    const minimalResult: BacktestResult = {
+      metrics: {
+        total_return_pct: 10,
+        annualized_return_pct: 5,
+        max_drawdown_pct: -3,
+        sharpe_ratio: 1.0,
+        win_rate: 50,
+        total_trades: 20,
+      },
+      trades: [],
+      trades_count: 20,
+      equity_curve: [{ date: "2023-01-01", equity: 100000 }],
+      signals_log: [],
+    };
+    renderResults(minimalResult);
+    expect(screen.queryByTestId("toggle-advanced-metrics")).not.toBeInTheDocument();
+  });
+
+  it("hides advanced metrics again when toggle is clicked twice", () => {
+    renderResults();
+    const toggleBtn = screen.getByTestId("toggle-advanced-metrics");
+    fireEvent.click(toggleBtn);
+    expect(screen.getByTestId("advanced-metrics-panel")).toBeInTheDocument();
+    fireEvent.click(toggleBtn);
+    expect(screen.queryByTestId("advanced-metrics-panel")).not.toBeInTheDocument();
+    expect(screen.getByText("Show Advanced Metrics")).toBeInTheDocument();
   });
 });

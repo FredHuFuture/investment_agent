@@ -117,6 +117,47 @@ class WatchlistManager:
             return cursor.rowcount > 0
 
     # ------------------------------------------------------------------
+    # Active alert query (Sprint 31)
+    # ------------------------------------------------------------------
+
+    async def get_tickers_with_active_alerts(self) -> list[dict]:
+        """Return watchlist items that have enabled alert configs.
+
+        Joins watchlist + watchlist_alert_configs WHERE enabled=1 and
+        returns combined data (watchlist fields + alert config fields).
+        """
+        async with aiosqlite.connect(self.db_path) as conn:
+            conn.row_factory = aiosqlite.Row
+            rows = await (
+                await conn.execute(
+                    """
+                    SELECT
+                        w.id,
+                        w.ticker,
+                        w.asset_type,
+                        w.notes,
+                        w.target_buy_price,
+                        w.alert_below_price,
+                        w.added_at,
+                        w.last_analysis_at,
+                        w.last_signal,
+                        w.last_confidence,
+                        ac.alert_on_signal_change,
+                        ac.min_confidence,
+                        ac.alert_on_price_below,
+                        ac.enabled,
+                        ac.created_at AS config_created_at,
+                        ac.updated_at AS config_updated_at
+                    FROM watchlist w
+                    INNER JOIN watchlist_alert_configs ac ON w.ticker = ac.ticker
+                    WHERE ac.enabled = 1
+                    ORDER BY w.ticker
+                    """
+                )
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+    # ------------------------------------------------------------------
     # Alert configuration methods (Sprint 30)
     # ------------------------------------------------------------------
 

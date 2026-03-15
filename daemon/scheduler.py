@@ -11,7 +11,7 @@ from typing import Any
 import aiosqlite
 
 from daemon.config import DaemonConfig
-from daemon.jobs import run_catalyst_scan, run_daily_check, run_weekly_revaluation
+from daemon.jobs import run_catalyst_scan, run_daily_check, run_regime_detection, run_weekly_revaluation
 from db.database import DEFAULT_DB_PATH, init_db
 
 
@@ -101,6 +101,20 @@ class MonitoringDaemon:
                 name="Weekly Deep Revaluation",
             )
 
+        # Regime detection: Mon-Fri at configured time
+        if self._config.regime_enabled:
+            self._scheduler.add_job(
+                self._job_regime,
+                CronTrigger(
+                    hour=self._config.regime_hour,
+                    minute=self._config.regime_minute,
+                    day_of_week="mon-fri",
+                    timezone=self._config.timezone,
+                ),
+                id="regime_detection",
+                name="Regime Detection",
+            )
+
     async def _job_daily(self) -> None:
         """Scheduler wrapper for run_daily_check."""
         await run_daily_check(self._config.db_path, self._logger)
@@ -108,6 +122,10 @@ class MonitoringDaemon:
     async def _job_weekly(self) -> None:
         """Scheduler wrapper for run_weekly_revaluation."""
         await run_weekly_revaluation(self._config.db_path, self._logger)
+
+    async def _job_regime(self) -> None:
+        """Scheduler wrapper for run_regime_detection."""
+        await run_regime_detection(self._config.db_path, self._logger)
 
     async def start(self) -> None:
         """Start daemon (blocks until shutdown signal).
@@ -183,6 +201,11 @@ class MonitoringDaemon:
             return await run_daily_check(self._config.db_path, self._logger)
         elif job_name == "weekly":
             return await run_weekly_revaluation(self._config.db_path, self._logger)
+        elif job_name == "regime":
+            return await run_regime_detection(self._config.db_path, self._logger)
+        elif job_name == "watchlist":
+            from daemon.watchlist_job import run_watchlist_scan
+            return await run_watchlist_scan(self._config.db_path, self._logger)
         else:
             raise ValueError(f"Unknown job: {job_name!r}")
 
@@ -194,7 +217,7 @@ class MonitoringDaemon:
         Returns:
             {"daily_check": {...}, "weekly_revaluation": {...}, "catalyst_scan": {...}}
         """
-        job_names = ["daily_check", "weekly_revaluation", "catalyst_scan"]
+        job_names = ["daily_check", "weekly_revaluation", "catalyst_scan", "regime_detection", "watchlist_scan"]
         result: dict[str, Any] = {}
 
         try:

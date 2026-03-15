@@ -149,6 +149,12 @@ export default function BacktestHistory({ onCompare, refreshKey }: Props) {
                   <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Win Rate
                   </th>
+                  <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Sortino
+                  </th>
+                  <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Profit Factor
+                  </th>
                   <th className="px-3 py-3 w-10">
                     <span className="sr-only">Actions</span>
                   </th>
@@ -196,6 +202,16 @@ export default function BacktestHistory({ onCompare, refreshKey }: Props) {
                       </td>
                       <td className="px-3 py-3 text-right font-mono text-gray-300">
                         {run.metrics.win_rate.toFixed(1)}%
+                      </td>
+                      <td className="px-3 py-3 text-right font-mono text-gray-300">
+                        {run.metrics.sortino_ratio != null
+                          ? run.metrics.sortino_ratio.toFixed(2)
+                          : "--"}
+                      </td>
+                      <td className="px-3 py-3 text-right font-mono text-gray-300">
+                        {run.metrics.profit_factor != null
+                          ? run.metrics.profit_factor.toFixed(2)
+                          : "--"}
                       </td>
                       <td className="px-3 py-3">
                         <button
