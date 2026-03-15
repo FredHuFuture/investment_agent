@@ -1100,7 +1100,8 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 | Sprint 25 | Final 3 page tests (Analyze, PositionDetail, Risk), all 4 hooks tested, AnalyzePage UX (quick tickers, copy button, signal bar), RiskPage UX (risk banner, badge, formatting) | +33 FE |
 | Sprint 26 | Sector allocation horizontal stacked bar, thesis drift summary panel, cumulative realized P&L chart, position P&L performance bar, trade return distribution histogram, equity curve, profit factor/expectancy/streak metrics | +2 FE |
 | Sprint 27 | Watchlist signal filter + inline analysis panel + comparison table, monitoring alert timeline + severity filter + summary chips + batch acknowledge + inline alert table, backtest localStorage history + save/compare/delete runs, signals accuracy trend chart + agent agreement matrix + signal timeline, 4 new backend routes + 2 new store methods + 2 new tracker methods | +2 FE |
-| **Total** | **55+ tasks** | **130+ source files, 9 CLIs, 57 API endpoints, 14 UI pages, 10 tables** | **772 passed (465 BE + 307 FE), 1 skipped** |
+| Sprint 28 | Settings hub (ThemeToggle, NotificationPreferences, CacheSettings), Dashboard top movers + signal summary cards, Portfolio searchable/paginated table + sector drill-down modal, Analyze comparison mode (2-5 tickers side-by-side), 1 new backend route | +7 FE |
+| **Total** | **57+ tasks** | **140+ source files, 9 CLIs, 58 API endpoints, 14 UI pages, 10 tables** | **779 passed (465 BE + 314 FE), 1 skipped** |
 
 ### Planned
 
@@ -1124,7 +1125,8 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 | Sprint 25 | Complete coverage (14/14 pages, 4/4 hooks), AnalyzePage + RiskPage UX improvements | P0 (quality + UX) | COMPLETE |
 | Sprint 26 | Advanced analytics charts, sector allocation bar, thesis drift panel, cumulative P&L, position P&L bar | P1 (analytics UX) | COMPLETE |
 | Sprint 27 | Watchlist comparison + signal filter, monitoring timeline + batch ack, backtest history, signals accuracy trend + agent agreement | P1 (workflow UX) | COMPLETE |
-| Sprint 28+ | OnChainAgent, ValidationAgent, desktop app (Tauri) | P3+ (deferred) | PLANNED |
+| Sprint 28 | Settings hub, dashboard cards, portfolio search + sector drill-down, analyze comparison mode | P1 (UX completeness) | COMPLETE |
+| Sprint 29+ | OnChainAgent, ValidationAgent, desktop app (Tauri) | P3+ (deferred) | PLANNED |
 
 -----
 
