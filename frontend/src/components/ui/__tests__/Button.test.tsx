@@ -86,4 +86,14 @@ describe("Button", () => {
     const button = screen.getByTestId("submit-btn");
     expect(button).toHaveAttribute("type", "submit");
   });
+
+  it("has aria-busy when loading", () => {
+    render(<Button loading>Loading</Button>);
+    expect(screen.getByRole("button")).toHaveAttribute("aria-busy", "true");
+  });
+
+  it("has aria-disabled when disabled", () => {
+    render(<Button disabled>Disabled</Button>);
+    expect(screen.getByRole("button")).toHaveAttribute("aria-disabled", "true");
+  });
 });

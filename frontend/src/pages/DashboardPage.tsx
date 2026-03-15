@@ -305,10 +305,13 @@ export default function DashboardPage() {
                     return (
                       <tr
                         key={pos.ticker}
-                        className="border-b border-gray-800/30 last:border-0"
+                        className="border-b border-gray-800/30 last:border-0 hover:bg-gray-800/40 cursor-pointer transition-colors"
+                        onClick={() => navigate(`/portfolio/${pos.ticker}`)}
                       >
-                        <td className="py-2 pr-4 font-mono text-white font-medium">
-                          {pos.ticker}
+                        <td className="py-2 pr-4 font-mono font-medium">
+                          <Link to={`/portfolio/${pos.ticker}`} className="text-white hover:text-blue-400 transition-colors">
+                            {pos.ticker}
+                          </Link>
                         </td>
                         <td className="py-2 px-4 text-right text-gray-300">
                           {formatCurrency(pos.current_price)}

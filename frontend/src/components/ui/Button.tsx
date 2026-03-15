@@ -43,6 +43,8 @@ export const Button = ({
         ${className}
       `}
       disabled={isDisabled}
+      aria-busy={loading || undefined}
+      aria-disabled={isDisabled || undefined}
       {...rest}
     >
       {loading && (

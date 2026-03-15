@@ -62,4 +62,12 @@ describe("ConfirmModal", () => {
     const confirmButton = screen.getByRole("button", { name: /Confirm/i });
     expect(confirmButton).toBeDisabled();
   });
+
+  it("has correct ARIA attributes for accessibility", () => {
+    render(<ConfirmModal open={true} onClose={vi.fn()} onConfirm={vi.fn()} title="Test" description="desc" />);
+    const dialog = screen.getByRole("alertdialog");
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(dialog).toHaveAttribute("aria-labelledby", "confirm-modal-title");
+    expect(dialog).toHaveAttribute("aria-describedby", "confirm-modal-desc");
+  });
 });

@@ -1,7 +1,12 @@
+import { useState } from "react";
 import DataTable, { type Column } from "../shared/DataTable";
 import { severityBg } from "../../lib/colors";
 import { formatDate } from "../../lib/formatters";
 import type { Alert } from "../../api/types";
+import { acknowledgeAlert, deleteAlert } from "../../api/endpoints";
+import { useToast } from "../../contexts/ToastContext";
+import ConfirmModal from "../ui/ConfirmModal";
+import { Button } from "../ui/Button";
 
 /** TARGET_HIT → "Target Hit", SIGNIFICANT_GAIN → "Significant Gain" */
 function formatAlertType(type: string): string {
@@ -11,7 +16,45 @@ function formatAlertType(type: string): string {
     .join(" ");
 }
 
-export default function AlertsList({ alerts }: { alerts: Alert[] }) {
+interface AlertsListProps {
+  alerts: Alert[];
+  onMutate: () => void;
+}
+
+export default function AlertsList({ alerts, onMutate }: AlertsListProps) {
+  const { toast } = useToast();
+  const [ackLoading, setAckLoading] = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Alert | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  async function handleAcknowledge(alert: Alert) {
+    setAckLoading(alert.id);
+    try {
+      await acknowledgeAlert(alert.id);
+      toast.success("Alert acknowledged");
+      onMutate();
+    } catch (err) {
+      toast.error("Failed to acknowledge alert", err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setAckLoading(null);
+    }
+  }
+
+  async function handleDeleteConfirm() {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    try {
+      await deleteAlert(deleteTarget.id);
+      toast.success("Alert deleted");
+      setDeleteTarget(null);
+      onMutate();
+    } catch (err) {
+      toast.error("Failed to delete alert", err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setDeleteLoading(false);
+    }
+  }
+
   const columns: Column<Alert>[] = [
     {
       key: "severity",
@@ -56,7 +99,62 @@ export default function AlertsList({ alerts }: { alerts: Alert[] }) {
       ),
       sortValue: (r) => r.created_at,
     },
+    {
+      key: "actions",
+      header: "Actions",
+      hiddenOnMobile: true,
+      render: (r) => (
+        <div className="flex items-center justify-end gap-2">
+          {r.acknowledged === 1 ? (
+            <span className="text-green-400 text-sm font-semibold px-2">&#10003;</span>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleAcknowledge(r);
+              }}
+              loading={ackLoading === r.id}
+              title="Acknowledge"
+            >
+              Ack
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-red-400 hover:text-red-300 hover:bg-red-900/30"
+            onClick={(e) => {
+              e.stopPropagation();
+              setDeleteTarget(r);
+            }}
+            title="Delete"
+          >
+            &times;
+          </Button>
+        </div>
+      ),
+    },
   ];
 
-  return <DataTable columns={columns} data={alerts} keyFn={(r) => r.id} />;
+  return (
+    <>
+      <DataTable columns={columns} data={alerts} keyFn={(r) => r.id} />
+      <ConfirmModal
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Alert"
+        description={
+          deleteTarget
+            ? `Delete the ${deleteTarget.severity} alert for ${deleteTarget.ticker ?? "PORTFOLIO"}?`
+            : undefined
+        }
+        confirmLabel="Delete"
+        variant="danger"
+        loading={deleteLoading}
+      />
+    </>
+  );
 }

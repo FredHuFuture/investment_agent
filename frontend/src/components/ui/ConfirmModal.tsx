@@ -32,10 +32,16 @@ export default function ConfirmModal({
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-sm rounded-xl bg-gray-900 border border-gray-700 p-6 shadow-2xl">
-        <h2 className="text-lg font-semibold text-white mb-2">{title}</h2>
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="confirm-modal-title"
+        aria-describedby={description ? "confirm-modal-desc" : undefined}
+        className="relative w-full max-w-sm rounded-xl bg-gray-900 border border-gray-700 p-6 shadow-2xl"
+      >
+        <h2 id="confirm-modal-title" className="text-lg font-semibold text-white mb-2">{title}</h2>
         {description && (
-          <p className="text-sm text-gray-400 mb-5">{description}</p>
+          <p id="confirm-modal-desc" className="text-sm text-gray-400 mb-5">{description}</p>
         )}
         <div className="flex gap-3">
           <Button

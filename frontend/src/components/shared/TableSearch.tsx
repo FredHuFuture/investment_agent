@@ -29,7 +29,7 @@ export default function TableSearch({
   }, [local, debounceMs, onChange, value]);
 
   return (
-    <div className="relative w-full max-w-sm">
+    <div className="relative w-full max-w-sm" role="search">
       {/* Magnifying glass icon */}
       <svg
         className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none"
@@ -49,6 +49,7 @@ export default function TableSearch({
         value={local}
         onChange={(e) => setLocal(e.target.value)}
         placeholder={placeholder}
+        aria-label="Search table"
         className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"
       />
 

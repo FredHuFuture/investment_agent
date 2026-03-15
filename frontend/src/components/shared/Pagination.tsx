@@ -53,6 +53,7 @@ export default function Pagination({
   const end = Math.min(currentPage * pageSize, totalItems);
 
   return (
+    <nav aria-label="Pagination navigation">
     <div className="flex flex-col sm:flex-row justify-between items-center gap-3 px-2 py-3">
       {/* Left: item range */}
       <span className="text-sm text-gray-400">
@@ -87,6 +88,7 @@ export default function Pagination({
             <button
               key={p}
               onClick={() => onPageChange(p)}
+              aria-current={p === currentPage ? "page" : undefined}
               className={`${btnBase} ${
                 p === currentPage
                   ? "bg-blue-600 text-white"
@@ -134,5 +136,6 @@ export default function Pagination({
         </div>
       )}
     </div>
+    </nav>
   );
 }

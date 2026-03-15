@@ -198,6 +198,7 @@ export default function DataTable<T>({
                 <th
                   key={col.key}
                   onClick={() => col.sortValue && toggleSort(col.key)}
+                  aria-sort={col.sortValue ? (sortCol === col.key ? (sortDir === "asc" ? "ascending" : sortDir === "desc" ? "descending" : "none") : "none") : undefined}
                   className={`${cellPad} text-left text-[11px] uppercase tracking-wider text-gray-500 font-semibold select-none ${
                     col.sortValue
                       ? "cursor-pointer hover:text-gray-300 transition-colors"
