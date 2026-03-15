@@ -1134,7 +1134,8 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 | Sprint 29 | Trade journal annotations with lesson tags + lesson summary, stress test engine (5 macro scenarios) + StressTestPanel on RiskPage, drawdown chart + rolling Sharpe + monthly heatmap calendar on PerformancePage, ExportButton component + PortfolioExporter (6 export endpoints), 3 new analytics endpoints, 2 new route modules (journal, risk) | +15 FE |
 | Sprint 30 | Multi-portfolio profile switcher + CRUD modal, regime history timeline on dashboard, per-ticker watchlist alert configs (bell icon + inline panel), journal lesson-tag analytics with win-rate bar chart + pattern alerts, 2 new engine modules (regime_history, journal_analytics), 2 new DB tables (regime_history, watchlist_alert_configs), 4 new API endpoints, 5 new frontend components | +38 (32 BE + 6 FE) |
 | Sprint 31 | Automated regime detection daemon job (wires RegimeHistoryStore into scheduler), watchlist alert evaluation engine (price threshold + signal change alerts), expanded backtest results (14 metrics with collapsible Advanced Metrics panel), daemon page UI (5 job cards + result detail panels + RegimeTimeline refresh) | +31 (20 BE + 11 FE) |
-| **Total** | **69+ tasks** | **165+ source files, 9 CLIs, 73 API endpoints, 14 UI pages, 13 tables** | **863 passed (517 BE + 346 FE), 1 skipped** |
+| Sprint 32 | Position P&L timeline area chart on PositionDetailPage, daemon run history endpoint + expandable panel per job, alert analytics dashboard (aggregation stats, top tickers bar chart, severity/type distribution), analysis history page with ticker/signal filters + expandable agent breakdown + re-analyze links, 3 new backend route modules, 4 new frontend components, 1 new page (15th) | +16 (9 BE + 7 FE) |
+| **Total** | **73+ tasks** | **172+ source files, 9 CLIs, 76 API endpoints, 15 UI pages, 13 tables** | **863 passed (517 BE + 346 FE), 1 skipped** |
 
 ### Planned
 
@@ -1162,7 +1163,8 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 | Sprint 29 | Journal annotations + lesson tags, stress test scenarios, drawdown/sharpe/heatmap charts, data export (CSV/JSON) | P1 (analytics + export) | COMPLETE |
 | Sprint 30 | Multi-portfolio profiles UI, regime history timeline, watchlist alert configs, journal lesson-tag analytics | P1 (workflow + analytics) | COMPLETE |
 | Sprint 31 | Automated regime daemon, watchlist alert scan, expanded backtest metrics, daemon UI overhaul | P1 (infrastructure activation) | COMPLETE |
-| Sprint 32+ | OnChainAgent, ValidationAgent, desktop app (Tauri) | P3+ (deferred) | PLANNED |
+| Sprint 32 | P&L timeline chart, daemon run history, alert analytics dashboard, analysis history page | P1 (observability + history) | COMPLETE |
+| Sprint 33+ | OnChainAgent, ValidationAgent, desktop app (Tauri) | P3+ (deferred) | PLANNED |
 
 -----
 
