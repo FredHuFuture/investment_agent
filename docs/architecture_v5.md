@@ -253,6 +253,8 @@ investment_agent/
       hooks/                   #   useApi (SWR cache), useMobile, useHotkeys, usePageTitle
       lib/                     #   cache.ts (TTL), colors.ts, formatters.ts
       contexts/                #   ToastContext (global notifications)
+      test/                    #   setup.ts (jest-dom matchers)
+    vitest (62 tests)          #   formatters, cache, Button, MetricCard
     vite.config.ts             #   Port 3000, /api proxy -> localhost:8000
 
   docs/
@@ -1090,7 +1092,8 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 | Sprint 17 | Risk Dashboard (Sharpe/Sortino/VaR/drawdown/correlations), code splitting, ConfirmModal | +0 (risk/perf) |
 | Sprint 18 | ErrorAlert retry pattern (8 pages), Journal DataTable, Signals filtering, auto-refresh | +0 (UX) |
 | Sprint 19 | Dashboard auto-refresh, SPY benchmark comparison (API+chart), monthly returns toggle | +1 (benchmark) |
-| **Total** | **53+ tasks** | **110+ source files, 9 CLIs, 53 API endpoints, 14 UI pages, 10 tables** | **416 passed, 1 skipped** |
+| Sprint 20 | Thesis editing (ThesisEditForm), RegimeBadge, watchlist inline editing, vitest + testing-library (62 FE tests), risk+regime API tests | +77 (15 BE + 62 FE) |
+| **Total** | **53+ tasks** | **110+ source files, 9 CLIs, 53 API endpoints, 14 UI pages, 10 tables** | **493 passed (431 BE + 62 FE), 1 skipped** |
 
 ### Planned
 
@@ -1106,7 +1109,8 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 | Sprint 17 | Risk Dashboard, code splitting, confirmation modals, portfolio correlations API | P1 (risk + perf) | COMPLETE |
 | Sprint 18 | ErrorAlert retry, Journal DataTable, Signals filtering, portfolio auto-refresh | P0 (UX resilience) | COMPLETE |
 | Sprint 19 | Dashboard auto-refresh, SPY benchmark comparison, monthly returns toggle | P1 (benchmarking) | COMPLETE |
-| Sprint 20+ | OnChainAgent, ValidationAgent, desktop app (Tauri) | P3+ (deferred) | PLANNED |
+| Sprint 20 | Thesis editing, regime badge, watchlist inline editing, test infrastructure (vitest) | P0 (UX + quality) | COMPLETE |
+| Sprint 21+ | OnChainAgent, ValidationAgent, desktop app (Tauri) | P3+ (deferred) | PLANNED |
 
 -----
 

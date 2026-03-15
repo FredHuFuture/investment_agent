@@ -6,7 +6,7 @@
 
 Tracks your thesis, monitors positions, tells you when reality diverges from your plan.
 
-[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue)](https://python.org) [![License MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE) [![Tests 416 passing](https://img.shields.io/badge/Tests-416_passing-brightgreen)](#) [![Pages 14](https://img.shields.io/badge/Pages-14-blue)](#) [![FastAPI](https://img.shields.io/badge/API-FastAPI-009688)](http://localhost:8000/docs)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue)](https://python.org) [![License MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE) [![Tests 493 passing](https://img.shields.io/badge/Tests-493_passing-brightgreen)](#) [![Pages 14](https://img.shields.io/badge/Pages-14-blue)](#) [![FastAPI](https://img.shields.io/badge/API-FastAPI-009688)](http://localhost:8000/docs)
 
 [Live Site](https://investment-agent.dev) · [Architecture](docs/architecture_v5.md) · [API Docs (local)](http://localhost:8000/docs)
 
@@ -105,7 +105,7 @@ Background daemon watches positions 24/7. Alerts on price targets, drawdowns, si
 </tr>
 </table>
 
-**Also includes:** Trade journal with thesis-vs-reality review · Risk dashboard (Sharpe, Sortino, VaR, drawdown, correlation matrix) · SPY benchmark comparison with alpha · Thesis drift tracking · AI weekly summaries (Claude) · Interactive Plotly charts · Signal accuracy calibration · Adaptive weight optimization · Sector rotation & correlation analysis · Regime detection (bull/bear/sideways/high-vol/risk-off) · Watchlist with batch analysis · Performance analytics · Multi-portfolio support · Email & Telegram notifications · CSV/JSON export · Design system (Button, Input, Card, Skeleton, Toast, ConfirmModal) · Command palette (Ctrl+K) · Route-based code splitting · Auto-refresh (60s)
+**Also includes:** Trade journal with thesis-vs-reality review · Risk dashboard (Sharpe, Sortino, VaR, drawdown, correlation matrix) · SPY benchmark comparison with alpha · Thesis drift tracking · AI weekly summaries (Claude) · Interactive Plotly charts · Signal accuracy calibration · Adaptive weight optimization · Sector rotation & correlation analysis · Regime detection (bull/bear/sideways/high-vol/risk-off) · Watchlist with batch analysis · Performance analytics · Multi-portfolio support · Email & Telegram notifications · CSV/JSON export · Design system (Button, Input, Card, Skeleton, Toast, ConfirmModal) · Command palette (Ctrl+K) · Route-based code splitting · Auto-refresh (60s) · Inline thesis editing · Live regime badge · Watchlist inline editing · Frontend test suite (vitest + testing-library)
 
 ## CLI Usage
 
@@ -233,12 +233,12 @@ investment_agent/
   charts/           # Plotly interactive chart generators
   cli/              # CLI entry points
   db/               # SQLite with WAL mode (10 tables)
-  tests/            # 416+ tests
+  tests/            # 493+ tests (431 backend + 62 frontend)
 ```
 
 ## Tech Stack
 
-Python 3.11+ · FastAPI · SQLite (WAL) · React 18 · TypeScript · Tailwind CSS · Recharts · Plotly · yfinance · FRED · aiohttp · aiosqlite
+Python 3.11+ · FastAPI · SQLite (WAL) · React 18 · TypeScript · Tailwind CSS · Recharts · Plotly · Vitest · yfinance · FRED · aiohttp · aiosqlite
 
 ## Contributing
 
