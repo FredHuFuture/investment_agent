@@ -6,7 +6,7 @@
 
 Tracks your thesis, monitors positions, tells you when reality diverges from your plan.
 
-[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue)](https://python.org) [![License MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE) [![Tests 625 passing](https://img.shields.io/badge/Tests-625_passing-brightgreen)](#) [![Pages 14](https://img.shields.io/badge/Pages-14-blue)](#) [![FastAPI](https://img.shields.io/badge/API-FastAPI-009688)](http://localhost:8000/docs)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue)](https://python.org) [![License MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE) [![Tests 639 passing](https://img.shields.io/badge/Tests-639_passing-brightgreen)](#) [![Pages 14](https://img.shields.io/badge/Pages-14-blue)](#) [![FastAPI](https://img.shields.io/badge/API-FastAPI-009688)](http://localhost:8000/docs)
 
 [Live Site](https://investment-agent.dev) · [Architecture](docs/architecture_v5.md) · [API Docs (local)](http://localhost:8000/docs)
 
@@ -105,7 +105,7 @@ Background daemon watches positions 24/7. Alerts on price targets, drawdowns, si
 </tr>
 </table>
 
-**Also includes:** Trade journal with thesis-vs-reality review · Risk dashboard (Sharpe, Sortino, VaR, drawdown, correlation matrix) · SPY benchmark comparison with alpha · Thesis drift tracking · AI weekly summaries (Claude) · Interactive Plotly charts · Signal accuracy calibration · Adaptive weight optimization · Sector rotation & correlation analysis · Regime detection (bull/bear/sideways/high-vol/risk-off) · Watchlist with batch analysis · Performance analytics · Multi-portfolio support · Email & Telegram notifications · CSV/JSON export · Design system (Button, Input, Card, Skeleton, Toast, ConfirmModal) · Command palette (Ctrl+K) · Route-based code splitting · Auto-refresh (60s) · Inline thesis editing · Live regime badge · Watchlist inline editing · Frontend test suite (vitest + testing-library)
+**Also includes:** Trade journal with thesis-vs-reality review · Risk dashboard (Sharpe, Sortino, VaR, drawdown, correlation matrix) · SPY benchmark comparison with alpha · Thesis drift tracking · AI weekly summaries (Claude) · Interactive Plotly charts · Signal accuracy calibration · Adaptive weight optimization · Sector rotation & correlation analysis · Regime detection (bull/bear/sideways/high-vol/risk-off) · Watchlist with batch analysis · Performance analytics · Multi-portfolio support · Email & Telegram notifications · CSV/JSON export · Design system (Button, Input, Card, Skeleton, Toast, ConfirmModal) · ARIA accessibility (focus-visible, skip-to-content, keyboard navigation) · Command palette (Ctrl+K) · Route + component lazy loading (86% chunk reduction) · Auto-refresh (60s) · Inline thesis editing · Live regime badge · Watchlist inline editing · Frontend test suite (192 tests, vitest + testing-library)
 
 ## CLI Usage
 
@@ -233,7 +233,7 @@ investment_agent/
   charts/           # Plotly interactive chart generators
   cli/              # CLI entry points
   db/               # SQLite with WAL mode (10 tables)
-  tests/            # 625+ tests (447 backend + 178 frontend)
+  tests/            # 639+ tests (447 backend + 192 frontend)
 ```
 
 ## Tech Stack
