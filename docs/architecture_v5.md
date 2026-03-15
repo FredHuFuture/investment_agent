@@ -64,7 +64,7 @@ Core moat: Expected vs Actual ROI dual-track + thesis accountability feedback lo
                             | /api proxy (localhost:3000 -> :8000)
 +---------------------------v-------------------------------------------+
 |                      FastAPI REST API Layer                            |
-|  52 endpoints across 12 route modules  |  Pydantic v2 validation     |
+|  53 endpoints across 12 route modules  |  Pydantic v2 validation     |
 |  CORS  |  Error handlers  |  Lifespan DB init                        |
 +--------+----------+-----------+-----------+-----------+---------------+
          |          |           |           |           |
@@ -102,9 +102,9 @@ Tech stack:
 - **Store**: SQLite (WAL mode, aiosqlite, single-file, zero-ops)
 - **Charts**: plotly (dark theme, HTML export) + Recharts (frontend)
 - **Scheduler**: APScheduler 3.x (cron-based async daemon)
-- **API**: FastAPI + uvicorn + Pydantic v2 (52 endpoints)
+- **API**: FastAPI + uvicorn + Pydantic v2 (53 endpoints)
 - **Frontend**: React 18 + Vite + TypeScript + Tailwind CSS + Recharts
-- **Frontend perf**: In-memory SWR cache (stale-while-revalidate), TTL-based invalidation, route-based code splitting (React.lazy), auto-refresh with lastUpdated indicator
+- **Frontend perf**: In-memory SWR cache (stale-while-revalidate), TTL-based invalidation, route-based code splitting (React.lazy), 60s auto-refresh with lastUpdated indicator, SPY benchmark comparison
 - **Notifications**: SMTP email + Telegram Bot API (aiohttp)
 - **LLM**: Claude API via Anthropic SDK (SentimentAgent, SummaryAgent, optional)
 
@@ -125,7 +125,7 @@ investment_agent/
     sentiment.py               #   SentimentAgent (Claude API, news analysis)
     summary_agent.py           #   SummaryAgent (Claude API, weekly portfolio review)
 
-  api/                         # FastAPI REST API (52 endpoints)
+  api/                         # FastAPI REST API (53 endpoints)
     app.py                     #   App factory, CORS, lifespan, error handlers
     models.py                  #   Pydantic v2 request/response schemas
     deps.py                    #   Shared dependencies (crypto detection, ticker mapping)
@@ -1089,7 +1089,8 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 | Sprint 16 | Design system 100% adoption, toast wiring, Trade Journal page, ToastContainer mount | +0 (UX) |
 | Sprint 17 | Risk Dashboard (Sharpe/Sortino/VaR/drawdown/correlations), code splitting, ConfirmModal | +0 (risk/perf) |
 | Sprint 18 | ErrorAlert retry pattern (8 pages), Journal DataTable, Signals filtering, auto-refresh | +0 (UX) |
-| **Total** | **53+ tasks** | **110+ source files, 9 CLIs, 52 API endpoints, 14 UI pages, 10 tables** | **416 passed, 1 skipped** |
+| Sprint 19 | Dashboard auto-refresh, SPY benchmark comparison (API+chart), monthly returns toggle | +1 (benchmark) |
+| **Total** | **53+ tasks** | **110+ source files, 9 CLIs, 53 API endpoints, 14 UI pages, 10 tables** | **416 passed, 1 skipped** |
 
 ### Planned
 
@@ -1104,7 +1105,8 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 | Sprint 16 | Design system adoption (100%), toast notifications, Trade Journal page | P0 (UX consistency) | COMPLETE |
 | Sprint 17 | Risk Dashboard, code splitting, confirmation modals, portfolio correlations API | P1 (risk + perf) | COMPLETE |
 | Sprint 18 | ErrorAlert retry, Journal DataTable, Signals filtering, portfolio auto-refresh | P0 (UX resilience) | COMPLETE |
-| Sprint 19+ | OnChainAgent, ValidationAgent, desktop app (Tauri) | P3+ (deferred) | PLANNED |
+| Sprint 19 | Dashboard auto-refresh, SPY benchmark comparison, monthly returns toggle | P1 (benchmarking) | COMPLETE |
+| Sprint 20+ | OnChainAgent, ValidationAgent, desktop app (Tauri) | P3+ (deferred) | PLANNED |
 
 -----
 
