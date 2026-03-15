@@ -187,7 +187,7 @@ export default function PositionDetailPage() {
 
   // Error state
   const error = portfolioApi.error || historyApi.error;
-  if (error) return <ErrorAlert message={error} />;
+  if (error) return <ErrorAlert message={error} onRetry={() => { portfolioApi.refetch(); historyApi.refetch(); }} />;
 
   // Position not found
   if (!position) {

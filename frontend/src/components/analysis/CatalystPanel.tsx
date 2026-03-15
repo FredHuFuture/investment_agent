@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { getCatalysts } from "../../api/endpoints";
 import type { CatalystData } from "../../api/types";
 import SignalBadge from "../shared/SignalBadge";
-import LoadingSpinner from "../shared/LoadingSpinner";
+import { SkeletonCard } from "../ui/Skeleton";
 import { formatRelativeDate } from "../../lib/formatters";
 
 // ---------------------------------------------------------------------------
@@ -115,11 +115,7 @@ export default function CatalystPanel({
       </h3>
 
       {/* Loading state */}
-      {loading && (
-        <div className="flex justify-center py-8">
-          <LoadingSpinner />
-        </div>
-      )}
+      {loading && <SkeletonCard />}
 
       {/* Error state */}
       {error && (

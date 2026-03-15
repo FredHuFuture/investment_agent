@@ -1,11 +1,14 @@
+import { Suspense, lazy } from "react";
 import SignalBadge from "../shared/SignalBadge";
 import MetricCard from "../shared/MetricCard";
+import { SkeletonCard } from "../ui/Skeleton";
 import AgentBreakdown from "./AgentBreakdown";
 import CatalystPanel from "./CatalystPanel";
 import KeyMetricsPanel from "./KeyMetricsPanel";
 import PortfolioImpactPanel from "./PortfolioImpactPanel";
-import PriceHistoryChart from "./PriceHistoryChart";
 import type { AnalysisResult as AnalysisResultType } from "../../api/types";
+
+const PriceHistoryChart = lazy(() => import("./PriceHistoryChart"));
 
 function formatRegime(raw: string): string {
   if (!raw) return "-";
@@ -47,7 +50,9 @@ export default function AnalysisResult({ data }: { data: AnalysisResultType }) {
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
           Price History
         </h3>
-        <PriceHistoryChart ticker={data.ticker} assetType={data.asset_type} />
+        <Suspense fallback={<SkeletonCard className="h-64" />}>
+          <PriceHistoryChart ticker={data.ticker} assetType={data.asset_type} />
+        </Suspense>
       </div>
 
       {/* Key Metrics — full width, multi-column grid */}

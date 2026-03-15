@@ -70,4 +70,11 @@ describe("ConfirmModal", () => {
     expect(dialog).toHaveAttribute("aria-labelledby", "confirm-modal-title");
     expect(dialog).toHaveAttribute("aria-describedby", "confirm-modal-desc");
   });
+
+  it("closes on Escape key", async () => {
+    const onClose = vi.fn();
+    render(<ConfirmModal open={true} onClose={onClose} onConfirm={vi.fn()} title="Test" />);
+    await userEvent.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalled();
+  });
 });

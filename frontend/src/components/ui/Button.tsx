@@ -1,4 +1,4 @@
-import { type ButtonHTMLAttributes, type ReactNode } from "react";
+import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "primary" | "secondary" | "danger" | "ghost";
@@ -20,37 +20,46 @@ const sizeStyles: Record<NonNullable<ButtonProps["size"]>, string> = {
   lg: "px-6 py-3 text-base",
 };
 
-export const Button = ({
-  variant = "primary",
-  size = "md",
-  loading = false,
-  children,
-  className = "",
-  disabled,
-  ...rest
-}: ButtonProps) => {
-  const isDisabled = disabled || loading;
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
+  (
+    {
+      variant = "primary",
+      size = "md",
+      loading = false,
+      children,
+      className = "",
+      disabled,
+      ...rest
+    },
+    ref,
+  ) => {
+    const isDisabled = disabled || loading;
 
-  return (
-    <button
-      className={`
-        inline-flex items-center justify-center gap-2
-        rounded-lg font-medium min-h-[44px]
-        transition-colors duration-150
-        disabled:opacity-50 disabled:cursor-not-allowed
-        ${variantStyles[variant]}
-        ${sizeStyles[size]}
-        ${className}
-      `}
-      disabled={isDisabled}
-      aria-busy={loading || undefined}
-      aria-disabled={isDisabled || undefined}
-      {...rest}
-    >
-      {loading && (
-        <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-      )}
-      {children}
-    </button>
-  );
-};
+    return (
+      <button
+        ref={ref}
+        className={`
+          inline-flex items-center justify-center gap-2
+          rounded-lg font-medium min-h-[44px]
+          transition-colors duration-150
+          focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950
+          disabled:opacity-50 disabled:cursor-not-allowed
+          ${variantStyles[variant]}
+          ${sizeStyles[size]}
+          ${className}
+        `}
+        disabled={isDisabled}
+        aria-busy={loading || undefined}
+        aria-disabled={isDisabled || undefined}
+        {...rest}
+      >
+        {loading && (
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+        )}
+        {children}
+      </button>
+    );
+  },
+);
+
+Button.displayName = "Button";

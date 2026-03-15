@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { getLatestSummary, generateSummary } from "../../api/endpoints";
 import { ApiError } from "../../api/client";
 import type { SummaryResponse } from "../../api/types";
+import { Button } from "../ui/Button";
 
 type CardState =
   | { kind: "loading" }
@@ -147,16 +148,9 @@ export default function WeeklySummaryCard() {
           <p className="text-sm text-gray-500">
             No summary yet. Click &ldquo;Generate&rdquo; to create one.
           </p>
-          <button
-            onClick={handleGenerate}
-            disabled={generating}
-            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
-          >
-            {generating && (
-              <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-            )}
+          <Button variant="primary" size="sm" loading={generating} onClick={handleGenerate}>
             {generating ? "Generating..." : "Generate"}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -164,16 +158,9 @@ export default function WeeklySummaryCard() {
       {state.kind === "error" && (
         <div className="space-y-3">
           <p className="text-sm text-red-400">{state.message}</p>
-          <button
-            onClick={handleGenerate}
-            disabled={generating}
-            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
-          >
-            {generating && (
-              <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-            )}
+          <Button variant="primary" size="sm" loading={generating} onClick={handleGenerate}>
             Retry
-          </button>
+          </Button>
         </div>
       )}
 
@@ -187,16 +174,9 @@ export default function WeeklySummaryCard() {
             <span className="text-xs text-gray-500">
               {formatTimestamp(state.summary.generated_at)}
             </span>
-            <button
-              onClick={handleGenerate}
-              disabled={generating}
-              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
-            >
-              {generating && (
-                <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-              )}
+            <Button variant="primary" size="sm" loading={generating} onClick={handleGenerate}>
               {generating ? "Generating..." : "Regenerate"}
-            </button>
+            </Button>
           </div>
         </div>
       )}

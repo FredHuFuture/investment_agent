@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { getPositionSize } from "../../api/endpoints";
 import type { PortfolioImpact } from "../../api/types";
-import LoadingSpinner from "../shared/LoadingSpinner";
+import { SkeletonCard } from "../ui/Skeleton";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -175,11 +175,7 @@ export default function PortfolioImpactPanel({
       </h3>
 
       {/* Loading state */}
-      {loading && (
-        <div className="flex justify-center py-8">
-          <LoadingSpinner />
-        </div>
-      )}
+      {loading && <SkeletonCard />}
 
       {/* Error state */}
       {error && (

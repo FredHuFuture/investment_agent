@@ -172,7 +172,7 @@ const AGENT_DESCRIPTIONS: Record<string, string> = {
 // ---------------------------------------------------------------------------
 export default function WeightsPage() {
   usePageTitle("Weights");
-  const { data, loading, error } = useApi<WeightsData>(() => getWeights());
+  const { data, loading, error, refetch } = useApi<WeightsData>(() => getWeights());
 
   if (loading)
     return (
@@ -185,7 +185,7 @@ export default function WeightsPage() {
       </div>
     );
 
-  if (error) return <ErrorAlert message={error} />;
+  if (error) return <ErrorAlert message={error} onRetry={refetch} />;
   if (!data) return null;
 
   const stockWeights = data.weights["stock"];

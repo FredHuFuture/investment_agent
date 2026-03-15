@@ -96,4 +96,10 @@ describe("Button", () => {
     render(<Button disabled>Disabled</Button>);
     expect(screen.getByRole("button")).toHaveAttribute("aria-disabled", "true");
   });
+
+  it("has focus-visible ring classes", () => {
+    render(<Button>Focus</Button>);
+    const btn = screen.getByRole("button");
+    expect(btn.className).toContain("focus-visible:ring-2");
+  });
 });

@@ -94,7 +94,7 @@ export default function DaemonPage() {
         </div>
       </div>
     );
-  if (error) return <ErrorAlert message={error} />;
+  if (error) return <ErrorAlert message={error} onRetry={refetch} />;
 
   const jobs = data
     ? Object.entries(data).map(([name, job]) => ({

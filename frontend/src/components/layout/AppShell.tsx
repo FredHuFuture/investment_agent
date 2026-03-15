@@ -15,6 +15,13 @@ export default function AppShell({ children }: AppShellProps) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-950 text-gray-100">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:bg-blue-600 focus:text-white focus:px-4 focus:py-2 focus:rounded-lg focus:text-sm focus:font-medium"
+      >
+        Skip to content
+      </a>
+
       {/* Mobile header bar */}
       {isMobile && (
         <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center border-b border-gray-800 bg-gray-900 px-4">
@@ -63,6 +70,7 @@ export default function AppShell({ children }: AppShellProps) {
 
       {/* Main content */}
       <main
+        id="main-content"
         className={`flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 ${
           isMobile ? "pt-20" : ""
         }`}

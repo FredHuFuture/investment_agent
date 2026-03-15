@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { Button } from "./Button";
 
 interface ConfirmModalProps {
@@ -24,6 +24,25 @@ export default function ConfirmModal({
   variant = "danger",
   loading = false,
 }: ConfirmModalProps) {
+  const cancelRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [open, onClose]);
+
+  useEffect(() => {
+    if (open) {
+      cancelRef.current?.focus();
+    }
+  }, [open]);
+
   if (!open) return null;
 
   return (
@@ -45,6 +64,7 @@ export default function ConfirmModal({
         )}
         <div className="flex gap-3">
           <Button
+            ref={cancelRef}
             variant="secondary"
             type="button"
             onClick={onClose}
