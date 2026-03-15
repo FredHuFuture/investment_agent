@@ -6,7 +6,7 @@
 
 Tracks your thesis, monitors positions, tells you when reality diverges from your plan.
 
-[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue)](https://python.org) [![License MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE) [![Tests 867 passing](https://img.shields.io/badge/Tests-867_passing-brightgreen)](#) [![Pages 15](https://img.shields.io/badge/Pages-15-blue)](#) [![FastAPI](https://img.shields.io/badge/API-FastAPI-009688)](http://localhost:8000/docs)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue)](https://python.org) [![License MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE) [![Tests 876 passing](https://img.shields.io/badge/Tests-876_passing-brightgreen)](#) [![Pages 15](https://img.shields.io/badge/Pages-15-blue)](#) [![FastAPI](https://img.shields.io/badge/API-FastAPI-009688)](http://localhost:8000/docs)
 
 [Live Site](https://investment-agent.dev) · [Architecture](docs/architecture_v5.md) · [API Docs (local)](http://localhost:8000/docs)
 
@@ -226,8 +226,8 @@ investment_agent/
   watchlist/        # Ticker watchlist with batch analysis
   notifications/    # Email (SMTP) + Telegram dispatchers
   export/           # CSV/JSON portfolio report export
-  api/              # FastAPI REST backend (83 endpoints)
-  frontend/         # React 18 + TypeScript + Tailwind dashboard (15 pages, 50+ UI components)
+  api/              # FastAPI REST backend (86 endpoints)
+  frontend/         # React 18 + TypeScript + Tailwind dashboard (15 pages, 53+ UI components)
   daemon/           # APScheduler background monitoring + catalyst scanner
   data_providers/   # YFinance, FRED, CCXT, Google News
   charts/           # Plotly interactive chart generators
