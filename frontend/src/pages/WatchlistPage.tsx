@@ -8,8 +8,10 @@ import {
 } from "../api/endpoints";
 import type { WatchlistItem } from "../api/types";
 import SignalBadge from "../components/shared/SignalBadge";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 export default function WatchlistPage() {
+  usePageTitle("Watchlist");
   const [items, setItems] = useState<WatchlistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

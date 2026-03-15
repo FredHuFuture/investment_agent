@@ -7,6 +7,7 @@ import BatchForm from "../components/backtest/BatchForm";
 import BatchResultsComponent from "../components/backtest/BatchResults";
 import LoadingSpinner from "../components/shared/LoadingSpinner";
 import ErrorAlert from "../components/shared/ErrorAlert";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 function flattenBatch(raw: BatchResponse): BatchRow[] {
   const rows: BatchRow[] = [];
@@ -21,6 +22,7 @@ function flattenBatch(raw: BatchResponse): BatchRow[] {
 type Mode = "single" | "batch";
 
 export default function BacktestPage() {
+  usePageTitle("Backtest");
   const [mode, setMode] = useState<Mode>("single");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

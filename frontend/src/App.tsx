@@ -1,5 +1,10 @@
+import { useState } from "react";
 import { Routes, Route } from "react-router-dom";
 import AppShell from "./components/layout/AppShell";
+import { ErrorBoundary } from "./components/ui/ErrorBoundary";
+import { ToastProvider } from "./contexts/ToastContext";
+import CommandPalette from "./components/ui/CommandPalette";
+import { useHotkeys } from "./hooks/useHotkeys";
 import DashboardPage from "./pages/DashboardPage";
 import AnalyzePage from "./pages/AnalyzePage";
 import PortfolioPage from "./pages/PortfolioPage";
@@ -13,7 +18,14 @@ import PerformancePage from "./pages/PerformancePage";
 import WatchlistPage from "./pages/WatchlistPage";
 import SettingsPage from "./pages/SettingsPage";
 
-export default function App() {
+function AppContent() {
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  useHotkeys({
+    "ctrl+k": () => setPaletteOpen(true),
+    "meta+k": () => setPaletteOpen(true),
+  });
+
   return (
     <AppShell>
       <Routes>
@@ -30,6 +42,17 @@ export default function App() {
         <Route path="/daemon" element={<DaemonPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Routes>
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </AppShell>
+  );
+}
+
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <ToastProvider>
+        <AppContent />
+      </ToastProvider>
+    </ErrorBoundary>
   );
 }

@@ -74,36 +74,101 @@ async def _migrate_ticker_unique_to_partial(conn: aiosqlite.Connection) -> None:
 
     This allows re-opening a position for the same ticker after closing one.
     The migration is idempotent: safe to run on every startup.
+
+    SQLite auto-generates ``sqlite_autoindex_active_positions_1`` for an inline
+    ``UNIQUE`` constraint.  These autoindexes **cannot** be dropped via
+    ``DROP INDEX``.  The only way to remove the constraint is to rebuild the
+    table without the ``UNIQUE`` keyword on the column definition.
     """
-    # Check whether the old blanket unique index still exists.
-    # SQLite auto-generates an index named "sqlite_autoindex_active_positions_1"
-    # for an inline UNIQUE constraint.  We look for any unique index on (ticker)
-    # that is NOT our new partial index.
+    # 1. Check whether the autoindex still exists
+    row = await (
+        await conn.execute(
+            "SELECT 1 FROM sqlite_master "
+            "WHERE type = 'index' AND tbl_name = 'active_positions' "
+            "AND name = 'sqlite_autoindex_active_positions_1';"
+        )
+    ).fetchone()
+
+    if row is not None:
+        # --- full table rebuild required ---
+        # Grab current column info so we build a faithful copy
+        table_info = await (
+            await conn.execute("PRAGMA table_info(active_positions);")
+        ).fetchall()
+        col_names = [c[1] for c in table_info]
+
+        cols_csv = ", ".join(col_names)
+
+        await conn.execute(
+            "ALTER TABLE active_positions RENAME TO _active_positions_old;"
+        )
+
+        # Recreate the table WITHOUT the inline UNIQUE on ticker
+        await conn.execute(
+            """
+            CREATE TABLE active_positions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ticker TEXT NOT NULL,
+                asset_type TEXT NOT NULL CHECK (asset_type IN ('stock', 'btc', 'eth')),
+                quantity REAL NOT NULL,
+                avg_cost REAL NOT NULL,
+                sector TEXT,
+                industry TEXT,
+                entry_date TEXT NOT NULL,
+                original_analysis_id INTEGER,
+                expected_return_pct REAL,
+                expected_hold_days INTEGER,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                status TEXT NOT NULL DEFAULT 'open',
+                exit_price REAL,
+                exit_date TEXT,
+                exit_reason TEXT,
+                realized_pnl REAL,
+                FOREIGN KEY (original_analysis_id) REFERENCES positions_thesis(id)
+            );
+            """
+        )
+
+        # Copy data — only columns that exist in BOTH old and new tables
+        new_info = await (
+            await conn.execute("PRAGMA table_info(active_positions);")
+        ).fetchall()
+        new_col_names = {c[1] for c in new_info}
+        common_cols = [c for c in col_names if c in new_col_names]
+        common_csv = ", ".join(common_cols)
+
+        await conn.execute(
+            f"INSERT INTO active_positions ({common_csv}) "
+            f"SELECT {common_csv} FROM _active_positions_old;"
+        )
+        await conn.execute("DROP TABLE _active_positions_old;")
+
+    # 2. Also drop any user-created unique index on ticker (non-autoindex)
     rows = await (
         await conn.execute(
             "SELECT name FROM sqlite_master "
             "WHERE type = 'index' AND tbl_name = 'active_positions' "
-            "AND name != 'idx_active_positions_ticker_open';"
+            "AND name != 'idx_active_positions_ticker_open' "
+            "AND name NOT LIKE 'sqlite_autoindex_%';"
         )
     ).fetchall()
 
     for (idx_name,) in rows:
-        # Inspect each index to see if it covers exactly the ticker column
         info = await (
             await conn.execute(f"PRAGMA index_info(\"{idx_name}\");")
         ).fetchall()
-        col_names = [r[2] for r in info]
-        if col_names == ["ticker"]:
-            # Check if this is a unique index
+        col_names_idx = [r[2] for r in info]
+        if col_names_idx == ["ticker"]:
             idx_list = await (
                 await conn.execute("PRAGMA index_list(active_positions);")
             ).fetchall()
             for il_row in idx_list:
-                if il_row[1] == idx_name and il_row[2] == 1:  # [2] = unique flag
+                if il_row[1] == idx_name and il_row[2] == 1:
                     await conn.execute(f"DROP INDEX IF EXISTS \"{idx_name}\";")
                     break
 
-    # Create the partial unique index (idempotent via IF NOT EXISTS)
+    # 3. Create the partial unique index (idempotent via IF NOT EXISTS)
     await conn.execute(
         """
         CREATE UNIQUE INDEX IF NOT EXISTS idx_active_positions_ticker_open
@@ -197,6 +262,11 @@ async def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
                 expected_hold_days INTEGER,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                status TEXT NOT NULL DEFAULT 'open',
+                exit_price REAL,
+                exit_date TEXT,
+                exit_reason TEXT,
+                realized_pnl REAL,
                 FOREIGN KEY (original_analysis_id) REFERENCES positions_thesis(id)
             );
             """

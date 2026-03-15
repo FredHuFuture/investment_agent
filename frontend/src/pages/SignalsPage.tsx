@@ -19,11 +19,13 @@ import AgentPerformance from "../components/signals/AgentPerformance";
 import LoadingSpinner from "../components/shared/LoadingSpinner";
 import ErrorAlert from "../components/shared/ErrorAlert";
 import EmptyState from "../components/shared/EmptyState";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 const tabs = ["History", "Accuracy", "Calibration", "Agent Perf"] as const;
 type Tab = (typeof tabs)[number];
 
 export default function SignalsPage() {
+  usePageTitle("Signals");
   const [tab, setTab] = useState<Tab>("History");
 
   const history = useApi<SignalHistoryEntry[]>(

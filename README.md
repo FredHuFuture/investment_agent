@@ -6,7 +6,7 @@
 
 Tracks your thesis, monitors positions, tells you when reality diverges from your plan.
 
-[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue)](https://python.org) [![License MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE) [![Tests 216 passing](https://img.shields.io/badge/Tests-216_passing-brightgreen)](#) [![FastAPI](https://img.shields.io/badge/API-FastAPI-009688)](http://localhost:8000/docs)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue)](https://python.org) [![License MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE) [![Tests 416 passing](https://img.shields.io/badge/Tests-416_passing-brightgreen)](#) [![FastAPI](https://img.shields.io/badge/API-FastAPI-009688)](http://localhost:8000/docs)
 
 [Live Site](https://investment-agent.dev) · [Architecture](docs/architecture_v5.md) · [API Docs (local)](http://localhost:8000/docs)
 
@@ -17,7 +17,7 @@ Tracks your thesis, monitors positions, tells you when reality diverges from you
 <div align="center">
 <img src="https://investment-agent.dev/gifs/analysis-demo.gif" alt="Multi-Agent Analysis Demo" width="720" />
 
-*Enter any ticker → 4 agents analyze independently → weighted signal with confidence*
+*Enter any ticker → 6 agents analyze independently → regime-aware weighted signal with confidence*
 </div>
 
 ## Why This Exists
@@ -26,7 +26,7 @@ Most tools tell you what to buy. None track **why you bought** and whether that 
 
 - You set a thesis at entry: "NVDA will grow 30% on AI demand, hold 12 months"
 - The system monitors continuously and alerts when reality diverges
-- 4 specialized agents provide objective analysis while you stay emotional
+- 6 specialized agents provide objective analysis while you stay emotional
 
 > Unlike point-in-time screeners, this system maintains context about your positions over time. It remembers your thesis and tells you when you should reconsider.
 
@@ -45,9 +45,19 @@ cd frontend && npm install && cd ..
 # Seed demo portfolio (AAPL, NVDA, BTC, GS, MSFT)
 python seed.py
 
-# Start
-make run-backend   # Terminal 1 → API on :8000
-make run-frontend  # Terminal 2 → Dashboard on :3000
+# Start (pick one)
+# Option A — PowerShell (Windows)
+.\run.ps1              # Both servers
+.\run.ps1 -Backend     # API only  (port 8000)
+.\run.ps1 -Frontend    # UI only   (port 3000)
+
+# Option B — Make (macOS / Linux)
+make run-backend       # Terminal 1 → API on :8000
+make run-frontend      # Terminal 2 → Dashboard on :3000
+
+# Option C — Manual
+uvicorn api.app:app --port 8000 --reload   # Terminal 1
+cd frontend && npm run dev                 # Terminal 2
 ```
 
 Open **http://localhost:3000** for the dashboard, or **http://localhost:8000/docs** for the interactive API.
@@ -61,7 +71,7 @@ Want to see everything without the frontend? Run `python demo.py` — it creates
 <td width="50%">
 
 ### Multi-Agent Analysis
-4 agents — Technical, Fundamental, Macro, Crypto — analyze each position from different angles, then aggregate into a single weighted signal.
+6 agents — Technical, Fundamental, Macro, Crypto, Sentiment, Summary — analyze each position from different angles, then aggregate into a regime-aware weighted signal.
 
 <img src="https://investment-agent.dev/gifs/analysis-demo.gif" alt="Analysis" width="100%" />
 
@@ -95,7 +105,7 @@ Background daemon watches positions 24/7. Alerts on price targets, drawdowns, si
 </tr>
 </table>
 
-**Also includes:** Thesis drift tracking · AI weekly summaries (Claude) · Interactive Plotly charts · Signal accuracy calibration · Adaptive weight optimization · Sector rotation & correlation analysis
+**Also includes:** Thesis drift tracking · AI weekly summaries (Claude) · Interactive Plotly charts · Signal accuracy calibration · Adaptive weight optimization · Sector rotation & correlation analysis · Regime detection (bull/bear/sideways/high-vol/risk-off) · Watchlist with batch analysis · Performance analytics · Multi-portfolio support · Email & Telegram notifications · CSV/JSON export
 
 ## CLI Usage
 
@@ -128,35 +138,35 @@ python -m cli.daemon_cli start
 ## Architecture
 
 ```
-DataProviders (YFinance, FRED)
+DataProviders (YFinance, FRED, Google News)
         │
         ▼
-┌──────────────┐  ┌──────────────────┐
-│ Technical    │  │ Fundamental      │
-│ 17 metrics   │  │ 20 metrics       │
-│ SMA,RSI,MACD │  │ P/E,PEG,debt,div│
-└──────┬───────┘  └────────┬─────────┘
-       │                   │
-       ▼                   ▼
-┌──────────────┐  ┌──────────────────┐
-│ Macro        │  │ Crypto           │
-│ 11 metrics   │  │ 7-factor model   │
-│ Yield,VIX,CLI│  │ BTC/ETH specific │
-└──────┬───────┘  └────────┬─────────┘
-       │                   │
-       └─────────┬─────────┘
-                 ▼
-        ┌────────────────┐
-        │ Aggregator     │
-        │ Weighted avg + │
+┌──────────────┐  ┌──────────────────┐  ┌──────────────────┐
+│ Technical    │  │ Fundamental      │  │ Sentiment        │
+│ 17 metrics   │  │ 20 metrics       │  │ News + catalysts │
+│ SMA,RSI,MACD │  │ P/E,PEG,debt,div│  │ Claude API       │
+└──────┬───────┘  └────────┬─────────┘  └────────┬─────────┘
+       │                   │                      │
+       ▼                   ▼                      ▼
+┌──────────────┐  ┌──────────────────┐  ┌──────────────────┐
+│ Macro        │  │ Crypto           │  │ Regime Detector  │
+│ 11 metrics   │  │ 7-factor model   │  │ 5 market regimes │
+│ Yield,VIX,CLI│  │ BTC/ETH specific │  │ Adaptive weights │
+└──────┬───────┘  └────────┬─────────┘  └────────┬─────────┘
+       │                   │                      │
+       └─────────┬─────────┘                      │
+                 ▼                                 │
+        ┌────────────────┐                         │
+        │ Aggregator     │ ◄───────────────────────┘
+        │ Weighted avg + │   regime weight adjustments
         │ consensus      │
         └───────┬────────┘
                 │
        ┌────────┼──────────────┐
        ▼        ▼              ▼
-   Portfolio  Signal       Claude API
-   + Thesis   Tracking     Weekly Summary
-   → Drift    → Accuracy
+   Portfolio  Signal       Notifications
+   + Thesis   Tracking     Email, Telegram
+   → Drift    → Accuracy   CSV/JSON Export
 ```
 
 | Agent | Metrics | Focus |
@@ -165,6 +175,8 @@ DataProviders (YFinance, FRED)
 | **Fundamental** | 20 | P/E, PEG, earnings growth, debt/equity, dividends (30/45/25 growth-value-quality) |
 | **Macro** | 11 | Yield curve, VIX regime, CLI, unemployment, monetary policy via FRED |
 | **Crypto** | 7 | Momentum, volatility regime, trend, volume, drawdown, mean reversion, macro correlation |
+| **Sentiment** | 5 | News headlines, catalyst strength, sentiment scoring via Claude API |
+| **Summary** | — | Weekly portfolio review with natural language insights (Claude API) |
 
 ## Backtesting Results
 
@@ -195,39 +207,44 @@ cp .env.example .env
 | Variable | Required | Purpose |
 |----------|----------|---------|
 | `FRED_API_KEY` | For macro analysis | Free at [fred.stlouisfed.org](https://fred.stlouisfed.org/docs/api/api_key.html) |
-| `ANTHROPIC_API_KEY` | For AI summaries | Claude weekly portfolio review (~$0.03/run) |
+| `ANTHROPIC_API_KEY` | For AI features | Sentiment analysis + weekly review (~$0.03/run) |
+| `SMTP_HOST` / `SMTP_USER` / `SMTP_PASS` | For email alerts | Any SMTP provider (Gmail, SendGrid, etc.) |
+| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | For Telegram alerts | Create via [@BotFather](https://t.me/BotFather) |
 
-Everything works without API keys except MacroAgent (needs FRED) and AI summaries (needs Claude).
+Everything works without API keys except MacroAgent (needs FRED), SentimentAgent and AI summaries (need Claude), and notifications (need SMTP/Telegram config).
 
 ## Project Structure
 
 ```
 investment_agent/
-  agents/           # 5 analysis agents (technical, fundamental, macro, crypto, summary)
-  engine/           # Pipeline, aggregator, drift analyzer, weight optimizer
-  portfolio/        # Position management + thesis tracking
+  agents/           # 6 analysis agents (technical, fundamental, macro, crypto, sentiment, summary)
+  engine/           # Pipeline, aggregator, regime detector, drift analyzer, weight optimizer
+  portfolio/        # Position management, thesis tracking, multi-portfolio profiles
   monitoring/       # Real-time alerts (price, drift, time overrun)
   tracking/         # Signal accuracy + calibration
   backtesting/      # Walk-forward engine + batch runner
-  api/              # FastAPI REST backend (17 endpoints)
-  frontend/         # React 18 + TypeScript + Tailwind dashboard
-  daemon/           # APScheduler background monitoring
-  data_providers/   # YFinance, FRED, CCXT abstraction
+  watchlist/        # Ticker watchlist with batch analysis
+  notifications/    # Email (SMTP) + Telegram dispatchers
+  export/           # CSV/JSON portfolio report export
+  api/              # FastAPI REST backend (50 endpoints)
+  frontend/         # React 18 + TypeScript + Tailwind dashboard (12 pages)
+  daemon/           # APScheduler background monitoring + catalyst scanner
+  data_providers/   # YFinance, FRED, CCXT, Google News
   charts/           # Plotly interactive chart generators
   cli/              # CLI entry points
-  db/               # SQLite with WAL mode (9 tables)
-  tests/            # 216 tests
+  db/               # SQLite with WAL mode (10 tables)
+  tests/            # 416 tests
 ```
 
 ## Tech Stack
 
-Python 3.11+ · FastAPI · SQLite · React 18 · TypeScript · Tailwind CSS · Recharts · Plotly · yfinance · FRED
+Python 3.11+ · FastAPI · SQLite (WAL) · React 18 · TypeScript · Tailwind CSS · Recharts · Plotly · yfinance · FRED · aiohttp · aiosqlite
 
 ## Contributing
 
 We welcome contributions. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions.
 
-Good first issues: new technical indicators · additional data providers · frontend improvements · portfolio performance tracking · options support
+Good first issues: new technical indicators · additional data providers · frontend improvements · on-chain metrics (BTC MVRV/SOPR) · options support
 
 ## Disclaimer
 

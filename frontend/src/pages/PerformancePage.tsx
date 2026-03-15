@@ -17,6 +17,7 @@ import ErrorAlert from "../components/shared/ErrorAlert";
 import EmptyState from "../components/shared/EmptyState";
 import WarningsBanner from "../components/shared/WarningsBanner";
 import { formatCurrency, formatDate } from "../lib/formatters";
+import { usePageTitle } from "../hooks/usePageTitle";
 import {
   AreaChart,
   Area,
@@ -32,6 +33,7 @@ import {
 } from "recharts";
 
 export default function PerformancePage() {
+  usePageTitle("Performance");
   const valueHistory = useApi<ValueHistoryPoint[]>(() => getValueHistory(90));
   const perfSummary = useApi<PerformanceSummary>(() => getPerformanceSummary());
   const monthlyReturns = useApi<MonthlyReturn[]>(() => getMonthlyReturns());

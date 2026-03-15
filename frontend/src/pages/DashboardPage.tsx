@@ -32,6 +32,7 @@ import EmptyState from "../components/shared/EmptyState";
 import WarningsBanner from "../components/shared/WarningsBanner";
 import WeeklySummaryCard from "../components/summary/WeeklySummaryCard";
 import { formatCurrency } from "../lib/formatters";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 const severityDotMap: Record<string, string> = {
   critical: "bg-red-400",
@@ -42,6 +43,7 @@ const severityDotMap: Record<string, string> = {
 };
 
 export default function DashboardPage() {
+  usePageTitle("Dashboard");
   const navigate = useNavigate();
   const { data, loading, error, warnings } = useApi<Portfolio>(
     () => getPortfolio(),

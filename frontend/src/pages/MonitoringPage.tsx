@@ -6,8 +6,10 @@ import MonitorCheckButton from "../components/monitoring/MonitorCheckButton";
 import LoadingSpinner from "../components/shared/LoadingSpinner";
 import ErrorAlert from "../components/shared/ErrorAlert";
 import EmptyState from "../components/shared/EmptyState";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 export default function MonitoringPage() {
+  usePageTitle("Monitoring");
   const { data, loading, error, refetch } = useApi<Alert[]>(
     () => getAlerts({ limit: 50 }),
   );

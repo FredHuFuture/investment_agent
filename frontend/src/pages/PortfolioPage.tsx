@@ -17,6 +17,7 @@ import ErrorAlert from "../components/shared/ErrorAlert";
 import EmptyState from "../components/shared/EmptyState";
 import WarningsBanner from "../components/shared/WarningsBanner";
 import { formatCurrency } from "../lib/formatters";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 type BreakdownMode = "ticker" | "sector";
 
@@ -122,6 +123,7 @@ const severityDotMap: Record<string, string> = {
 };
 
 export default function PortfolioPage() {
+  usePageTitle("Portfolio");
   const [searchParams, setSearchParams] = useSearchParams();
   const addFormRef = useRef<HTMLDivElement>(null);
   const { data, loading, error, warnings, refetch } = useApi<Portfolio>(

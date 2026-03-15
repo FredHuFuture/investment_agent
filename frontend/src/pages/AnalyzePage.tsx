@@ -8,11 +8,13 @@ import WeightAdjuster from "../components/analysis/WeightAdjuster";
 import LoadingSpinner from "../components/shared/LoadingSpinner";
 import ErrorAlert from "../components/shared/ErrorAlert";
 import WarningsBanner from "../components/shared/WarningsBanner";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 const LS_TICKER_KEY = "lastAnalyzedTicker";
 const LS_ASSET_KEY = "lastAnalyzedAssetType";
 
 export default function AnalyzePage() {
+  usePageTitle("Analyze");
   const navigate = useNavigate();
   const [result, setResult] = useState<AnalysisResultType | null>(null);
   const [loading, setLoading] = useState(false);

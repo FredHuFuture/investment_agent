@@ -3,6 +3,7 @@ import { getWeights } from "../api/endpoints";
 import type { WeightsData } from "../api/types";
 import LoadingSpinner from "../components/shared/LoadingSpinner";
 import ErrorAlert from "../components/shared/ErrorAlert";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 // ---------------------------------------------------------------------------
 // Color palettes
@@ -169,6 +170,7 @@ const AGENT_DESCRIPTIONS: Record<string, string> = {
 // Main page
 // ---------------------------------------------------------------------------
 export default function WeightsPage() {
+  usePageTitle("Weights");
   const { data, loading, error } = useApi<WeightsData>(() => getWeights());
 
   if (loading) return <LoadingSpinner />;

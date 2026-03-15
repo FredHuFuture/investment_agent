@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { testEmailNotification, testTelegramNotification } from "../api/endpoints";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 type TestStatus = "idle" | "loading" | "success" | "error";
 
@@ -9,6 +10,7 @@ interface TestResult {
 }
 
 export default function SettingsPage() {
+  usePageTitle("Settings");
   const [emailTest, setEmailTest] = useState<TestResult>({ status: "idle", message: "" });
   const [telegramTest, setTelegramTest] = useState<TestResult>({ status: "idle", message: "" });
   const [signalTicker, setSignalTicker] = useState("");

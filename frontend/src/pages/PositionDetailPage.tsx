@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import {
   LineChart,
   Line,
@@ -32,6 +32,8 @@ import EmptyState from "../components/shared/EmptyState";
 import MetricCard from "../components/shared/MetricCard";
 import CatalystPanel from "../components/analysis/CatalystPanel";
 import { formatCurrency, formatDate } from "../lib/formatters";
+import { usePageTitle } from "../hooks/usePageTitle";
+import Breadcrumb from "../components/shared/Breadcrumb";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -114,6 +116,7 @@ const severityStyles: Record<string, string> = {
 // ---------------------------------------------------------------------------
 export default function PositionDetailPage() {
   const { ticker } = useParams<{ ticker: string }>();
+  usePageTitle(ticker ?? "Position");
 
   // Fetch portfolio (open positions)
   const portfolioApi = useApi<Portfolio>(() => getPortfolio());
@@ -171,19 +174,11 @@ export default function PositionDetailPage() {
   if (!position) {
     return (
       <div className="space-y-6">
-        <Link
-          to="/portfolio"
-          className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors"
-        >
-          <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-            <path
-              fillRule="evenodd"
-              d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z"
-              clipRule="evenodd"
-            />
-          </svg>
-          Back to Portfolio
-        </Link>
+        <Breadcrumb items={[
+          { label: "Home", href: "/" },
+          { label: "Portfolio", href: "/portfolio" },
+          { label: ticker ?? "Position" },
+        ]} />
         <EmptyState
           message={`Position "${ticker}" not found.`}
           hint="It may have been removed or the ticker is incorrect."
@@ -202,20 +197,12 @@ export default function PositionDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* ── Back link ── */}
-      <Link
-        to="/portfolio"
-        className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors"
-      >
-        <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-          <path
-            fillRule="evenodd"
-            d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z"
-            clipRule="evenodd"
-          />
-        </svg>
-        Back to Portfolio
-      </Link>
+      {/* ── Breadcrumb ── */}
+      <Breadcrumb items={[
+        { label: "Home", href: "/" },
+        { label: "Portfolio", href: "/portfolio" },
+        { label: ticker ?? "Position" },
+      ]} />
 
       {/* ── Header ── */}
       <div className="flex flex-wrap items-center gap-4">

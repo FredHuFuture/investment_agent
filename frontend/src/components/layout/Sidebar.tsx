@@ -161,21 +161,48 @@ const links = [
   { to: "/settings", label: "Settings" },
 ];
 
-interface Props {
+interface SidebarProps {
+  isOpen: boolean;
+  onClose: () => void;
+  isMobile: boolean;
   collapsed: boolean;
   onToggle: () => void;
 }
 
-export default function Sidebar({ collapsed, onToggle }: Props) {
+export default function Sidebar({
+  isOpen,
+  onClose,
+  isMobile,
+  collapsed,
+  onToggle,
+}: SidebarProps) {
+  // On mobile: always expanded (w-64), positioned fixed with slide transform
+  // On desktop: collapsible (w-16 / w-56), normal flow
+  const asideClasses = isMobile
+    ? [
+        "fixed inset-y-0 left-0 z-50 w-64",
+        "bg-gray-900 border-r border-gray-800/40 flex flex-col",
+        "transition-transform duration-300 ease-in-out",
+        isOpen ? "translate-x-0" : "-translate-x-full",
+      ].join(" ")
+    : [
+        "shrink-0 bg-gray-900/80 border-r border-gray-800/40 flex flex-col backdrop-blur-sm transition-all duration-200",
+        collapsed ? "w-16" : "w-56",
+      ].join(" ");
+
+  const showLabels = isMobile ? true : !collapsed;
+
   return (
-    <aside
-      className={`shrink-0 bg-gray-900/80 border-r border-gray-800/40 flex flex-col backdrop-blur-sm transition-all duration-200 ${
-        collapsed ? "w-16" : "w-56"
-      }`}
-    >
+    <aside className={asideClasses}>
       {/* Header: logo + toggle */}
-      <div className={`flex items-center ${collapsed ? "justify-center px-2 pt-4 pb-3" : "px-4 pt-4 pb-3"}`}>
-        {!collapsed && (
+      <div
+        className={`flex items-center ${
+          !isMobile && collapsed
+            ? "justify-center px-2 pt-4 pb-3"
+            : "px-4 pt-4 pb-3"
+        }`}
+      >
+        {showLabels && (
           <div className="flex items-center gap-2.5 flex-1 min-w-0">
             <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
               <svg
@@ -195,33 +222,65 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
             </span>
           </div>
         )}
-        <button
-          onClick={onToggle}
-          className={`p-1.5 rounded-md text-gray-500 hover:text-gray-300 hover:bg-gray-800/50 transition-colors ${
-            collapsed ? "" : "ml-1 shrink-0"
-          }`}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          <svg
-            className={`w-4 h-4 transition-transform duration-200 ${collapsed ? "rotate-180" : ""}`}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
+
+        {/* Close button on mobile, collapse toggle on desktop */}
+        {isMobile ? (
+          <button
+            onClick={onClose}
+            className="ml-auto p-1.5 rounded-md text-gray-500 hover:text-gray-300 hover:bg-gray-800/50 transition-colors"
+            aria-label="Close sidebar"
           >
-            <path d="M11 17l-5-5 5-5" />
-            <path d="M18 17l-5-5 5-5" />
-          </svg>
-        </button>
+            <svg
+              className="w-5 h-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        ) : (
+          <button
+            onClick={onToggle}
+            className={`p-1.5 rounded-md text-gray-500 hover:text-gray-300 hover:bg-gray-800/50 transition-colors ${
+              collapsed ? "" : "ml-1 shrink-0"
+            }`}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <svg
+              className={`w-4 h-4 transition-transform duration-200 ${
+                collapsed ? "rotate-180" : ""
+              }`}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M11 17l-5-5 5-5" />
+              <path d="M18 17l-5-5 5-5" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Divider */}
-      <div className={`border-b border-gray-800/50 ${collapsed ? "mx-2" : "mx-4"}`} />
+      <div
+        className={`border-b border-gray-800/50 ${
+          !isMobile && collapsed ? "mx-2" : "mx-4"
+        }`}
+      />
 
       {/* Navigation */}
-      <nav className={`flex-1 pt-3 space-y-0.5 ${collapsed ? "px-2" : "px-3"}`}>
+      <nav
+        className={`flex-1 pt-3 space-y-0.5 ${
+          !isMobile && collapsed ? "px-2" : "px-3"
+        }`}
+      >
         {links.map((l) => {
           const IconComponent = NAV_ICONS[l.label];
           return (
@@ -229,16 +288,17 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
               key={l.to}
               to={l.to}
               end={l.to === "/"}
-              title={collapsed ? l.label : undefined}
+              title={!isMobile && collapsed ? l.label : undefined}
+              onClick={isMobile ? onClose : undefined}
               className={({ isActive }) =>
                 [
                   "group flex items-center rounded-lg text-[13px] font-medium transition-all duration-150",
-                  collapsed
+                  !isMobile && collapsed
                     ? "justify-center px-0 py-2.5"
                     : "gap-3 px-3 py-2",
                   isActive
-                    ? "bg-blue-500/15 text-blue-400"
-                    : "text-gray-500 hover:text-gray-200 hover:bg-gray-800/40",
+                    ? "bg-blue-500/15 text-blue-400 border-l-[3px] border-blue-500"
+                    : "text-gray-500 hover:text-gray-200 hover:bg-gray-800/40 border-l-[3px] border-transparent",
                 ].join(" ")
               }
             >
@@ -253,7 +313,7 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
                   >
                     {IconComponent && <IconComponent />}
                   </span>
-                  {!collapsed && <span>{l.label}</span>}
+                  {showLabels && <span>{l.label}</span>}
                 </>
               )}
             </NavLink>
@@ -262,7 +322,7 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
       </nav>
 
       {/* Footer */}
-      {!collapsed && (
+      {showLabels && (
         <div className="px-5 py-3 text-[10px] text-gray-700 text-center">
           v4 · Phase 2
         </div>

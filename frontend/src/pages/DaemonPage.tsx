@@ -6,6 +6,7 @@ import { formatDate } from "../lib/formatters";
 import LoadingSpinner from "../components/shared/LoadingSpinner";
 import ErrorAlert from "../components/shared/ErrorAlert";
 import EmptyState from "../components/shared/EmptyState";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 const JOB_META: Record<
   string,
@@ -57,6 +58,7 @@ function StatusLabel({ status }: { status: string }) {
 }
 
 export default function DaemonPage() {
+  usePageTitle("Daemon");
   const { data, loading, error, refetch } = useApi<DaemonStatus>(
     () => getDaemonStatus(),
   );
