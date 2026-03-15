@@ -5,6 +5,7 @@ import {
   removeFromWatchlist,
   analyzeWatchlistTicker,
   analyzeAllWatchlist,
+  updateWatchlistItem,
 } from "../api/endpoints";
 import type { WatchlistItem } from "../api/types";
 import SignalBadge from "../components/shared/SignalBadge";
@@ -30,6 +31,15 @@ export default function WatchlistPage() {
   const [adding, setAdding] = useState(false);
 
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
+
+  // Inline editing state
+  const [editingTicker, setEditingTicker] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{
+    notes: string;
+    target_buy_price: string;
+    alert_below_price: string;
+  }>({ notes: "", target_buy_price: "", alert_below_price: "" });
+  const [saving, setSaving] = useState(false);
 
   // Analyzing state
   const [analyzingTicker, setAnalyzingTicker] = useState<string | null>(null);
@@ -118,6 +128,38 @@ export default function WatchlistPage() {
     } finally {
       setAnalyzingAll(false);
     }
+  }
+
+  function startEdit(item: WatchlistItem) {
+    setEditingTicker(item.ticker);
+    setEditForm({
+      notes: item.notes || "",
+      target_buy_price: item.target_buy_price != null ? String(item.target_buy_price) : "",
+      alert_below_price: item.alert_below_price != null ? String(item.alert_below_price) : "",
+    });
+  }
+
+  async function handleSaveEdit() {
+    if (!editingTicker) return;
+    setSaving(true);
+    try {
+      await updateWatchlistItem(editingTicker, {
+        notes: editForm.notes || undefined,
+        target_buy_price: editForm.target_buy_price ? parseFloat(editForm.target_buy_price) : undefined,
+        alert_below_price: editForm.alert_below_price ? parseFloat(editForm.alert_below_price) : undefined,
+      });
+      toast.success("Updated", `${editingTicker} watchlist entry saved`);
+      setEditingTicker(null);
+      await fetchWatchlist();
+    } catch (err) {
+      toast.error("Update failed", err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleCancelEdit() {
+    setEditingTicker(null);
   }
 
   function relativeTime(dateStr: string): string {
@@ -211,6 +253,7 @@ export default function WatchlistPage() {
                 <th className="text-left px-4 py-3">Ticker</th>
                 <th className="text-left px-4 py-3">Type</th>
                 <th className="text-left px-4 py-3">Target Price</th>
+                <th className="text-left px-4 py-3">Alert Price</th>
                 <th className="text-left px-4 py-3">Notes</th>
                 <th className="text-center px-4 py-3">Signal</th>
                 <th className="text-center px-4 py-3">Confidence</th>
@@ -219,61 +262,135 @@ export default function WatchlistPage() {
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => (
-                <tr
-                  key={item.id}
-                  className="border-b border-gray-800/30 hover:bg-gray-800/20 transition-colors"
-                >
-                  <td className="px-4 py-3 font-mono font-bold text-white">
-                    {item.ticker}
-                  </td>
-                  <td className="px-4 py-3 text-gray-400">{item.asset_type}</td>
-                  <td className="px-4 py-3 text-gray-300">
-                    {item.target_buy_price != null
-                      ? `$${item.target_buy_price.toFixed(2)}`
-                      : "-"}
-                  </td>
-                  <td className="px-4 py-3 text-gray-400 max-w-[200px] truncate">
-                    {item.notes || "-"}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    {item.last_signal ? (
-                      <SignalBadge signal={item.last_signal} />
-                    ) : (
-                      <span className="text-gray-600">-</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-center text-gray-300">
-                    {item.last_confidence != null
-                      ? `${item.last_confidence.toFixed(1)}%`
-                      : "-"}
-                  </td>
-                  <td className="px-4 py-3 text-right text-gray-500 text-xs">
-                    {item.last_analysis_at
-                      ? relativeTime(item.last_analysis_at)
-                      : "Never"}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        loading={analyzingTicker === item.ticker}
-                        onClick={() => handleAnalyze(item.ticker)}
-                      >
-                        Analyze
-                      </Button>
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        onClick={() => setConfirmRemove(item.ticker)}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {items.map((item) => {
+                const isEditing = editingTicker === item.ticker;
+                return (
+                  <tr
+                    key={item.id}
+                    className="border-b border-gray-800/30 hover:bg-gray-800/20 transition-colors"
+                  >
+                    <td className="px-4 py-3 font-mono font-bold text-white">
+                      {item.ticker}
+                    </td>
+                    <td className="px-4 py-3 text-gray-400">{item.asset_type}</td>
+                    <td className="px-4 py-3 text-gray-300">
+                      {isEditing ? (
+                        <TextInput
+                          type="number"
+                          step="0.01"
+                          value={editForm.target_buy_price}
+                          onChange={(e) =>
+                            setEditForm((f) => ({ ...f, target_buy_price: e.target.value }))
+                          }
+                          placeholder="Target price"
+                          className="w-28"
+                        />
+                      ) : (
+                        item.target_buy_price != null
+                          ? `$${item.target_buy_price.toFixed(2)}`
+                          : "-"
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-gray-300">
+                      {isEditing ? (
+                        <TextInput
+                          type="number"
+                          step="0.01"
+                          value={editForm.alert_below_price}
+                          onChange={(e) =>
+                            setEditForm((f) => ({ ...f, alert_below_price: e.target.value }))
+                          }
+                          placeholder="Alert price"
+                          className="w-28"
+                        />
+                      ) : (
+                        item.alert_below_price != null
+                          ? `$${item.alert_below_price.toFixed(2)}`
+                          : "-"
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-gray-400 max-w-[200px]">
+                      {isEditing ? (
+                        <TextInput
+                          value={editForm.notes}
+                          onChange={(e) =>
+                            setEditForm((f) => ({ ...f, notes: e.target.value }))
+                          }
+                          placeholder="Notes"
+                          className="w-full"
+                        />
+                      ) : (
+                        <span className="truncate block">{item.notes || "-"}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {item.last_signal ? (
+                        <SignalBadge signal={item.last_signal} />
+                      ) : (
+                        <span className="text-gray-600">-</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-center text-gray-300">
+                      {item.last_confidence != null
+                        ? `${item.last_confidence.toFixed(1)}%`
+                        : "-"}
+                    </td>
+                    <td className="px-4 py-3 text-right text-gray-500 text-xs">
+                      {item.last_analysis_at
+                        ? relativeTime(item.last_analysis_at)
+                        : "Never"}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {isEditing ? (
+                          <>
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              loading={saving}
+                              onClick={handleSaveEdit}
+                            >
+                              Save
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={handleCancelEdit}
+                            >
+                              Cancel
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => startEdit(item)}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              loading={analyzingTicker === item.ticker}
+                              onClick={() => handleAnalyze(item.ticker)}
+                            >
+                              Analyze
+                            </Button>
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              onClick={() => setConfirmRemove(item.ticker)}
+                            >
+                              Remove
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

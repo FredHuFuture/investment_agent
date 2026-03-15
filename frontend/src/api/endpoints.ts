@@ -27,6 +27,8 @@ import type {
   PortfolioRisk,
   CorrelationData,
   BenchmarkComparison,
+  RegimeResult,
+  UpdateThesisBody,
 } from "./types";
 
 // Portfolio
@@ -59,6 +61,8 @@ export const closePosition = (
   ticker: string,
   body: { exit_price: number; exit_reason?: string; exit_date?: string },
 ) => apiPost<ClosePositionResult>(`/portfolio/positions/${ticker}/close`, body);
+export const updateThesis = (ticker: string, body: UpdateThesisBody) =>
+  apiPut<ThesisResponse>(`/portfolio/positions/${ticker}/thesis`, body);
 export const getPositionHistory = () =>
   apiGet<Position[]>("/portfolio/history");
 
@@ -232,6 +236,10 @@ export const getPortfolioCorrelations = (lookbackDays = 90) =>
   apiGet<CorrelationData>(`/analytics/correlations?lookback_days=${lookbackDays}`);
 export const getBenchmarkComparison = (days = 90, benchmark = "SPY") =>
   apiGet<BenchmarkComparison>(`/analytics/benchmark?days=${days}&benchmark=${benchmark}`);
+
+// Regime
+export const getRegime = () =>
+  apiGet<RegimeResult>("/regime/current");
 
 // Watchlist
 export const getWatchlist = () => apiGet<WatchlistItem[]>("/watchlist");

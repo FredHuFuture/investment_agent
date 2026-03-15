@@ -16,6 +16,7 @@ import {
   getValueHistory,
   getWatchlist,
   runMonitorCheck,
+  getRegime,
 } from "../api/endpoints";
 import type {
   Portfolio,
@@ -23,8 +24,10 @@ import type {
   Position,
   ValueHistoryPoint,
   WatchlistItem,
+  RegimeResult,
 } from "../api/types";
 import MetricCard from "../components/shared/MetricCard";
+import RegimeBadge from "../components/shared/RegimeBadge";
 import SignalBadge from "../components/shared/SignalBadge";
 import ErrorAlert from "../components/shared/ErrorAlert";
 import EmptyState from "../components/shared/EmptyState";
@@ -76,6 +79,10 @@ export default function DashboardPage() {
   const watchlistApi = useApi<WatchlistItem[]>(
     () => getWatchlist(),
     { cacheKey: "dashboard:watchlist", ttlMs: 60_000 },
+  );
+  const regimeApi = useApi<RegimeResult>(
+    () => getRegime(),
+    { cacheKey: "dashboard:regime", ttlMs: 60_000 },
   );
   const [healthLoading, setHealthLoading] = useState(false);
 
@@ -164,7 +171,12 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+          {regimeApi.data && !regimeApi.loading && !regimeApi.error && (
+            <RegimeBadge regime={regimeApi.data.regime} />
+          )}
+        </div>
         <div className="flex items-center gap-3">
           {lastUpdated && (
             <span className="text-xs text-gray-500">

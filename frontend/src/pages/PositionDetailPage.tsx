@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   LineChart,
@@ -35,6 +35,8 @@ import CatalystPanel from "../components/analysis/CatalystPanel";
 import { formatCurrency, formatDate } from "../lib/formatters";
 import { usePageTitle } from "../hooks/usePageTitle";
 import Breadcrumb from "../components/shared/Breadcrumb";
+import ThesisEditForm from "../components/portfolio/ThesisEditForm";
+import { Button } from "../components/ui/Button";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -160,6 +162,9 @@ export default function PositionDetailPage() {
     () => getAlerts({ ticker: ticker!, limit: 50 }),
     [ticker],
   );
+
+  // Thesis editing state
+  const [editing, setEditing] = useState(false);
 
   // Find the position from either open or closed
   const position = useMemo<Position | null>(() => {
@@ -308,239 +313,272 @@ export default function PositionDetailPage() {
 
       {/* -- Thesis vs Reality -- */}
       <Card>
-        <CardHeader title="Thesis vs Reality" />
+        <CardHeader
+          title="Thesis vs Reality"
+          action={
+            !editing && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setEditing(true)}
+              >
+                Edit Thesis
+              </Button>
+            )
+          }
+        />
         <CardBody>
-          {!thesis && thesisApi.loading && (
-            <div className="space-y-3">
-              <Skeleton variant="text" lines={3} />
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-3">
-                {Array.from({ length: 4 }, (_, i) => (
-                  <SkeletonCard key={i} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {thesisApi.error && (
-            <p className="text-gray-500 text-sm">
-              Could not load thesis data.
-            </p>
-          )}
-
-          {thesis && (
-            <div className="space-y-4">
-              {/* Thesis text */}
-              {thesis.thesis_text && (
-                <div>
-                  <div className="text-[11px] font-medium uppercase tracking-wider text-gray-500 mb-1">
-                    Thesis
+          {editing ? (
+            <ThesisEditForm
+              ticker={ticker!}
+              initialValues={{
+                thesis_text: thesis?.thesis_text ?? null,
+                target_price: thesis?.target_price ?? null,
+                stop_loss: thesis?.stop_loss ?? null,
+                expected_hold_days: thesis?.expected_hold_days ?? null,
+                expected_return_pct: thesis?.expected_return_pct ?? null,
+              }}
+              onSaved={() => {
+                setEditing(false);
+                thesisApi.refetch();
+              }}
+              onCancel={() => setEditing(false)}
+            />
+          ) : (
+            <>
+              {!thesis && thesisApi.loading && (
+                <div className="space-y-3">
+                  <Skeleton variant="text" lines={3} />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-3">
+                    {Array.from({ length: 4 }, (_, i) => (
+                      <SkeletonCard key={i} />
+                    ))}
                   </div>
-                  <p className="text-sm text-gray-300 leading-relaxed">
-                    {thesis.thesis_text}
-                  </p>
                 </div>
               )}
 
-              {/* Comparison grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-3">
-                {/* Expected vs Actual return */}
-                <div className="rounded-lg bg-gray-800/40 border border-gray-700/30 p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] uppercase tracking-wider text-gray-500">
-                      Return
-                    </span>
-                    {driftIndicator(
-                      actualReturnPct,
-                      thesis.expected_return_pct != null
-                        ? thesis.expected_return_pct * 100
-                        : null,
-                      true,
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-500">Expected</span>
-                      <span className="text-gray-300 font-mono">
-                        {thesis.expected_return_pct != null
-                          ? `${(thesis.expected_return_pct * 100).toFixed(1)}%`
-                          : "--"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-500">Actual</span>
-                      <span className={`font-mono font-medium ${pnlColor(actualReturnPct)}`}>
-                        {actualReturnPct >= 0 ? "+" : ""}
-                        {actualReturnPct.toFixed(1)}%
-                      </span>
-                    </div>
-                  </div>
-                </div>
+              {thesisApi.error && (
+                <p className="text-gray-500 text-sm">
+                  Could not load thesis data.
+                </p>
+              )}
 
-                {/* Hold days */}
-                <div className="rounded-lg bg-gray-800/40 border border-gray-700/30 p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] uppercase tracking-wider text-gray-500">
-                      Hold Days
-                    </span>
-                    {driftIndicator(
-                      thesis.expected_hold_days != null
-                        ? thesis.expected_hold_days - thesis.hold_days_elapsed
-                        : null,
-                      thesis.expected_hold_days != null ? 0 : null,
-                      true,
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-500">Expected</span>
-                      <span className="text-gray-300 font-mono">
-                        {thesis.expected_hold_days != null
-                          ? `${thesis.expected_hold_days}d`
-                          : "--"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-500">Elapsed</span>
-                      <span
-                        className={`font-mono font-medium ${
-                          thesis.expected_hold_days != null &&
-                          thesis.hold_days_elapsed > thesis.expected_hold_days
-                            ? "text-red-400"
-                            : "text-gray-300"
-                        }`}
-                      >
-                        {thesis.hold_days_elapsed}d
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Target price */}
-                <div className="rounded-lg bg-gray-800/40 border border-gray-700/30 p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] uppercase tracking-wider text-gray-500">
-                      Target Price
-                    </span>
-                    {!isClosed &&
-                      driftIndicator(
-                        position.current_price,
-                        thesis.target_price,
-                        true,
-                      )}
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-500">Target</span>
-                      <span className="text-gray-300 font-mono">
-                        {thesis.target_price != null
-                          ? formatCurrency(thesis.target_price)
-                          : "--"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-500">
-                        {isClosed ? "Exit" : "Current"}
-                      </span>
-                      <span className="text-gray-300 font-mono">
-                        {isClosed
-                          ? position.exit_price != null
-                            ? formatCurrency(position.exit_price)
-                            : "--"
-                          : formatCurrency(position.current_price)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Stop loss */}
-                <div className="rounded-lg bg-gray-800/40 border border-gray-700/30 p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] uppercase tracking-wider text-gray-500">
-                      Stop Loss
-                    </span>
-                    {!isClosed &&
-                      thesis.stop_loss != null &&
-                      driftIndicator(
-                        position.current_price,
-                        thesis.stop_loss,
-                        true,
-                      )}
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-500">Stop</span>
-                      <span className="text-gray-300 font-mono">
-                        {thesis.stop_loss != null
-                          ? formatCurrency(thesis.stop_loss)
-                          : "--"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-500">
-                        {isClosed ? "Exit" : "Current"}
-                      </span>
-                      <span className="text-gray-300 font-mono">
-                        {isClosed
-                          ? position.exit_price != null
-                            ? formatCurrency(position.exit_price)
-                            : "--"
-                          : formatCurrency(position.current_price)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Drift summary */}
-              {(thesis.return_drift_pct != null || thesis.hold_drift_days != null) && (
-                <div className="flex flex-wrap gap-4 mt-2 pt-3 border-t border-gray-800/50">
-                  {thesis.return_drift_pct != null && (
-                    <div className="text-xs">
-                      <span className="text-gray-500">Return drift: </span>
-                      <span
-                        className={`font-mono font-medium ${
-                          Math.abs(thesis.return_drift_pct * 100) > 10
-                            ? "text-red-400"
-                            : "text-gray-300"
-                        }`}
-                      >
-                        {thesis.return_drift_pct >= 0 ? "+" : ""}
-                        {(thesis.return_drift_pct * 100).toFixed(1)}%
-                      </span>
+              {thesis && (
+                <div className="space-y-4">
+                  {/* Thesis text */}
+                  {thesis.thesis_text && (
+                    <div>
+                      <div className="text-[11px] font-medium uppercase tracking-wider text-gray-500 mb-1">
+                        Thesis
+                      </div>
+                      <p className="text-sm text-gray-300 leading-relaxed">
+                        {thesis.thesis_text}
+                      </p>
                     </div>
                   )}
-                  {thesis.hold_drift_days != null && (
-                    <div className="text-xs">
-                      <span className="text-gray-500">Hold drift: </span>
-                      <span
-                        className={`font-mono font-medium ${
-                          thesis.hold_drift_days > 0 ? "text-red-400" : "text-gray-300"
-                        }`}
-                      >
-                        {thesis.hold_drift_days > 0 ? "+" : ""}
-                        {thesis.hold_drift_days}d
-                      </span>
+
+                  {/* Comparison grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-3">
+                    {/* Expected vs Actual return */}
+                    <div className="rounded-lg bg-gray-800/40 border border-gray-700/30 p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] uppercase tracking-wider text-gray-500">
+                          Return
+                        </span>
+                        {driftIndicator(
+                          actualReturnPct,
+                          thesis.expected_return_pct != null
+                            ? thesis.expected_return_pct * 100
+                            : null,
+                          true,
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-500">Expected</span>
+                          <span className="text-gray-300 font-mono">
+                            {thesis.expected_return_pct != null
+                              ? `${(thesis.expected_return_pct * 100).toFixed(1)}%`
+                              : "--"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-500">Actual</span>
+                          <span className={`font-mono font-medium ${pnlColor(actualReturnPct)}`}>
+                            {actualReturnPct >= 0 ? "+" : ""}
+                            {actualReturnPct.toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Hold days */}
+                    <div className="rounded-lg bg-gray-800/40 border border-gray-700/30 p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] uppercase tracking-wider text-gray-500">
+                          Hold Days
+                        </span>
+                        {driftIndicator(
+                          thesis.expected_hold_days != null
+                            ? thesis.expected_hold_days - thesis.hold_days_elapsed
+                            : null,
+                          thesis.expected_hold_days != null ? 0 : null,
+                          true,
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-500">Expected</span>
+                          <span className="text-gray-300 font-mono">
+                            {thesis.expected_hold_days != null
+                              ? `${thesis.expected_hold_days}d`
+                              : "--"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-500">Elapsed</span>
+                          <span
+                            className={`font-mono font-medium ${
+                              thesis.expected_hold_days != null &&
+                              thesis.hold_days_elapsed > thesis.expected_hold_days
+                                ? "text-red-400"
+                                : "text-gray-300"
+                            }`}
+                          >
+                            {thesis.hold_days_elapsed}d
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Target price */}
+                    <div className="rounded-lg bg-gray-800/40 border border-gray-700/30 p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] uppercase tracking-wider text-gray-500">
+                          Target Price
+                        </span>
+                        {!isClosed &&
+                          driftIndicator(
+                            position.current_price,
+                            thesis.target_price,
+                            true,
+                          )}
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-500">Target</span>
+                          <span className="text-gray-300 font-mono">
+                            {thesis.target_price != null
+                              ? formatCurrency(thesis.target_price)
+                              : "--"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-500">
+                            {isClosed ? "Exit" : "Current"}
+                          </span>
+                          <span className="text-gray-300 font-mono">
+                            {isClosed
+                              ? position.exit_price != null
+                                ? formatCurrency(position.exit_price)
+                                : "--"
+                              : formatCurrency(position.current_price)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Stop loss */}
+                    <div className="rounded-lg bg-gray-800/40 border border-gray-700/30 p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] uppercase tracking-wider text-gray-500">
+                          Stop Loss
+                        </span>
+                        {!isClosed &&
+                          thesis.stop_loss != null &&
+                          driftIndicator(
+                            position.current_price,
+                            thesis.stop_loss,
+                            true,
+                          )}
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-500">Stop</span>
+                          <span className="text-gray-300 font-mono">
+                            {thesis.stop_loss != null
+                              ? formatCurrency(thesis.stop_loss)
+                              : "--"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-500">
+                            {isClosed ? "Exit" : "Current"}
+                          </span>
+                          <span className="text-gray-300 font-mono">
+                            {isClosed
+                              ? position.exit_price != null
+                                ? formatCurrency(position.exit_price)
+                                : "--"
+                              : formatCurrency(position.current_price)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Drift summary */}
+                  {(thesis.return_drift_pct != null || thesis.hold_drift_days != null) && (
+                    <div className="flex flex-wrap gap-4 mt-2 pt-3 border-t border-gray-800/50">
+                      {thesis.return_drift_pct != null && (
+                        <div className="text-xs">
+                          <span className="text-gray-500">Return drift: </span>
+                          <span
+                            className={`font-mono font-medium ${
+                              Math.abs(thesis.return_drift_pct * 100) > 10
+                                ? "text-red-400"
+                                : "text-gray-300"
+                            }`}
+                          >
+                            {thesis.return_drift_pct >= 0 ? "+" : ""}
+                            {(thesis.return_drift_pct * 100).toFixed(1)}%
+                          </span>
+                        </div>
+                      )}
+                      {thesis.hold_drift_days != null && (
+                        <div className="text-xs">
+                          <span className="text-gray-500">Hold drift: </span>
+                          <span
+                            className={`font-mono font-medium ${
+                              thesis.hold_drift_days > 0 ? "text-red-400" : "text-gray-300"
+                            }`}
+                          >
+                            {thesis.hold_drift_days > 0 ? "+" : ""}
+                            {thesis.hold_drift_days}d
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
+
+                  {!thesis.thesis_text &&
+                    thesis.expected_return_pct == null &&
+                    thesis.expected_hold_days == null &&
+                    thesis.target_price == null &&
+                    thesis.stop_loss == null && (
+                      <p className="text-gray-500 text-sm">
+                        No thesis recorded for this position.
+                      </p>
+                    )}
                 </div>
               )}
 
-              {!thesis.thesis_text &&
-                thesis.expected_return_pct == null &&
-                thesis.expected_hold_days == null &&
-                thesis.target_price == null &&
-                thesis.stop_loss == null && (
-                  <p className="text-gray-500 text-sm">
-                    No thesis recorded for this position.
-                  </p>
-                )}
-            </div>
-          )}
-
-          {!thesis && !thesisApi.loading && !thesisApi.error && (
-            <p className="text-gray-500 text-sm">
-              No thesis recorded for this position.
-            </p>
+              {!thesis && !thesisApi.loading && !thesisApi.error && (
+                <p className="text-gray-500 text-sm">
+                  No thesis recorded for this position.
+                </p>
+              )}
+            </>
           )}
         </CardBody>
       </Card>

@@ -371,6 +371,32 @@ export interface WatchlistItem {
 }
 
 // ---------------------------------------------------------------------------
+// Regime Detection
+// ---------------------------------------------------------------------------
+export interface RegimeResult {
+  regime: string;
+  confidence: number;
+  indicators: Record<string, unknown>;
+  vix_current?: number;
+  vix_sma_20?: number;
+  yield_curve_spread?: number;
+  fed_funds_rate?: number;
+  fed_funds_trend?: string;
+  m2_yoy_growth?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Thesis Update (request body)
+// ---------------------------------------------------------------------------
+export interface UpdateThesisBody {
+  thesis_text?: string | null;
+  target_price?: number | null;
+  stop_loss?: number | null;
+  expected_hold_days?: number | null;
+  expected_return_pct?: number | null;
+}
+
+// ---------------------------------------------------------------------------
 // Risk Analytics
 // ---------------------------------------------------------------------------
 export interface PortfolioRisk {
