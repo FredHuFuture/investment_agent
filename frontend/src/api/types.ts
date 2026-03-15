@@ -551,3 +551,41 @@ export interface LessonTagStats {
   win_rate: number;
   avg_return_pct: number;
 }
+
+// ---------------------------------------------------------------------------
+// Sprint 32 types
+// ---------------------------------------------------------------------------
+export interface DaemonRunEntry {
+  id: number;
+  job_name: string;
+  status: string;
+  started_at: string;
+  duration_ms: number | null;
+  result_json: string | null;
+  error_message: string | null;
+  created_at: string;
+}
+
+export interface AlertStats {
+  total_count: number;
+  unacknowledged_count: number;
+  ack_rate_pct: number;
+  by_ticker: Array<{ ticker: string; count: number; severity_breakdown: Record<string, number> }>;
+  by_type: Record<string, number>;
+  by_severity: Record<string, number>;
+  avg_alerts_per_day: number;
+}
+
+export interface AnalysisHistoryEntry {
+  id: number;
+  ticker: string;
+  asset_type: string;
+  final_signal: string;
+  final_confidence: number;
+  regime: string | null;
+  raw_score: number;
+  consensus_score: number;
+  agent_signals: Array<{ agent_name: string; signal: string; confidence: number; reasoning?: string }>;
+  reasoning: string;
+  created_at: string;
+}

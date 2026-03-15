@@ -3,6 +3,7 @@ import { useApi } from "../hooks/useApi";
 import { getAlerts, batchAcknowledgeAlerts } from "../api/endpoints";
 import type { Alert } from "../api/types";
 import AlertTimeline from "../components/monitoring/AlertTimeline";
+import AlertAnalyticsPanel from "../components/monitoring/AlertAnalyticsPanel";
 import AlertSummaryChips from "../components/monitoring/AlertSummaryChips";
 import SeverityFilterBar from "../components/monitoring/SeverityFilterBar";
 import MonitorCheckButton from "../components/monitoring/MonitorCheckButton";
@@ -127,6 +128,9 @@ export default function MonitoringPage() {
 
       {/* Alert timeline chart */}
       <AlertTimeline />
+
+      {/* Alert analytics panel */}
+      <AlertAnalyticsPanel />
 
       {/* Summary chips */}
       {data && data.length > 0 && <AlertSummaryChips alerts={data} />}

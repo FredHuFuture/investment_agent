@@ -154,6 +154,18 @@ const NAV_ICONS: Record<string, () => JSX.Element> = {
       ]}
     />
   ),
+  // History — file-text / document list
+  History: () => (
+    <MultiIcon
+      paths={[
+        "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z",
+        "M14 2v6h6",
+        "M16 13H8",
+        "M16 17H8",
+        "M10 9H8",
+      ]}
+    />
+  ),
   // Settings — sliders / adjustments
   Settings: () => (
     <MultiIcon
@@ -175,6 +187,7 @@ const links = [
   { to: "/journal", label: "Journal" },
   { to: "/backtest", label: "Backtest" },
   { to: "/signals", label: "Signals" },
+  { to: "/analysis-history", label: "History" },
   { to: "/monitoring", label: "Monitoring" },
   { to: "/weights", label: "Weights" },
   { to: "/daemon", label: "Daemon" },
@@ -344,7 +357,7 @@ export default function Sidebar({
       {/* Footer */}
       {showLabels && (
         <div className="px-5 py-3 text-[10px] text-gray-700 text-center">
-          v5 · Sprint 31
+          v5 · Sprint 32
         </div>
       )}
     </aside>

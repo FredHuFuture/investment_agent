@@ -25,6 +25,7 @@ const MonitoringPage = lazy(() => import("./pages/MonitoringPage"));
 const WeightsPage = lazy(() => import("./pages/WeightsPage"));
 const DaemonPage = lazy(() => import("./pages/DaemonPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const AnalysisHistoryPage = lazy(() => import("./pages/AnalysisHistoryPage"));
 
 // ---------------------------------------------------------------------------
 // Lazy-load fallback — matches the skeleton loading state used on pages
@@ -69,6 +70,7 @@ function AppContent() {
           <Route path="/monitoring" element={<MonitoringPage />} />
           <Route path="/weights" element={<WeightsPage />} />
           <Route path="/daemon" element={<DaemonPage />} />
+          <Route path="/analysis-history" element={<AnalysisHistoryPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </Suspense>

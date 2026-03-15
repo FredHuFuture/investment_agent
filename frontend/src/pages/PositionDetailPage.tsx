@@ -39,6 +39,7 @@ import { usePageTitle } from "../hooks/usePageTitle";
 import Breadcrumb from "../components/shared/Breadcrumb";
 import ThesisEditForm from "../components/portfolio/ThesisEditForm";
 import { Button } from "../components/ui/Button";
+import PnlTimelineChart from "../components/position/PnlTimelineChart";
 
 function statusBadge(status: string) {
   const isOpen = status === "open";
@@ -155,13 +156,11 @@ export default function PositionDetailPage() {
     () => getAlerts({ ticker: ticker!, limit: 50 }),
     [ticker],
   );
-  // Fetch P&L history for this ticker (used by future timeline chart)
-  const _pnlHistoryApi = useApi<PositionPnlPoint[]>(
+  // Fetch P&L history for this ticker (used by P&L timeline chart)
+  const pnlHistoryApi = useApi<PositionPnlPoint[]>(
     () => getPositionPnlHistory(ticker!),
     [ticker],
   );
-  // Suppress unused-var lint — data is pre-fetched for upcoming P&L timeline section
-  void _pnlHistoryApi;
 
   // Thesis editing state
   const [editing, setEditing] = useState(false);
@@ -681,6 +680,11 @@ export default function PositionDetailPage() {
           )}
         </CardBody>
       </Card>
+
+      {/* -- P&L Timeline -- */}
+      {!isClosed && pnlHistoryApi.data && pnlHistoryApi.data.length > 0 && (
+        <PnlTimelineChart data={pnlHistoryApi.data} />
+      )}
 
       {/* -- Linked Signals + Alert History -- */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

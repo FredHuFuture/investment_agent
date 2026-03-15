@@ -26,14 +26,16 @@ vi.mock("../../api/endpoints", () => ({
   deleteAlert: vi.fn(),
   batchAcknowledgeAlerts: vi.fn(),
   getAlertTimeline: vi.fn(),
+  getAlertStats: vi.fn(),
 }));
 
-import { getAlerts, getAlertTimeline } from "../../api/endpoints";
+import { getAlerts, getAlertTimeline, getAlertStats } from "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import MonitoringPage from "../MonitoringPage";
 
 const mockGetAlerts = vi.mocked(getAlerts);
 const mockGetAlertTimeline = vi.mocked(getAlertTimeline);
+const mockGetAlertStats = vi.mocked(getAlertStats);
 
 function renderPage() {
   return render(
@@ -51,6 +53,19 @@ describe("MonitoringPage", () => {
     invalidateCache();
     // Default: timeline returns empty
     mockGetAlertTimeline.mockResolvedValue({ data: [], warnings: [] });
+    // Default: alert stats returns zeros
+    mockGetAlertStats.mockResolvedValue({
+      data: {
+        total_count: 0,
+        unacknowledged_count: 0,
+        ack_rate_pct: 100,
+        by_ticker: [],
+        by_type: {},
+        by_severity: {},
+        avg_alerts_per_day: 0,
+      },
+      warnings: [],
+    });
   });
 
   it("renders skeleton while loading", () => {

@@ -89,6 +89,9 @@ def create_app(db_path: str = str(DEFAULT_DB_PATH)) -> FastAPI:
     from api.routes.regime import router as regime_router
     from api.routes.weights import router as weights_router
     from api.routes.journal import router as journal_router
+    from api.routes.daemon_history import router as daemon_history_router
+    from api.routes.alert_analytics import router as alert_analytics_router
+    from api.routes.analysis_history import router as analysis_history_router
 
     app.include_router(analyze_router, prefix="/analyze", tags=["analysis"])
     app.include_router(analytics_router, prefix="/analytics", tags=["analytics"])
@@ -104,6 +107,9 @@ def create_app(db_path: str = str(DEFAULT_DB_PATH)) -> FastAPI:
     app.include_router(watchlist_router, prefix="/watchlist", tags=["watchlist"])
     app.include_router(regime_router, prefix="/regime", tags=["regime"])
     app.include_router(journal_router, prefix="/journal", tags=["journal"])
+    app.include_router(daemon_history_router, prefix="/daemon", tags=["daemon"])
+    app.include_router(alert_analytics_router, tags=["monitoring"])
+    app.include_router(analysis_history_router, prefix="/analysis", tags=["analysis"])
 
     # Risk router (Agent B — Sprint 29 Task 3)
     try:

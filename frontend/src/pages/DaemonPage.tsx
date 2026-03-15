@@ -15,11 +15,12 @@ interface DaemonJobEntry {
 import ErrorAlert from "../components/shared/ErrorAlert";
 import EmptyState from "../components/shared/EmptyState";
 import { Button } from "../components/ui/Button";
-import { Card } from "../components/ui/Card";
+import { Card, CardHeader, CardBody } from "../components/ui/Card";
 import { SkeletonCard } from "../components/ui/Skeleton";
 import { useToast } from "../contexts/ToastContext";
 import { usePageTitle } from "../hooks/usePageTitle";
 import DaemonJobResultPanel from "../components/monitoring/DaemonJobResultPanel";
+import DaemonRunHistory from "../components/daemon/DaemonRunHistory";
 
 type TriggerType = "daily" | "weekly" | "regime" | "watchlist" | null;
 
@@ -92,6 +93,7 @@ export default function DaemonPage() {
   );
   const [running, setRunning] = useState<string | null>(null);
   const [expandedJob, setExpandedJob] = useState<string | null>(null);
+  const [historyJob, setHistoryJob] = useState<string | null>(null);
 
   async function handleRunOnce(job: "daily" | "weekly" | "regime" | "watchlist") {
     setRunning(job);
@@ -199,6 +201,15 @@ export default function DaemonPage() {
                 </div>
               )}
 
+              {/* History toggle */}
+              <button
+                type="button"
+                className="mt-2 w-full text-xs text-gray-400 hover:text-gray-200 transition-colors text-center py-1"
+                onClick={() => setHistoryJob(historyJob === job.name ? null : job.name)}
+              >
+                {historyJob === job.name ? "Close History" : "View History"}
+              </button>
+
               {/* Details toggle */}
               {job.result_json && (
                 <button
@@ -224,6 +235,18 @@ export default function DaemonPage() {
             </Card>
           ))}
         </div>
+      )}
+
+      {historyJob && (
+        <Card>
+          <CardHeader
+            title={`Run History \u2014 ${JOB_META[historyJob]?.label ?? historyJob}`}
+            action={<Button variant="ghost" size="sm" onClick={() => setHistoryJob(null)}>Close</Button>}
+          />
+          <CardBody>
+            <DaemonRunHistory jobName={historyJob} />
+          </CardBody>
+        </Card>
       )}
     </div>
   );

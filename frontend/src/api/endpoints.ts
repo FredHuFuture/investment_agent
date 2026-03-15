@@ -43,6 +43,9 @@ import type {
   RegimeHistoryPoint,
   WatchlistAlertConfig,
   LessonTagStats,
+  DaemonRunEntry,
+  AlertStats,
+  AnalysisHistoryEntry,
 } from "./types";
 
 // Portfolio
@@ -352,3 +355,33 @@ export const getWatchlistAlertConfigs = () =>
 // Journal lesson analytics (Sprint 30)
 export const getLessonTagStats = () =>
   apiGet<LessonTagStats[]>("/journal/lesson-stats");
+
+// Daemon run history (Sprint 32)
+export const getDaemonHistory = (jobName?: string, limit = 20) => {
+  const qs = new URLSearchParams();
+  if (jobName) qs.set("job_name", jobName);
+  qs.set("limit", String(limit));
+  return apiGet<DaemonRunEntry[]>(`/daemon/history?${qs.toString()}`);
+};
+
+// Alert analytics (Sprint 32)
+export const getAlertStats = (days = 30) =>
+  apiGet<AlertStats>(`/alerts/stats?days=${days}`);
+
+// Analysis history (Sprint 32)
+export const getAnalysisHistory = (params?: {
+  ticker?: string;
+  signal?: string;
+  limit?: number;
+  offset?: number;
+}) => {
+  const qs = new URLSearchParams();
+  if (params?.ticker) qs.set("ticker", params.ticker);
+  if (params?.signal) qs.set("signal", params.signal);
+  if (params?.limit) qs.set("limit", String(params.limit));
+  if (params?.offset) qs.set("offset", String(params.offset));
+  const q = qs.toString();
+  return apiGet<AnalysisHistoryEntry[]>(`/analysis/history${q ? `?${q}` : ""}`);
+};
+export const getAnalyzedTickers = () =>
+  apiGet<string[]>("/analysis/history/tickers");
