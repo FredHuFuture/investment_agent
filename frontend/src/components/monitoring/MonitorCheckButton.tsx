@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { runMonitorCheck } from "../../api/endpoints";
+import { Button } from "../../components/ui/Button";
+import { useToast } from "../../contexts/ToastContext";
 
 interface Props {
   onComplete: () => void;
@@ -7,26 +9,31 @@ interface Props {
 
 export default function MonitorCheckButton({ onComplete }: Props) {
   const [running, setRunning] = useState(false);
+  const { toast } = useToast();
 
   async function handleClick() {
     setRunning(true);
     try {
       await runMonitorCheck();
+      toast.success("Health check complete");
       onComplete();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Monitor check failed");
+      toast.error(
+        "Monitor check failed",
+        err instanceof Error ? err.message : "Unknown error",
+      );
     } finally {
       setRunning(false);
     }
   }
 
   return (
-    <button
+    <Button
+      variant="primary"
+      loading={running}
       onClick={handleClick}
-      disabled={running}
-      className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors duration-150"
     >
-      {running ? "Running check..." : "Run Health Check"}
-    </button>
+      Run Health Check
+    </Button>
   );
 }

@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { TextInput, SelectInput } from "../ui/Input";
+import { Button } from "../ui/Button";
 
 interface Props {
   onAnalyze: (ticker: string, assetType: string, adaptiveWeights: boolean) => void;
@@ -36,31 +38,24 @@ export default function AnalyzeForm({
     onAnalyze(ticker.trim().toUpperCase(), assetType, adaptive);
   }
 
-  const inputCls =
-    "bg-gray-800/50 border border-gray-700/50 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/50";
-
   return (
     <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-4">
-      <div>
-        <label className="block text-xs text-gray-500 mb-1.5">Ticker</label>
-        <input
-          className={`${inputCls} w-32`}
-          value={ticker}
-          onChange={(e) => setTicker(e.target.value)}
-          placeholder="AAPL"
-        />
-      </div>
-      <div>
-        <label className="block text-xs text-gray-500 mb-1.5">Asset Type</label>
-        <select
-          className={inputCls}
-          value={assetType}
-          onChange={(e) => setAssetType(e.target.value)}
-        >
-          <option value="stock">Stock</option>
-          <option value="crypto">Crypto</option>
-        </select>
-      </div>
+      <TextInput
+        label="Ticker"
+        value={ticker}
+        onChange={(e) => setTicker(e.target.value)}
+        placeholder="AAPL"
+        className="w-32"
+      />
+      <SelectInput
+        label="Asset Type"
+        value={assetType}
+        onChange={(e) => setAssetType(e.target.value)}
+        options={[
+          { value: "stock", label: "Stock" },
+          { value: "crypto", label: "Crypto" },
+        ]}
+      />
       <label className="flex items-center gap-2 text-sm text-gray-400 pb-1">
         <input
           type="checkbox"
@@ -70,13 +65,9 @@ export default function AnalyzeForm({
         />
         Adaptive Weights
       </label>
-      <button
-        type="submit"
-        disabled={loading}
-        className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg px-5 py-2 text-sm font-medium transition-colors duration-150"
-      >
-        {loading ? "Analyzing..." : "Analyze"}
-      </button>
+      <Button type="submit" loading={loading}>
+        Analyze
+      </Button>
     </form>
   );
 }

@@ -3,9 +3,9 @@ import { getAlerts } from "../api/endpoints";
 import type { Alert } from "../api/types";
 import AlertsList from "../components/monitoring/AlertsList";
 import MonitorCheckButton from "../components/monitoring/MonitorCheckButton";
-import LoadingSpinner from "../components/shared/LoadingSpinner";
 import ErrorAlert from "../components/shared/ErrorAlert";
 import EmptyState from "../components/shared/EmptyState";
+import { SkeletonTable } from "../components/ui/Skeleton";
 import { usePageTitle } from "../hooks/usePageTitle";
 
 export default function MonitoringPage() {
@@ -15,7 +15,7 @@ export default function MonitoringPage() {
     { cacheKey: "monitoring:alerts", ttlMs: 15_000 },
   );
 
-  if (loading) return <LoadingSpinner />;
+  if (loading) return <SkeletonTable rows={5} columns={4} />;
   if (error) return <ErrorAlert message={error} />;
 
   return (

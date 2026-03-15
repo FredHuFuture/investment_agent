@@ -5,11 +5,14 @@ import type { AnalysisResult as AnalysisResultType } from "../api/types";
 import AnalyzeForm from "../components/analysis/AnalyzeForm";
 import AnalysisResultComponent from "../components/analysis/AnalysisResult";
 import WeightAdjuster from "../components/analysis/WeightAdjuster";
-import LoadingSpinner from "../components/shared/LoadingSpinner";
 import ErrorAlert from "../components/shared/ErrorAlert";
 import WarningsBanner from "../components/shared/WarningsBanner";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { getCached, setCache, LONG_TTL_MS } from "../lib/cache";
+import { Card } from "../components/ui/Card";
+import { Button } from "../components/ui/Button";
+import { SkeletonCard } from "../components/ui/Skeleton";
+import { useToast } from "../contexts/ToastContext";
 
 const LS_TICKER_KEY = "lastAnalyzedTicker";
 const LS_ASSET_KEY = "lastAnalyzedAssetType";
@@ -18,6 +21,7 @@ const ANALYSIS_CACHE_KEY = "analysis:lastResult";
 export default function AnalyzePage() {
   usePageTitle("Analyze");
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   // Restore last analysis from cache (instant show on return)
   const cachedAnalysis = getCached<AnalysisResultType>(ANALYSIS_CACHE_KEY, LONG_TTL_MS, true);
@@ -56,12 +60,14 @@ export default function AnalyzePage() {
         localStorage.setItem(LS_TICKER_KEY, ticker);
         localStorage.setItem(LS_ASSET_KEY, assetType);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Analysis failed");
+        const msg = err instanceof Error ? err.message : "Analysis failed";
+        setError(msg);
+        toast.error("Analysis failed", msg);
       } finally {
         setLoading(false);
       }
     },
-    [],
+    [toast],
   );
 
   // Resolve initial ticker and auto-analyze
@@ -134,68 +140,72 @@ export default function AnalyzePage() {
         setResult(res.data);
         setWarnings(res.warnings);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Analysis failed");
+        const msg = err instanceof Error ? err.message : "Analysis failed";
+        setError(msg);
+        toast.error("Analysis failed", msg);
       } finally {
         setLoading(false);
       }
     },
-    [lastTicker, lastAssetType],
+    [lastTicker, lastAssetType, toast],
   );
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-white">Analysis</h1>
 
-      <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/50 rounded-xl p-5">
+      <Card padding="md">
         <AnalyzeForm
           onAnalyze={handleAnalyze}
           loading={loading}
           initialTicker={initialTicker}
           initialAssetType={initialAssetType}
         />
-      </div>
+      </Card>
 
-      {loading && <LoadingSpinner />}
+      {loading && <SkeletonCard />}
       {error && <ErrorAlert message={error} />}
       <WarningsBanner warnings={warnings} />
 
       {result && (
         <>
-          <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/50 rounded-xl p-5">
+          <Card padding="md">
             <AnalysisResultComponent data={result} />
-          </div>
+          </Card>
 
           {/* Add to Portfolio action */}
-          <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/50 rounded-xl p-5 flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-gray-300">
-                Like the analysis?
-              </h3>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Add {result.ticker} to your portfolio to start tracking it.
-              </p>
+          <Card padding="md">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-300">
+                  Like the analysis?
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Add {result.ticker} to your portfolio to start tracking it.
+                </p>
+              </div>
+              <Button
+                onClick={() => {
+                  const currentPrice =
+                    typeof result.ticker_info?.currentPrice === "number"
+                      ? result.ticker_info.currentPrice
+                      : typeof result.ticker_info?.current_price === "number"
+                        ? result.ticker_info.current_price
+                        : 0;
+                  const params = new URLSearchParams({
+                    add: "1",
+                    ticker: result.ticker,
+                    asset_type: result.asset_type,
+                    avg_cost: String(currentPrice),
+                  });
+                  navigate(`/portfolio?${params.toString()}`);
+                }}
+                className="shrink-0"
+              >
+                Add to Portfolio
+              </Button>
             </div>
-            <button
-              onClick={() => {
-                const currentPrice =
-                  typeof result.ticker_info?.currentPrice === "number"
-                    ? result.ticker_info.currentPrice
-                    : typeof result.ticker_info?.current_price === "number"
-                      ? result.ticker_info.current_price
-                      : 0;
-                const params = new URLSearchParams({
-                  add: "1",
-                  ticker: result.ticker,
-                  asset_type: result.asset_type,
-                  avg_cost: String(currentPrice),
-                });
-                navigate(`/portfolio?${params.toString()}`);
-              }}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition-colors duration-150 shrink-0"
-            >
-              Add to Portfolio
-            </button>
-          </div>
+          </Card>
 
           {/* Weight adjuster */}
           <WeightAdjuster

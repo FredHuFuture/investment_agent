@@ -9,12 +9,17 @@ import {
 import type { WatchlistItem } from "../api/types";
 import SignalBadge from "../components/shared/SignalBadge";
 import { usePageTitle } from "../hooks/usePageTitle";
+import { Card } from "../components/ui/Card";
+import { TextInput, SelectInput } from "../components/ui/Input";
+import { Button } from "../components/ui/Button";
+import { SkeletonTable } from "../components/ui/Skeleton";
+import { useToast } from "../contexts/ToastContext";
 
 export default function WatchlistPage() {
   usePageTitle("Watchlist");
+  const { toast } = useToast();
   const [items, setItems] = useState<WatchlistItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
   // Add form state
   const [ticker, setTicker] = useState("");
@@ -35,13 +40,12 @@ export default function WatchlistPage() {
     try {
       const res = await getWatchlist();
       setItems(res.data);
-      setError("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load watchlist");
+      toast.error("Failed to load watchlist", err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     fetchWatchlist();
@@ -58,12 +62,13 @@ export default function WatchlistPage() {
         notes,
         target_buy_price: targetPrice ? parseFloat(targetPrice) : undefined,
       });
+      toast.success("Added to watchlist", ticker.trim().toUpperCase());
       setTicker("");
       setNotes("");
       setTargetPrice("");
       await fetchWatchlist();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add ticker");
+      toast.error("Failed to add", err instanceof Error ? err.message : "Unknown error");
     } finally {
       setAdding(false);
     }
@@ -72,9 +77,10 @@ export default function WatchlistPage() {
   async function handleRemove(t: string) {
     try {
       await removeFromWatchlist(t);
+      toast.success("Removed", t + " removed from watchlist");
       await fetchWatchlist();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to remove ticker");
+      toast.error("Failed to remove", err instanceof Error ? err.message : "Unknown error");
     }
   }
 
@@ -82,9 +88,10 @@ export default function WatchlistPage() {
     setAnalyzingTicker(t);
     try {
       await analyzeWatchlistTicker(t);
+      toast.success("Analysis complete", t);
       await fetchWatchlist();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Analysis failed");
+      toast.error("Analysis failed", err instanceof Error ? err.message : "Unknown error");
     } finally {
       setAnalyzingTicker(null);
     }
@@ -99,9 +106,10 @@ export default function WatchlistPage() {
         total: res.data.total,
         success_count: res.data.success_count,
       });
+      toast.success("Batch complete", `${res.data.success_count}/${res.data.total} succeeded`);
       await fetchWatchlist();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Batch analysis failed");
+      toast.error("Batch analysis failed", err instanceof Error ? err.message : "Unknown error");
     } finally {
       setAnalyzingAll(false);
     }
@@ -122,86 +130,58 @@ export default function WatchlistPage() {
       <h1 className="text-2xl font-bold text-white">Watchlist</h1>
 
       {/* Add Form */}
-      <form
-        onSubmit={handleAdd}
-        className="rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-5"
-      >
-        <h2 className="text-sm font-semibold text-gray-300 mb-3">
-          Add Ticker
-        </h2>
-        <div className="flex flex-wrap items-end gap-3">
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Ticker</label>
-            <input
-              type="text"
+      <Card padding="md">
+        <form onSubmit={handleAdd}>
+          <h2 className="text-sm font-semibold text-gray-300 mb-3">
+            Add Ticker
+          </h2>
+          <div className="flex flex-wrap items-end gap-3">
+            <TextInput
+              label="Ticker"
               value={ticker}
               onChange={(e) => setTicker(e.target.value.toUpperCase())}
               placeholder="AAPL"
-              className="px-3 py-1.5 bg-gray-950/60 border border-gray-800/40 rounded-lg text-xs text-gray-300 placeholder-gray-600 focus:outline-none focus:border-blue-500/50 w-28"
+              className="w-28"
             />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Type</label>
-            <select
+            <SelectInput
+              label="Type"
               value={assetType}
               onChange={(e) => setAssetType(e.target.value)}
-              className="px-3 py-1.5 bg-gray-950/60 border border-gray-800/40 rounded-lg text-xs text-gray-300 focus:outline-none focus:border-blue-500/50"
-            >
-              <option value="stock">Stock</option>
-              <option value="btc">BTC</option>
-              <option value="eth">ETH</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">
-              Target Price
-            </label>
-            <input
+              options={[
+                { value: "stock", label: "Stock" },
+                { value: "btc", label: "BTC" },
+                { value: "eth", label: "ETH" },
+              ]}
+            />
+            <TextInput
+              label="Target Price"
               type="number"
               step="0.01"
               value={targetPrice}
               onChange={(e) => setTargetPrice(e.target.value)}
               placeholder="Optional"
-              className="px-3 py-1.5 bg-gray-950/60 border border-gray-800/40 rounded-lg text-xs text-gray-300 placeholder-gray-600 focus:outline-none focus:border-blue-500/50 w-28"
+              className="w-28"
             />
-          </div>
-          <div className="flex-1 min-w-[120px]">
-            <label className="block text-xs text-gray-500 mb-1">Notes</label>
-            <input
-              type="text"
+            <TextInput
+              label="Notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Why you're watching..."
-              className="w-full px-3 py-1.5 bg-gray-950/60 border border-gray-800/40 rounded-lg text-xs text-gray-300 placeholder-gray-600 focus:outline-none focus:border-blue-500/50"
+              className="flex-1 min-w-[120px]"
             />
+            <Button type="submit" size="sm" loading={adding} disabled={!ticker.trim()}>
+              Add
+            </Button>
           </div>
-          <button
-            type="submit"
-            disabled={adding || !ticker.trim()}
-            className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-xs font-medium text-white transition-colors"
-          >
-            {adding ? "Adding..." : "Add"}
-          </button>
-        </div>
-      </form>
-
-      {/* Error */}
-      {error && (
-        <div className="rounded-lg bg-red-400/10 border border-red-400/30 px-4 py-3 text-sm text-red-400">
-          {error}
-        </div>
-      )}
+        </form>
+      </Card>
 
       {/* Analyze All + Batch Result */}
       {items.length > 0 && (
         <div className="flex items-center gap-4">
-          <button
-            onClick={handleAnalyzeAll}
-            disabled={analyzingAll}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-medium text-white transition-colors"
-          >
-            {analyzingAll ? "Analyzing All..." : "Analyze All"}
-          </button>
+          <Button variant="primary" loading={analyzingAll} onClick={handleAnalyzeAll}>
+            Analyze All
+          </Button>
           {batchResult && (
             <span className="text-sm text-gray-400">
               Completed: {batchResult.success_count}/{batchResult.total}{" "}
@@ -212,11 +192,9 @@ export default function WatchlistPage() {
       )}
 
       {/* Watchlist Table */}
-      <div className="rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 overflow-hidden">
+      <Card className="overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center text-gray-500 text-sm">
-            Loading watchlist...
-          </div>
+          <SkeletonTable rows={4} columns={6} />
         ) : items.length === 0 ? (
           <div className="p-8 text-center text-gray-500 text-sm">
             No tickers on your watchlist yet. Add one above.
@@ -272,21 +250,21 @@ export default function WatchlistPage() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        loading={analyzingTicker === item.ticker}
                         onClick={() => handleAnalyze(item.ticker)}
-                        disabled={analyzingTicker === item.ticker}
-                        className="px-2.5 py-1 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 rounded text-xs font-medium transition-colors disabled:opacity-50"
                       >
-                        {analyzingTicker === item.ticker
-                          ? "Analyzing..."
-                          : "Analyze"}
-                      </button>
-                      <button
+                        Analyze
+                      </Button>
+                      <Button
+                        variant="danger"
+                        size="sm"
                         onClick={() => handleRemove(item.ticker)}
-                        className="px-2.5 py-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded text-xs font-medium transition-colors"
                       >
                         Remove
-                      </button>
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -294,7 +272,7 @@ export default function WatchlistPage() {
             </tbody>
           </table>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

@@ -16,7 +16,9 @@ import SignalHistory from "../components/signals/SignalHistory";
 import AccuracyStatsComponent from "../components/signals/AccuracyStats";
 import CalibrationChart from "../components/signals/CalibrationChart";
 import AgentPerformance from "../components/signals/AgentPerformance";
-import LoadingSpinner from "../components/shared/LoadingSpinner";
+import { Card, CardBody } from "../components/ui/Card";
+import { Button } from "../components/ui/Button";
+import { SkeletonTable } from "../components/ui/Skeleton";
 import ErrorAlert from "../components/shared/ErrorAlert";
 import EmptyState from "../components/shared/EmptyState";
 import { usePageTitle } from "../hooks/usePageTitle";
@@ -40,27 +42,27 @@ export default function SignalsPage() {
   function renderTab() {
     switch (tab) {
       case "History":
-        if (history.loading) return <LoadingSpinner />;
+        if (history.loading) return <SkeletonTable rows={8} columns={6} />;
         if (history.error) return <ErrorAlert message={history.error} />;
         if (!history.data?.length)
           return <EmptyState message="No signal history." />;
         return <SignalHistory entries={history.data} />;
 
       case "Accuracy":
-        if (accuracy.loading) return <LoadingSpinner />;
+        if (accuracy.loading) return <SkeletonTable rows={4} columns={4} />;
         if (accuracy.error) return <ErrorAlert message={accuracy.error} />;
         if (!accuracy.data) return null;
         return <AccuracyStatsComponent data={accuracy.data} />;
 
       case "Calibration":
-        if (calibration.loading) return <LoadingSpinner />;
+        if (calibration.loading) return <SkeletonTable rows={5} columns={3} />;
         if (calibration.error) return <ErrorAlert message={calibration.error} />;
         if (!calibration.data?.length)
           return <EmptyState message="Not enough data for calibration." />;
         return <CalibrationChart data={calibration.data} />;
 
       case "Agent Perf":
-        if (agentPerf.loading) return <LoadingSpinner />;
+        if (agentPerf.loading) return <SkeletonTable rows={4} columns={5} />;
         if (agentPerf.error) return <ErrorAlert message={agentPerf.error} />;
         if (!agentPerf.data || Object.keys(agentPerf.data).length === 0)
           return <EmptyState message="No agent performance data." />;
@@ -80,20 +82,26 @@ export default function SignalsPage() {
       <h1 className="text-2xl font-bold text-white">Signals</h1>
       <div className="flex gap-1 border-b border-gray-800/50">
         {tabs.map((t) => (
-          <button
+          <Button
             key={t}
+            variant={tab === t ? "primary" : "ghost"}
+            size="sm"
             onClick={() => setTab(t)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            className={`rounded-b-none border-b-2 ${
               tab === t
-                ? "border-blue-500 text-white"
-                : "border-transparent text-gray-500 hover:text-gray-300"
+                ? "border-blue-500"
+                : "border-transparent"
             }`}
           >
             {t}
-          </button>
+          </Button>
         ))}
       </div>
-      {renderTab()}
+      <Card padding="md">
+        <CardBody className="p-0">
+          {renderTab()}
+        </CardBody>
+      </Card>
     </div>
   );
 }

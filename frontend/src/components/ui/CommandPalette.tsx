@@ -93,6 +93,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
       { id: "p-analyze",     label: "Analyze",     description: "Run stock analysis",         category: "page", action: () => { navigate("/analyze"); close(); } },
       { id: "p-portfolio",   label: "Portfolio",   description: "Current positions",          category: "page", action: () => { navigate("/portfolio"); close(); } },
       { id: "p-performance", label: "Performance", description: "Returns & PnL tracking",     category: "page", action: () => { navigate("/performance"); close(); } },
+      { id: "p-journal",    label: "Trade Journal", description: "Review closed trades",      category: "page", action: () => { navigate("/journal"); close(); } },
       { id: "p-watchlist",   label: "Watchlist",   description: "Tracked tickers",            category: "page", action: () => { navigate("/watchlist"); close(); } },
       { id: "p-backtest",    label: "Backtest",    description: "Historical strategy testing", category: "page", action: () => { navigate("/backtest"); close(); } },
       { id: "p-signals",     label: "Signals",     description: "Buy/sell signal history",    category: "page", action: () => { navigate("/signals"); close(); } },

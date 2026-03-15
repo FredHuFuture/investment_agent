@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { Position } from "../../api/types";
 import { formatCurrency } from "../../lib/formatters";
+import { TextInput, SelectInput } from "../../components/ui/Input";
+import { Button } from "../../components/ui/Button";
 
 interface Props {
   position: Position;
@@ -75,45 +77,33 @@ export default function ClosePositionModal({
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">
-              Exit Price
-            </label>
-            <input
-              type="number"
-              step="any"
-              value={exitPrice}
-              onChange={(e) => setExitPrice(e.target.value)}
-              className="w-full rounded-md bg-gray-800 border border-gray-700 px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-              required
-              autoFocus
-            />
-          </div>
+          <TextInput
+            label="Exit Price"
+            type="number"
+            step="any"
+            value={exitPrice}
+            onChange={(e) => setExitPrice(e.target.value)}
+            required
+            autoFocus
+          />
 
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Reason</label>
-            <select
-              value={exitReason}
-              onChange={(e) => setExitReason(e.target.value)}
-              className="w-full rounded-md bg-gray-800 border border-gray-700 px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="manual">Manual</option>
-              <option value="target_hit">Target Hit</option>
-              <option value="stop_loss">Stop Loss</option>
-            </select>
-          </div>
+          <SelectInput
+            label="Reason"
+            options={[
+              { value: "manual", label: "Manual" },
+              { value: "target_hit", label: "Target Hit" },
+              { value: "stop_loss", label: "Stop Loss" },
+            ]}
+            value={exitReason}
+            onChange={(e) => setExitReason(e.target.value)}
+          />
 
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">
-              Exit Date
-            </label>
-            <input
-              type="date"
-              value={exitDate}
-              onChange={(e) => setExitDate(e.target.value)}
-              className="w-full rounded-md bg-gray-800 border border-gray-700 px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
+          <TextInput
+            label="Exit Date"
+            type="date"
+            value={exitDate}
+            onChange={(e) => setExitDate(e.target.value)}
+          />
 
           {/* P&L preview */}
           {price > 0 && (
@@ -132,21 +122,24 @@ export default function ClosePositionModal({
           )}
 
           <div className="flex gap-3 pt-2">
-            <button
+            <Button
+              variant="secondary"
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-md border border-gray-600 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 transition-colors"
               disabled={submitting}
+              className="flex-1"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="danger"
               type="submit"
-              disabled={submitting || price <= 0}
-              className="flex-1 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50 transition-colors"
+              loading={submitting}
+              disabled={price <= 0}
+              className="flex-1"
             >
-              {submitting ? "Closing..." : "Close Position"}
-            </button>
+              Close Position
+            </Button>
           </div>
         </form>
       </div>

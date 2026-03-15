@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Routes, Route } from "react-router-dom";
 import AppShell from "./components/layout/AppShell";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
+import { ToastContainer } from "./components/ui/Toast";
 import { ToastProvider } from "./contexts/ToastContext";
 import CommandPalette from "./components/ui/CommandPalette";
 import { useHotkeys } from "./hooks/useHotkeys";
@@ -17,6 +18,7 @@ import DaemonPage from "./pages/DaemonPage";
 import PerformancePage from "./pages/PerformancePage";
 import WatchlistPage from "./pages/WatchlistPage";
 import SettingsPage from "./pages/SettingsPage";
+import JournalPage from "./pages/JournalPage";
 
 function AppContent() {
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -35,6 +37,7 @@ function AppContent() {
         <Route path="/portfolio/:ticker" element={<PositionDetailPage />} />
         <Route path="/performance" element={<PerformancePage />} />
         <Route path="/watchlist" element={<WatchlistPage />} />
+        <Route path="/journal" element={<JournalPage />} />
         <Route path="/backtest" element={<BacktestPage />} />
         <Route path="/signals" element={<SignalsPage />} />
         <Route path="/monitoring" element={<MonitoringPage />} />
@@ -43,6 +46,7 @@ function AppContent() {
         <Route path="/settings" element={<SettingsPage />} />
       </Routes>
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      <ToastContainer />
     </AppShell>
   );
 }

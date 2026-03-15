@@ -5,7 +5,9 @@ import BacktestForm from "../components/backtest/BacktestForm";
 import BacktestResults from "../components/backtest/BacktestResults";
 import BatchForm from "../components/backtest/BatchForm";
 import BatchResultsComponent from "../components/backtest/BatchResults";
-import LoadingSpinner from "../components/shared/LoadingSpinner";
+import { Card } from "../components/ui/Card";
+import { SkeletonCard, SkeletonTable } from "../components/ui/Skeleton";
+import { Button } from "../components/ui/Button";
 import ErrorAlert from "../components/shared/ErrorAlert";
 import { usePageTitle } from "../hooks/usePageTitle";
 
@@ -63,39 +65,46 @@ export default function BacktestPage() {
 
       <div className="flex gap-1 border-b border-gray-800/50">
         {(["single", "batch"] as Mode[]).map((m) => (
-          <button
+          <Button
             key={m}
+            variant={mode === m ? "primary" : "ghost"}
+            size="sm"
             onClick={() => setMode(m)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors capitalize ${
+            className={`capitalize rounded-b-none border-b-2 ${
               mode === m
-                ? "border-blue-500 text-white"
-                : "border-transparent text-gray-500 hover:text-gray-300"
+                ? "border-blue-500"
+                : "border-transparent"
             }`}
           >
             {m}
-          </button>
+          </Button>
         ))}
       </div>
 
-      <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/50 rounded-xl p-5">
+      <Card padding="md">
         {mode === "single" ? (
           <BacktestForm onSubmit={handleSingle} loading={loading} />
         ) : (
           <BatchForm onSubmit={handleBatch} loading={loading} />
         )}
-      </div>
+      </Card>
 
-      {loading && <LoadingSpinner />}
-      {error && <ErrorAlert message={error} />}
-      {mode === "single" && singleResult && (
-        <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/50 rounded-xl p-5">
-          <BacktestResults data={singleResult} />
+      {loading && (
+        <div className="space-y-4">
+          <SkeletonCard />
+          <SkeletonTable rows={5} columns={6} />
         </div>
       )}
+      {error && <ErrorAlert message={error} />}
+      {mode === "single" && singleResult && (
+        <Card padding="md">
+          <BacktestResults data={singleResult} />
+        </Card>
+      )}
       {mode === "batch" && batchRows && batchRows.length > 0 && (
-        <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/50 rounded-xl p-5">
+        <Card padding="md">
           <BatchResultsComponent rows={batchRows} />
-        </div>
+        </Card>
       )}
     </div>
   );

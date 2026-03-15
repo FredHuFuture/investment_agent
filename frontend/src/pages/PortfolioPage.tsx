@@ -12,13 +12,16 @@ import ClosePositionModal from "../components/portfolio/ClosePositionModal";
 import ClosedPositionsTable from "../components/portfolio/ClosedPositionsTable";
 import DashboardAlertsList from "../components/monitoring/DashboardAlertsList";
 import WeeklySummaryCard from "../components/summary/WeeklySummaryCard";
-import LoadingSpinner from "../components/shared/LoadingSpinner";
 import ErrorAlert from "../components/shared/ErrorAlert";
 import EmptyState from "../components/shared/EmptyState";
 import WarningsBanner from "../components/shared/WarningsBanner";
 import { formatCurrency } from "../lib/formatters";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { invalidateCache } from "../lib/cache";
+import { Card } from "../components/ui/Card";
+import { Button } from "../components/ui/Button";
+import { SkeletonCard, SkeletonTable } from "../components/ui/Skeleton";
+import { useToast } from "../contexts/ToastContext";
 
 type BreakdownMode = "ticker" | "sector";
 
@@ -125,6 +128,7 @@ const severityDotMap: Record<string, string> = {
 
 export default function PortfolioPage() {
   usePageTitle("Portfolio");
+  const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const addFormRef = useRef<HTMLDivElement>(null);
   const { data, loading, error, warnings, refetch } = useApi<Portfolio>(
@@ -208,8 +212,9 @@ export default function PortfolioPage() {
       invalidateCache("portfolio");
       invalidateCache("perf");
       refetch();
+      toast.success("Position added", pos.ticker.toUpperCase() + " added to portfolio");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to add position");
+      toast.error("Failed to add position", err instanceof Error ? err.message : "Unknown error");
       throw err;
     } finally {
       setAdding(false);
@@ -217,15 +222,15 @@ export default function PortfolioPage() {
   }
 
   async function handleRemove(ticker: string) {
-    if (!confirm(`Remove ${ticker}?`)) return;
     try {
       await removePosition(ticker);
       invalidateCache("dashboard");
       invalidateCache("portfolio");
       invalidateCache("perf");
       refetch();
+      toast.success("Position removed", ticker + " removed");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to remove position");
+      toast.error("Failed to remove", err instanceof Error ? err.message : "Unknown error");
     }
   }
 
@@ -235,13 +240,19 @@ export default function PortfolioPage() {
     exit_date?: string;
   }) {
     if (!closingPosition) return;
-    await closePosition(closingPosition.ticker, data);
-    setClosingPosition(null);
-    invalidateCache("dashboard");
-    invalidateCache("portfolio");
-    invalidateCache("perf");
-    refetch();
-    historyApi.refetch();
+    try {
+      await closePosition(closingPosition.ticker, data);
+      toast.success("Position closed", closingPosition.ticker);
+      setClosingPosition(null);
+      invalidateCache("dashboard");
+      invalidateCache("portfolio");
+      invalidateCache("perf");
+      refetch();
+      historyApi.refetch();
+    } catch (err) {
+      toast.error("Failed to close position", err instanceof Error ? err.message : "Unknown error");
+      throw err;
+    }
   }
 
   // Realized P&L from closed positions
@@ -250,7 +261,20 @@ export default function PortfolioPage() {
     return historyApi.data.reduce((s, p) => s + (p.realized_pnl ?? 0), 0);
   }, [historyApi.data]);
 
-  if (loading) return <LoadingSpinner />;
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-white">Portfolio</h1>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+        <SkeletonTable rows={5} columns={6} />
+      </div>
+    );
+  }
   if (error) return <ErrorAlert message={error} />;
   if (!data) return null;
 
@@ -262,7 +286,7 @@ export default function PortfolioPage() {
       <h1 className="text-2xl font-bold text-white">Portfolio</h1>
       <WarningsBanner warnings={[...warnings, ...alertsApi.warnings]} />
 
-      {/* ── Stat cards row ── */}
+      {/* -- Stat cards row -- */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <MetricCard
           label="Portfolio Value"
@@ -288,7 +312,7 @@ export default function PortfolioPage() {
         />
       </div>
 
-      {/* ── Export actions ── */}
+      {/* -- Export actions -- */}
       <div className="flex gap-2">
         <a href="/api/export/portfolio/csv" download className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-xs font-medium text-gray-300 transition-colors">
           Export CSV
@@ -301,27 +325,31 @@ export default function PortfolioPage() {
         </a>
       </div>
 
-      {/* ── Allocation + Thesis Check ── */}
+      {/* -- Allocation + Thesis Check -- */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Allocation (3/5) */}
-        <div className="lg:col-span-3 rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-5">
+        <Card padding="md" className="lg:col-span-3">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-gray-300">
               {breakdownMode === "ticker" ? "Ticker Breakdown" : "Sector Breakdown"}
             </h2>
             <div className="flex rounded-md overflow-hidden border border-gray-700 text-xs">
-              <button
+              <Button
+                variant={breakdownMode === "ticker" ? "primary" : "ghost"}
+                size="sm"
                 onClick={() => setBreakdownMode("ticker")}
-                className={`px-2.5 py-1 transition-colors duration-150 ${breakdownMode === "ticker" ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:text-gray-200"}`}
+                className="rounded-none min-h-0 py-1 px-2.5 text-xs"
               >
                 Ticker
-              </button>
-              <button
+              </Button>
+              <Button
+                variant={breakdownMode === "sector" ? "primary" : "ghost"}
+                size="sm"
                 onClick={() => setBreakdownMode("sector")}
-                className={`px-2.5 py-1 transition-colors duration-150 ${breakdownMode === "sector" ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:text-gray-200"}`}
+                className="rounded-none min-h-0 py-1 px-2.5 text-xs"
               >
                 Sector
-              </button>
+              </Button>
             </div>
           </div>
           {(() => {
@@ -332,10 +360,10 @@ export default function PortfolioPage() {
               <EmptyState message="No allocation data." />
             );
           })()}
-        </div>
+        </Card>
 
         {/* Thesis Check (2/5) */}
-        <div className="lg:col-span-2 rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-5">
+        <Card padding="md" className="lg:col-span-2">
           <h2 className="text-sm font-semibold text-gray-300 mb-3">
             Thesis Check
           </h2>
@@ -361,31 +389,33 @@ export default function PortfolioPage() {
               ))}
             </ul>
           )}
-        </div>
+        </Card>
       </div>
 
-      {/* ── Positions (tabbed: Open / Closed) ── */}
+      {/* -- Positions (tabbed: Open / Closed) -- */}
       <div>
         <div className="flex items-center gap-1 mb-3">
-          <button
+          <Button
+            variant={posTab === "open" ? "primary" : "ghost"}
+            size="sm"
             onClick={() => setPosTab("open")}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${posTab === "open" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-200"}`}
           >
             Open ({data.positions.length})
-          </button>
-          <button
+          </Button>
+          <Button
+            variant={posTab === "closed" ? "primary" : "ghost"}
+            size="sm"
             onClick={() => setPosTab("closed")}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${posTab === "closed" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-200"}`}
           >
             Closed ({historyApi.data?.length ?? 0})
-          </button>
+          </Button>
         </div>
 
         {posTab === "open" ? (
           data.positions.length === 0 ? (
-            <div className="rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-5">
+            <Card padding="md">
               <EmptyState message="No positions yet. Add one below." />
-            </div>
+            </Card>
           ) : (
             <PositionsTable
               positions={data.positions}
@@ -396,9 +426,9 @@ export default function PortfolioPage() {
         ) : historyApi.data && historyApi.data.length > 0 ? (
           <ClosedPositionsTable positions={historyApi.data} />
         ) : (
-          <div className="rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-5">
+          <Card padding="md">
             <EmptyState message="No closed positions yet." />
-          </div>
+          </Card>
         )}
       </div>
 
@@ -411,19 +441,21 @@ export default function PortfolioPage() {
         />
       )}
 
-      {/* ── Add Position form ── */}
-      <div ref={addFormRef} className="rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-5">
-        <h2 className="text-sm font-semibold text-gray-300 mb-4">
-          Add Position
-        </h2>
-        <AddPositionForm onAdd={handleAdd} loading={adding} initialValues={addInitialValues} />
-      </div>
+      {/* -- Add Position form -- */}
+      <Card padding="md">
+        <div ref={addFormRef}>
+          <h2 className="text-sm font-semibold text-gray-300 mb-4">
+            Add Position
+          </h2>
+          <AddPositionForm onAdd={handleAdd} loading={adding} initialValues={addInitialValues} />
+        </div>
+      </Card>
 
-      {/* ── Weekly Summary + Recent Alerts ── */}
+      {/* -- Weekly Summary + Recent Alerts -- */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <WeeklySummaryCard />
 
-        <div className="rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-5">
+        <Card padding="md">
           <h2 className="text-sm font-semibold text-gray-300 mb-3">
             Recent Alerts
           </h2>
@@ -432,7 +464,7 @@ export default function PortfolioPage() {
           ) : (
             <EmptyState message="No recent alerts." />
           )}
-        </div>
+        </Card>
       </div>
     </div>
   );

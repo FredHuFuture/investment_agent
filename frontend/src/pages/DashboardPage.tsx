@@ -26,11 +26,14 @@ import type {
 } from "../api/types";
 import MetricCard from "../components/shared/MetricCard";
 import SignalBadge from "../components/shared/SignalBadge";
-import LoadingSpinner from "../components/shared/LoadingSpinner";
 import ErrorAlert from "../components/shared/ErrorAlert";
 import EmptyState from "../components/shared/EmptyState";
 import WarningsBanner from "../components/shared/WarningsBanner";
 import WeeklySummaryCard from "../components/summary/WeeklySummaryCard";
+import { Button } from "../components/ui/Button";
+import { Card } from "../components/ui/Card";
+import { SkeletonCard, SkeletonTable } from "../components/ui/Skeleton";
+import { useToast } from "../contexts/ToastContext";
 import { formatCurrency } from "../lib/formatters";
 import { usePageTitle } from "../hooks/usePageTitle";
 
@@ -45,6 +48,7 @@ const severityDotMap: Record<string, string> = {
 export default function DashboardPage() {
   usePageTitle("Dashboard");
   const navigate = useNavigate();
+  const { toast } = useToast();
   const { data, loading, error, warnings } = useApi<Portfolio>(
     () => getPortfolio(),
     { cacheKey: "dashboard:portfolio", ttlMs: 30_000 },
@@ -66,7 +70,6 @@ export default function DashboardPage() {
     { cacheKey: "dashboard:watchlist", ttlMs: 60_000 },
   );
   const [healthLoading, setHealthLoading] = useState(false);
-  const [healthMsg, setHealthMsg] = useState<string | null>(null);
 
   // Unrealized P&L
   const totalPnl = useMemo(() => {
@@ -98,20 +101,31 @@ export default function DashboardPage() {
 
   async function handleHealthCheck() {
     setHealthLoading(true);
-    setHealthMsg(null);
     try {
       await runMonitorCheck();
-      setHealthMsg("Health check complete.");
+      toast.success("Health check complete");
     } catch (err) {
-      setHealthMsg(
-        err instanceof Error ? err.message : "Health check failed",
+      toast.error(
+        "Health check failed",
+        err instanceof Error ? err.message : "Unknown error",
       );
     } finally {
       setHealthLoading(false);
     }
   }
 
-  if (loading) return <LoadingSpinner />;
+  if (loading)
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+        <SkeletonTable rows={5} columns={4} />
+      </div>
+    );
   if (error) return <ErrorAlert message={error} />;
   if (!data) return null;
 
@@ -150,7 +164,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Portfolio value sparkline ── */}
-      <div className="rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-4">
+      <Card padding="sm">
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
           Portfolio Value (30 Days)
         </h3>
@@ -211,12 +225,12 @@ export default function DashboardPage() {
             </AreaChart>
           </ResponsiveContainer>
         )}
-      </div>
+      </Card>
 
       {/* ── Middle row: Open positions + Recent alerts ── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Open positions mini-table (3/5) */}
-        <div className="lg:col-span-3 rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-5">
+        <Card padding="md" className="lg:col-span-3">
           <h2 className="text-sm font-semibold text-gray-300 mb-3">
             Open Positions
           </h2>
@@ -265,10 +279,10 @@ export default function DashboardPage() {
               </table>
             </div>
           )}
-        </div>
+        </Card>
 
         {/* Recent alerts (2/5) */}
-        <div className="lg:col-span-2 rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-5">
+        <Card padding="md" className="lg:col-span-2">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-gray-300">
               Recent Alerts
@@ -314,11 +328,11 @@ export default function DashboardPage() {
           ) : (
             <EmptyState message="No recent alerts." />
           )}
-        </div>
+        </Card>
       </div>
 
       {/* ── Watchlist highlights ── */}
-      <div className="rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-4">
+      <Card padding="sm">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
             Watchlist
@@ -383,40 +397,40 @@ export default function DashboardPage() {
             </table>
           </div>
         )}
-      </div>
+      </Card>
 
       {/* ── Bottom row: Quick actions + Weekly summary ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Quick actions */}
-        <div className="rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-5">
+        <Card padding="md">
           <h2 className="text-sm font-semibold text-gray-300 mb-4">
             Quick Actions
           </h2>
           <div className="flex flex-wrap gap-3">
-            <button
+            <Button
+              variant="primary"
+              size="sm"
               onClick={() => navigate("/analyze")}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition-colors duration-150"
             >
               Analyze Ticker
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={healthLoading}
               onClick={handleHealthCheck}
-              disabled={healthLoading}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors duration-150"
             >
-              {healthLoading ? "Running..." : "Run Health Check"}
-            </button>
-            <button
+              Run Health Check
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => navigate("/signals")}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium transition-colors duration-150"
             >
               View Signals
-            </button>
+            </Button>
           </div>
-          {healthMsg && (
-            <p className="mt-3 text-xs text-gray-400">{healthMsg}</p>
-          )}
-        </div>
+        </Card>
 
         {/* Weekly summary */}
         <WeeklySummaryCard />

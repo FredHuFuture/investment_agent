@@ -1,4 +1,6 @@
 import { useState, useCallback } from "react";
+import { Button } from "../ui/Button";
+import { Card } from "../ui/Card";
 
 const AGENT_COLORS: Record<string, string> = {
   TechnicalAgent: "#3B82F6",
@@ -64,7 +66,7 @@ export default function WeightAdjuster({ assetType, onApply, loading }: Props) {
   if (isCrypto) return null; // Crypto only has CryptoAgent at 100%
 
   return (
-    <div className="rounded-lg bg-gray-800/30 border border-gray-800/50 overflow-hidden">
+    <Card className="overflow-hidden">
       <button
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between px-4 py-2.5 text-xs text-gray-400 hover:text-gray-200 transition-colors"
@@ -120,22 +122,23 @@ export default function WeightAdjuster({ assetType, onApply, loading }: Props) {
           ))}
 
           <div className="flex items-center gap-2 pt-1">
-            <button
+            <Button
+              size="sm"
               onClick={() => onApply(weights)}
-              disabled={loading}
-              className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
+              loading={loading}
             >
-              {loading ? "Analyzing..." : "Re-analyze"}
-            </button>
-            <button
+              Re-analyze
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={resetWeights}
-              className="text-xs text-gray-500 hover:text-gray-300 transition-colors px-2 py-1.5"
             >
               Reset defaults
-            </button>
+            </Button>
           </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

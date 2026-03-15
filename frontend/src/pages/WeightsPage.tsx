@@ -1,7 +1,8 @@
 import { useApi } from "../hooks/useApi";
 import { getWeights } from "../api/endpoints";
 import type { WeightsData } from "../api/types";
-import LoadingSpinner from "../components/shared/LoadingSpinner";
+import { Card, CardBody } from "../components/ui/Card";
+import { SkeletonCard } from "../components/ui/Skeleton";
 import ErrorAlert from "../components/shared/ErrorAlert";
 import { usePageTitle } from "../hooks/usePageTitle";
 
@@ -173,7 +174,17 @@ export default function WeightsPage() {
   usePageTitle("Weights");
   const { data, loading, error } = useApi<WeightsData>(() => getWeights());
 
-  if (loading) return <LoadingSpinner />;
+  if (loading)
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-white">Model Weights</h1>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <SkeletonCard className="h-[280px]" />
+          <SkeletonCard className="h-[280px]" />
+        </div>
+      </div>
+    );
+
   if (error) return <ErrorAlert message={error} />;
   if (!data) return null;
 
@@ -247,66 +258,70 @@ export default function WeightsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Stock Weights */}
         {stockWeights && (
-          <div className="rounded-2xl bg-gray-900/60 backdrop-blur-sm border border-gray-800/50 p-6">
-            <div className="flex items-center gap-2 mb-5">
-              <div className="w-1 h-5 rounded-full bg-blue-500" />
-              <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
-                Stock Agents
-              </h2>
-              <span className="text-[10px] text-gray-600 ml-auto">
-                3 agents
-              </span>
-            </div>
+          <Card padding="lg">
+            <CardBody className="p-0">
+              <div className="flex items-center gap-2 mb-5">
+                <div className="w-1 h-5 rounded-full bg-blue-500" />
+                <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
+                  Stock Agents
+                </h2>
+                <span className="text-[10px] text-gray-600 ml-auto">
+                  3 agents
+                </span>
+              </div>
 
-            <div className="flex items-center gap-6">
-              <div className="shrink-0">
-                <DonutChart segments={stockSegments} size={160} stroke={20} />
+              <div className="flex items-center gap-6">
+                <div className="shrink-0">
+                  <DonutChart segments={stockSegments} size={160} stroke={20} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  {stockSegments.map((seg) => (
+                    <WeightRow
+                      key={seg.label}
+                      color={seg.color}
+                      label={agentShortName(seg.label)}
+                      pct={seg.value}
+                      description={AGENT_DESCRIPTIONS[seg.label]}
+                    />
+                  ))}
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                {stockSegments.map((seg) => (
-                  <WeightRow
-                    key={seg.label}
-                    color={seg.color}
-                    label={agentShortName(seg.label)}
-                    pct={seg.value}
-                    description={AGENT_DESCRIPTIONS[seg.label]}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
+            </CardBody>
+          </Card>
         )}
 
         {/* Crypto Factor Weights */}
         {cryptoSegments.length > 0 && (
-          <div className="rounded-2xl bg-gray-900/60 backdrop-blur-sm border border-gray-800/50 p-6">
-            <div className="flex items-center gap-2 mb-5">
-              <div className="w-1 h-5 rounded-full bg-violet-500" />
-              <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
-                Crypto Factors
-              </h2>
-              <span className="text-[10px] text-gray-600 ml-auto">
-                7-factor model &middot; BTC &amp; ETH
-              </span>
-            </div>
+          <Card padding="lg">
+            <CardBody className="p-0">
+              <div className="flex items-center gap-2 mb-5">
+                <div className="w-1 h-5 rounded-full bg-violet-500" />
+                <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
+                  Crypto Factors
+                </h2>
+                <span className="text-[10px] text-gray-600 ml-auto">
+                  7-factor model &middot; BTC &amp; ETH
+                </span>
+              </div>
 
-            <div className="flex items-center gap-6">
-              <div className="shrink-0">
-                <DonutChart segments={cryptoSegments} size={160} stroke={20} />
+              <div className="flex items-center gap-6">
+                <div className="shrink-0">
+                  <DonutChart segments={cryptoSegments} size={160} stroke={20} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  {cryptoSegments.map((seg) => (
+                    <WeightRow
+                      key={seg.label}
+                      color={seg.color}
+                      label={formatFactorName(seg.label)}
+                      pct={seg.value}
+                      description={FACTOR_DESCRIPTIONS[seg.label]}
+                    />
+                  ))}
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                {cryptoSegments.map((seg) => (
-                  <WeightRow
-                    key={seg.label}
-                    color={seg.color}
-                    label={formatFactorName(seg.label)}
-                    pct={seg.value}
-                    description={FACTOR_DESCRIPTIONS[seg.label]}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
+            </CardBody>
+          </Card>
         )}
       </div>
     </div>

@@ -1,51 +1,47 @@
 import { useState } from "react";
 import { testEmailNotification, testTelegramNotification } from "../api/endpoints";
 import { usePageTitle } from "../hooks/usePageTitle";
-
-type TestStatus = "idle" | "loading" | "success" | "error";
-
-interface TestResult {
-  status: TestStatus;
-  message: string;
-}
+import { Card } from "../components/ui/Card";
+import { Button } from "../components/ui/Button";
+import { TextInput } from "../components/ui/Input";
+import { useToast } from "../contexts/ToastContext";
 
 export default function SettingsPage() {
   usePageTitle("Settings");
-  const [emailTest, setEmailTest] = useState<TestResult>({ status: "idle", message: "" });
-  const [telegramTest, setTelegramTest] = useState<TestResult>({ status: "idle", message: "" });
+  const { toast } = useToast();
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [telegramLoading, setTelegramLoading] = useState(false);
   const [signalTicker, setSignalTicker] = useState("");
 
   async function handleTestEmail() {
-    setEmailTest({ status: "loading", message: "Sending test email..." });
+    setEmailLoading(true);
     try {
       const res = await testEmailNotification();
       if (res.data.sent) {
-        setEmailTest({ status: "success", message: "Test email sent successfully." });
+        toast.success("Test email sent");
       } else {
-        setEmailTest({ status: "error", message: res.data.message ?? "Failed to send test email." });
+        toast.error("Email test failed", res.data.message ?? "Failed to send test email.");
       }
     } catch (err) {
-      setEmailTest({
-        status: "error",
-        message: err instanceof Error ? err.message : "Failed to send test email.",
-      });
+      toast.error("Email test failed", err instanceof Error ? err.message : "Failed to send test email.");
+    } finally {
+      setEmailLoading(false);
     }
   }
 
   async function handleTestTelegram() {
-    setTelegramTest({ status: "loading", message: "Sending test message..." });
+    setTelegramLoading(true);
     try {
       const res = await testTelegramNotification();
       if (res.data.sent) {
-        setTelegramTest({ status: "success", message: "Test Telegram message sent successfully." });
+        toast.success("Test Telegram sent");
       } else {
-        setTelegramTest({ status: "error", message: res.data.message ?? "Failed to send test message." });
+        toast.error("Telegram test failed", res.data.message ?? "Failed to send test message.");
       }
     } catch (err) {
-      setTelegramTest({
-        status: "error",
-        message: err instanceof Error ? err.message : "Failed to send test message.",
-      });
+      toast.error("Telegram test failed", err instanceof Error ? err.message : "Failed to send test message.");
+    } finally {
+      setTelegramLoading(false);
     }
   }
 
@@ -57,27 +53,17 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-white">Settings</h1>
 
-      {/* ── Email Notifications ── */}
-      <div className="rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-5">
+      {/* -- Email Notifications -- */}
+      <Card padding="md">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold text-gray-300">Email Notifications</h2>
         </div>
 
         <div className="space-y-4">
           <div className="flex items-center gap-3">
-            <button
-              onClick={handleTestEmail}
-              disabled={emailTest.status === "loading"}
-              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-xs font-medium text-white transition-colors"
-            >
-              {emailTest.status === "loading" ? "Sending..." : "Send Test Email"}
-            </button>
-            {emailTest.status === "success" && (
-              <span className="text-xs text-emerald-400">{emailTest.message}</span>
-            )}
-            {emailTest.status === "error" && (
-              <span className="text-xs text-red-400">{emailTest.message}</span>
-            )}
+            <Button size="sm" loading={emailLoading} onClick={handleTestEmail}>
+              Send Test Email
+            </Button>
           </div>
 
           <div className="border-t border-gray-800/50 pt-4">
@@ -94,29 +80,19 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
-      </div>
+      </Card>
 
-      {/* ── Telegram Notifications ── */}
-      <div className="rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-5">
+      {/* -- Telegram Notifications -- */}
+      <Card padding="md">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold text-gray-300">Telegram Notifications</h2>
         </div>
 
         <div className="space-y-4">
           <div className="flex items-center gap-3">
-            <button
-              onClick={handleTestTelegram}
-              disabled={telegramTest.status === "loading"}
-              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-xs font-medium text-white transition-colors"
-            >
-              {telegramTest.status === "loading" ? "Sending..." : "Send Test Telegram"}
-            </button>
-            {telegramTest.status === "success" && (
-              <span className="text-xs text-emerald-400">{telegramTest.message}</span>
-            )}
-            {telegramTest.status === "error" && (
-              <span className="text-xs text-red-400">{telegramTest.message}</span>
-            )}
+            <Button size="sm" loading={telegramLoading} onClick={handleTestTelegram}>
+              Send Test Telegram
+            </Button>
           </div>
 
           <div className="border-t border-gray-800/50 pt-4">
@@ -133,10 +109,10 @@ export default function SettingsPage() {
             </p>
           </div>
         </div>
-      </div>
+      </Card>
 
-      {/* ── Export ── */}
-      <div className="rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-5">
+      {/* -- Export -- */}
+      <Card padding="md">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold text-gray-300">Export</h2>
         </div>
@@ -148,28 +124,28 @@ export default function SettingsPage() {
               <a
                 href="/api/export/portfolio/csv"
                 download
-                className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-xs font-medium text-gray-300 transition-colors"
+                className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs font-medium text-gray-300 transition-colors inline-block"
               >
                 Portfolio CSV
               </a>
               <a
                 href="/api/export/trades/csv"
                 download
-                className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-xs font-medium text-gray-300 transition-colors"
+                className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs font-medium text-gray-300 transition-colors inline-block"
               >
                 Trade Journal CSV
               </a>
               <a
                 href="/api/export/portfolio/report"
                 download
-                className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-xs font-medium text-gray-300 transition-colors"
+                className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs font-medium text-gray-300 transition-colors inline-block"
               >
                 Full Report
               </a>
               <a
                 href="/api/export/signals/csv"
                 download
-                className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-xs font-medium text-gray-300 transition-colors"
+                className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs font-medium text-gray-300 transition-colors inline-block"
               >
                 All Signals CSV
               </a>
@@ -179,24 +155,23 @@ export default function SettingsPage() {
           <div className="border-t border-gray-800/50 pt-4">
             <h3 className="text-xs font-medium text-gray-400 mb-3">Signal History Export</h3>
             <div className="flex items-center gap-2">
-              <input
-                type="text"
+              <TextInput
                 value={signalTicker}
                 onChange={(e) => setSignalTicker(e.target.value.toUpperCase())}
-                placeholder="Filter by ticker (optional)"
-                className="px-3 py-1.5 bg-gray-950/60 border border-gray-800/40 rounded-lg text-xs text-gray-300 placeholder-gray-600 focus:outline-none focus:border-blue-500/50 w-52"
+                placeholder="Filter by ticker"
+                className="w-52"
               />
               <a
                 href={signalExportUrl}
                 download
-                className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-xs font-medium text-gray-300 transition-colors"
+                className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs font-medium text-gray-300 transition-colors inline-block"
               >
                 Download Signals
               </a>
             </div>
           </div>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

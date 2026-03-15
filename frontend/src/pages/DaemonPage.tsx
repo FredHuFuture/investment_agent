@@ -3,9 +3,12 @@ import { useApi } from "../hooks/useApi";
 import { getDaemonStatus, daemonRunOnce } from "../api/endpoints";
 import type { DaemonStatus } from "../api/types";
 import { formatDate } from "../lib/formatters";
-import LoadingSpinner from "../components/shared/LoadingSpinner";
 import ErrorAlert from "../components/shared/ErrorAlert";
 import EmptyState from "../components/shared/EmptyState";
+import { Button } from "../components/ui/Button";
+import { Card } from "../components/ui/Card";
+import { SkeletonCard } from "../components/ui/Skeleton";
+import { useToast } from "../contexts/ToastContext";
 import { usePageTitle } from "../hooks/usePageTitle";
 
 const JOB_META: Record<
@@ -59,6 +62,7 @@ function StatusLabel({ status }: { status: string }) {
 
 export default function DaemonPage() {
   usePageTitle("Daemon");
+  const { toast } = useToast();
   const { data, loading, error, refetch } = useApi<DaemonStatus>(
     () => getDaemonStatus(),
   );
@@ -68,15 +72,28 @@ export default function DaemonPage() {
     setRunning(job);
     try {
       await daemonRunOnce(job);
+      toast.success("Job completed");
       refetch();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Run failed");
+      toast.error(
+        "Run failed",
+        err instanceof Error ? err.message : "Unknown error",
+      );
     } finally {
       setRunning(null);
     }
   }
 
-  if (loading) return <LoadingSpinner />;
+  if (loading)
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+      </div>
+    );
   if (error) return <ErrorAlert message={error} />;
 
   const jobs = data
@@ -106,10 +123,7 @@ export default function DaemonPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {jobs.map((job) => (
-            <div
-              key={job.name}
-              className="rounded-2xl bg-gray-900/60 backdrop-blur-sm border border-gray-800/50 p-5 flex flex-col"
-            >
+            <Card key={job.name} padding="md" className="flex flex-col">
               {/* Header */}
               <div className="flex items-center gap-2.5 mb-3">
                 <StatusDot status={job.status} />
@@ -136,26 +150,23 @@ export default function DaemonPage() {
 
               {/* Action button */}
               {job.meta.trigger && (
-                <button
-                  onClick={() => handleRunOnce(job.meta.trigger!)}
+                <Button
+                  variant={job.meta.trigger === "daily" ? "primary" : "secondary"}
+                  size="sm"
+                  loading={running === job.meta.trigger}
                   disabled={running !== null}
-                  className={`w-full text-center py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 ${
-                    job.meta.trigger === "daily"
-                      ? "bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 border border-blue-500/20"
-                      : "bg-gray-800/60 text-gray-300 hover:bg-gray-800 border border-gray-700/40"
-                  }`}
+                  onClick={() => handleRunOnce(job.meta.trigger!)}
+                  className="w-full"
                 >
-                  {running === job.meta.trigger
-                    ? "Running…"
-                    : `Run ${job.meta.label}`}
-                </button>
+                  {`Run ${job.meta.label}`}
+                </Button>
               )}
               {!job.meta.trigger && (
                 <div className="w-full text-center py-2 rounded-lg text-xs text-gray-600 bg-gray-800/30 border border-gray-800/30">
                   Requires LLM (Task 023)
                 </div>
               )}
-            </div>
+            </Card>
           ))}
         </div>
       )}

@@ -136,6 +136,14 @@ const NAV_ICONS: Record<string, () => JSX.Element> = {
       ]}
     />
   ),
+  // Journal — book / notebook
+  Journal: () => (
+    <MultiIcon
+      paths={[
+        "M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20",
+      ]}
+    />
+  ),
   // Settings — sliders / adjustments
   Settings: () => (
     <MultiIcon
@@ -153,6 +161,7 @@ const links = [
   { to: "/portfolio", label: "Portfolio" },
   { to: "/watchlist", label: "Watchlist" },
   { to: "/performance", label: "Performance" },
+  { to: "/journal", label: "Journal" },
   { to: "/backtest", label: "Backtest" },
   { to: "/signals", label: "Signals" },
   { to: "/monitoring", label: "Monitoring" },

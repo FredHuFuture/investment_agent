@@ -8,6 +8,7 @@ interface CardProps {
 
 interface CardHeaderProps {
   title: string;
+  subtitle?: string;
   action?: ReactNode;
   className?: string;
 }
@@ -31,7 +32,7 @@ export const Card = ({
 }: CardProps) => (
   <div
     className={`
-      bg-gray-900 border border-gray-800 rounded-xl
+      rounded-xl bg-gray-900/50 backdrop-blur-sm border border-gray-800/50
       ${paddingStyles[padding]}
       ${className}
     `}
@@ -40,11 +41,14 @@ export const Card = ({
   </div>
 );
 
-export const CardHeader = ({ title, action, className = "" }: CardHeaderProps) => (
+export const CardHeader = ({ title, subtitle, action, className = "" }: CardHeaderProps) => (
   <div
-    className={`px-5 py-4 border-b border-gray-800 flex items-center justify-between ${className}`}
+    className={`px-5 py-4 border-b border-gray-800/50 flex items-center justify-between ${className}`}
   >
-    <h3 className="text-lg font-semibold text-gray-100">{title}</h3>
+    <div>
+      <h3 className="text-sm font-semibold text-gray-300">{title}</h3>
+      {subtitle && <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>}
+    </div>
     {action && <div>{action}</div>}
   </div>
 );
