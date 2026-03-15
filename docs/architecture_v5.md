@@ -104,7 +104,7 @@ Tech stack:
 - **Scheduler**: APScheduler 3.x (cron-based async daemon)
 - **API**: FastAPI + uvicorn + Pydantic v2 (52 endpoints)
 - **Frontend**: React 18 + Vite + TypeScript + Tailwind CSS + Recharts
-- **Frontend perf**: In-memory SWR cache (stale-while-revalidate), TTL-based invalidation, route-based code splitting (React.lazy)
+- **Frontend perf**: In-memory SWR cache (stale-while-revalidate), TTL-based invalidation, route-based code splitting (React.lazy), auto-refresh with lastUpdated indicator
 - **Notifications**: SMTP email + Telegram Bot API (aiohttp)
 - **LLM**: Claude API via Anthropic SDK (SentimentAgent, SummaryAgent, optional)
 
@@ -1088,6 +1088,7 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 | Sprint 15 | UI primitives (design system: Button, Input, Card, Skeleton, Toast), SWR cache | +0 (infra) |
 | Sprint 16 | Design system 100% adoption, toast wiring, Trade Journal page, ToastContainer mount | +0 (UX) |
 | Sprint 17 | Risk Dashboard (Sharpe/Sortino/VaR/drawdown/correlations), code splitting, ConfirmModal | +0 (risk/perf) |
+| Sprint 18 | ErrorAlert retry pattern (8 pages), Journal DataTable, Signals filtering, auto-refresh | +0 (UX) |
 | **Total** | **53+ tasks** | **110+ source files, 9 CLIs, 52 API endpoints, 14 UI pages, 10 tables** | **416 passed, 1 skipped** |
 
 ### Planned
@@ -1102,7 +1103,8 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 | Sprint 14 | **Advanced Intelligence** -- Regime detection, L2 weight switching, batch analysis, dashboard | P2 (intelligence) | **COMPLETE** |
 | Sprint 16 | Design system adoption (100%), toast notifications, Trade Journal page | P0 (UX consistency) | COMPLETE |
 | Sprint 17 | Risk Dashboard, code splitting, confirmation modals, portfolio correlations API | P1 (risk + perf) | COMPLETE |
-| Sprint 18+ | OnChainAgent, ValidationAgent, desktop app (Tauri) | P3+ (deferred) | PLANNED |
+| Sprint 18 | ErrorAlert retry, Journal DataTable, Signals filtering, portfolio auto-refresh | P0 (UX resilience) | COMPLETE |
+| Sprint 19+ | OnChainAgent, ValidationAgent, desktop app (Tauri) | P3+ (deferred) | PLANNED |
 
 -----
 
