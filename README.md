@@ -6,7 +6,7 @@
 
 Tracks your thesis, monitors positions, tells you when reality diverges from your plan.
 
-[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue)](https://python.org) [![License MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE) [![Tests 794 passing](https://img.shields.io/badge/Tests-794_passing-brightgreen)](#) [![Pages 14](https://img.shields.io/badge/Pages-14-blue)](#) [![FastAPI](https://img.shields.io/badge/API-FastAPI-009688)](http://localhost:8000/docs)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue)](https://python.org) [![License MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE) [![Tests 832 passing](https://img.shields.io/badge/Tests-832_passing-brightgreen)](#) [![Pages 14](https://img.shields.io/badge/Pages-14-blue)](#) [![FastAPI](https://img.shields.io/badge/API-FastAPI-009688)](http://localhost:8000/docs)
 
 [Live Site](https://investment-agent.dev) · [Architecture](docs/architecture_v5.md) · [API Docs (local)](http://localhost:8000/docs)
 
@@ -105,7 +105,7 @@ Background daemon watches positions 24/7. Alerts on price targets, drawdowns, si
 </tr>
 </table>
 
-**Also includes:** Trade journal with thesis-vs-reality review · Risk dashboard (Sharpe, Sortino, VaR, drawdown, correlation matrix) · SPY benchmark comparison with alpha · Thesis drift tracking · AI weekly summaries (Claude) · Interactive Plotly charts · Signal accuracy calibration · Adaptive weight optimization · Sector rotation & correlation analysis · Regime detection (bull/bear/sideways/high-vol/risk-off) · Watchlist with signal filter, inline analysis & comparison table · Performance analytics (profit factor, expectancy, streaks, cumulative P&L chart) · Sector allocation bar + thesis drift panel · Position P&L performance bar + trade summary · Trade return distribution histogram + equity curve · Alert timeline chart with severity breakdown + batch acknowledge · Backtest run history with save/compare/delete (localStorage) · Signal accuracy trend + agent agreement matrix · Multi-portfolio support · Email & Telegram notifications · CSV/JSON export · Design system (Button, Input, Card, Skeleton, Toast, ConfirmModal) · ARIA accessibility (focus-visible, skip-to-content, keyboard navigation) · Command palette (Ctrl+K) · Route + component lazy loading (86% chunk reduction) · Auto-refresh (60s) · Inline thesis editing · Live regime badge · Settings hub (theme, notifications, cache) · Analyze comparison mode (2-5 tickers) · Dashboard top movers + signal summary · Portfolio search + sector drill-down · Journal annotations with lesson tags · Stress test scenarios (5 macro events) · Drawdown chart + rolling Sharpe + monthly heatmap · Data export (CSV/JSON for portfolio, trades, signals, alerts, risk) · Frontend test suite (329 tests, vitest + testing-library)
+**Also includes:** Trade journal with thesis-vs-reality review · Risk dashboard (Sharpe, Sortino, VaR, drawdown, correlation matrix) · SPY benchmark comparison with alpha · Thesis drift tracking · AI weekly summaries (Claude) · Interactive Plotly charts · Signal accuracy calibration · Adaptive weight optimization · Sector rotation & correlation analysis · Regime detection (bull/bear/sideways/high-vol/risk-off) · Watchlist with signal filter, inline analysis & comparison table · Performance analytics (profit factor, expectancy, streaks, cumulative P&L chart) · Sector allocation bar + thesis drift panel · Position P&L performance bar + trade summary · Trade return distribution histogram + equity curve · Alert timeline chart with severity breakdown + batch acknowledge · Backtest run history with save/compare/delete (localStorage) · Signal accuracy trend + agent agreement matrix · Multi-portfolio support · Email & Telegram notifications · CSV/JSON export · Design system (Button, Input, Card, Skeleton, Toast, ConfirmModal) · ARIA accessibility (focus-visible, skip-to-content, keyboard navigation) · Command palette (Ctrl+K) · Route + component lazy loading (86% chunk reduction) · Auto-refresh (60s) · Inline thesis editing · Live regime badge · Settings hub (theme, notifications, cache) · Analyze comparison mode (2-5 tickers) · Dashboard top movers + signal summary · Portfolio search + sector drill-down · Journal annotations with lesson tags · Stress test scenarios (5 macro events) · Drawdown chart + rolling Sharpe + monthly heatmap · Data export (CSV/JSON for portfolio, trades, signals, alerts, risk) · Regime history timeline · Multi-portfolio profile switcher · Per-ticker watchlist alert configs · Lesson tag analytics with win-rate charts · Frontend test suite (335 tests, vitest + testing-library)
 
 ## CLI Usage
 
@@ -226,14 +226,14 @@ investment_agent/
   watchlist/        # Ticker watchlist with batch analysis
   notifications/    # Email (SMTP) + Telegram dispatchers
   export/           # CSV/JSON portfolio report export
-  api/              # FastAPI REST backend (67 endpoints)
-  frontend/         # React 18 + TypeScript + Tailwind dashboard (14 pages, 30+ UI components)
+  api/              # FastAPI REST backend (71 endpoints)
+  frontend/         # React 18 + TypeScript + Tailwind dashboard (14 pages, 35+ UI components)
   daemon/           # APScheduler background monitoring + catalyst scanner
   data_providers/   # YFinance, FRED, CCXT, Google News
   charts/           # Plotly interactive chart generators
   cli/              # CLI entry points
-  db/               # SQLite with WAL mode (11 tables)
-  tests/            # 794+ tests (465 backend + 329 frontend)
+  db/               # SQLite with WAL mode (13 tables)
+  tests/            # 832+ tests (497 backend + 335 frontend)
 ```
 
 ## Tech Stack

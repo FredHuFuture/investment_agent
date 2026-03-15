@@ -422,6 +422,36 @@ CREATE TABLE portfolios (
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     is_default INTEGER NOT NULL DEFAULT 0
 );
+
+-- 11. Regime history snapshots (Sprint 30)
+CREATE TABLE regime_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    regime TEXT NOT NULL,
+    confidence REAL NOT NULL,
+    vix REAL,
+    yield_spread REAL,
+    detected_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- 12. Watchlist alert configs (Sprint 30)
+CREATE TABLE watchlist_alert_configs (
+    ticker TEXT PRIMARY KEY,
+    alert_on_signal_change INTEGER NOT NULL DEFAULT 1,
+    min_confidence REAL NOT NULL DEFAULT 60.0,
+    alert_on_price_below REAL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- 13. Trade annotations (Sprint 29, journal module)
+CREATE TABLE trade_annotations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    position_ticker TEXT NOT NULL,
+    annotation_text TEXT NOT NULL,
+    lesson_tag TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+);
 ```
 
 Database configuration:
@@ -1102,7 +1132,8 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 | Sprint 27 | Watchlist signal filter + inline analysis panel + comparison table, monitoring alert timeline + severity filter + summary chips + batch acknowledge + inline alert table, backtest localStorage history + save/compare/delete runs, signals accuracy trend chart + agent agreement matrix + signal timeline, 4 new backend routes + 2 new store methods + 2 new tracker methods | +2 FE |
 | Sprint 28 | Settings hub (ThemeToggle, NotificationPreferences, CacheSettings), Dashboard top movers + signal summary cards, Portfolio searchable/paginated table + sector drill-down modal, Analyze comparison mode (2-5 tickers side-by-side), 1 new backend route | +7 FE |
 | Sprint 29 | Trade journal annotations with lesson tags + lesson summary, stress test engine (5 macro scenarios) + StressTestPanel on RiskPage, drawdown chart + rolling Sharpe + monthly heatmap calendar on PerformancePage, ExportButton component + PortfolioExporter (6 export endpoints), 3 new analytics endpoints, 2 new route modules (journal, risk) | +15 FE |
-| **Total** | **61+ tasks** | **150+ source files, 9 CLIs, 67 API endpoints, 14 UI pages, 11 tables** | **794 passed (465 BE + 329 FE), 1 skipped** |
+| Sprint 30 | Multi-portfolio profile switcher + CRUD modal, regime history timeline on dashboard, per-ticker watchlist alert configs (bell icon + inline panel), journal lesson-tag analytics with win-rate bar chart + pattern alerts, 2 new engine modules (regime_history, journal_analytics), 2 new DB tables (regime_history, watchlist_alert_configs), 4 new API endpoints, 5 new frontend components | +38 (32 BE + 6 FE) |
+| **Total** | **65+ tasks** | **160+ source files, 9 CLIs, 71 API endpoints, 14 UI pages, 13 tables** | **832 passed (497 BE + 335 FE), 1 skipped** |
 
 ### Planned
 
@@ -1128,7 +1159,8 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 | Sprint 27 | Watchlist comparison + signal filter, monitoring timeline + batch ack, backtest history, signals accuracy trend + agent agreement | P1 (workflow UX) | COMPLETE |
 | Sprint 28 | Settings hub, dashboard cards, portfolio search + sector drill-down, analyze comparison mode | P1 (UX completeness) | COMPLETE |
 | Sprint 29 | Journal annotations + lesson tags, stress test scenarios, drawdown/sharpe/heatmap charts, data export (CSV/JSON) | P1 (analytics + export) | COMPLETE |
-| Sprint 30+ | OnChainAgent, ValidationAgent, desktop app (Tauri) | P3+ (deferred) | PLANNED |
+| Sprint 30 | Multi-portfolio profiles UI, regime history timeline, watchlist alert configs, journal lesson-tag analytics | P1 (workflow + analytics) | COMPLETE |
+| Sprint 31+ | OnChainAgent, ValidationAgent, desktop app (Tauri) | P3+ (deferred) | PLANNED |
 
 -----
 
