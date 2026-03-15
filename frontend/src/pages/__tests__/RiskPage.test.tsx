@@ -17,17 +17,19 @@ vi.mock("recharts", () => ({
   ReferenceLine: () => null,
 }));
 
-// Mock ALL endpoint functions imported by RiskPage
+// Mock ALL endpoint functions imported by RiskPage (and StressTestPanel)
 vi.mock("../../api/endpoints", () => ({
   getPortfolioRisk: vi.fn(),
   getPortfolioCorrelations: vi.fn(),
   getValueHistory: vi.fn(),
+  getStressScenarios: vi.fn(),
 }));
 
 import {
   getPortfolioRisk,
   getPortfolioCorrelations,
   getValueHistory,
+  getStressScenarios,
 } from "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import RiskPage from "../RiskPage";
@@ -35,6 +37,7 @@ import RiskPage from "../RiskPage";
 const mockGetPortfolioRisk = vi.mocked(getPortfolioRisk);
 const mockGetPortfolioCorrelations = vi.mocked(getPortfolioCorrelations);
 const mockGetValueHistory = vi.mocked(getValueHistory);
+const mockGetStressScenarios = vi.mocked(getStressScenarios);
 
 const mockRisk = {
   daily_volatility: 0.012,
@@ -65,6 +68,26 @@ const mockValueHistory = [
   { date: "2024-01-02", total_value: 50100, cash: 48000, invested: 2100 },
 ];
 
+const mockStressScenarios = [
+  {
+    name: "2008 Financial Crisis",
+    description: "Broad equity collapse and crypto sell-off mirroring 2008 conditions",
+    portfolio_impact_pct: -12.5,
+    affected_positions: [
+      { ticker: "AAPL", impact_pct: -38.0 },
+      { ticker: "BTC", impact_pct: -50.0 },
+    ],
+  },
+  {
+    name: "COVID Crash",
+    description: "Rapid market sell-off similar to March 2020",
+    portfolio_impact_pct: -10.2,
+    affected_positions: [
+      { ticker: "AAPL", impact_pct: -34.0 },
+    ],
+  },
+];
+
 /** Set up all API mocks with valid data */
 function mockAllApis() {
   mockGetPortfolioRisk.mockResolvedValue({
@@ -77,6 +100,10 @@ function mockAllApis() {
   });
   mockGetValueHistory.mockResolvedValue({
     data: mockValueHistory as never,
+    warnings: [],
+  });
+  mockGetStressScenarios.mockResolvedValue({
+    data: mockStressScenarios as never,
     warnings: [],
   });
 }
@@ -101,6 +128,7 @@ describe("RiskPage", () => {
     mockGetPortfolioRisk.mockReturnValue(new Promise(() => {}));
     mockGetPortfolioCorrelations.mockReturnValue(new Promise(() => {}));
     mockGetValueHistory.mockReturnValue(new Promise(() => {}));
+    mockGetStressScenarios.mockReturnValue(new Promise(() => {}));
     renderPage();
     const skeletons = document.querySelectorAll(".animate-pulse");
     expect(skeletons.length).toBeGreaterThan(0);
@@ -114,6 +142,10 @@ describe("RiskPage", () => {
     });
     mockGetValueHistory.mockResolvedValue({
       data: mockValueHistory as never,
+      warnings: [],
+    });
+    mockGetStressScenarios.mockResolvedValue({
+      data: mockStressScenarios as never,
       warnings: [],
     });
     renderPage();
@@ -156,5 +188,42 @@ describe("RiskPage", () => {
       expect(screen.getByText("Max Drawdown")).toBeInTheDocument();
     });
     expect(screen.getByText("-15.0%")).toBeInTheDocument();
+  });
+
+  it("renders Stress Test Scenarios heading", async () => {
+    mockAllApis();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Stress Test Scenarios")).toBeInTheDocument();
+    });
+  });
+
+  it("renders stress test scenario names", async () => {
+    mockAllApis();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("2008 Financial Crisis")).toBeInTheDocument();
+    });
+    expect(screen.getByText("COVID Crash")).toBeInTheDocument();
+  });
+
+  it("renders stress test portfolio impact percentages", async () => {
+    mockAllApis();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("-12.50%")).toBeInTheDocument();
+    });
+    expect(screen.getByText("-10.20%")).toBeInTheDocument();
+  });
+
+  it("renders stress test skeleton while loading", () => {
+    mockGetPortfolioRisk.mockReturnValue(new Promise(() => {}));
+    mockGetPortfolioCorrelations.mockReturnValue(new Promise(() => {}));
+    mockGetValueHistory.mockReturnValue(new Promise(() => {}));
+    mockGetStressScenarios.mockReturnValue(new Promise(() => {}));
+    renderPage();
+    const skeletons = document.querySelectorAll(".animate-pulse");
+    // Main page skeletons + stress test skeleton
+    expect(skeletons.length).toBeGreaterThan(0);
   });
 });

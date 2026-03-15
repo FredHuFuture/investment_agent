@@ -26,17 +26,23 @@ vi.mock("recharts", () => ({
 vi.mock("../../api/endpoints", () => ({
   getPositionHistory: vi.fn(),
   getPerformanceSummary: vi.fn(),
+  getTradeAnnotations: vi.fn(),
+  createTradeAnnotation: vi.fn(),
 }));
 
 import {
   getPositionHistory,
   getPerformanceSummary,
+  getTradeAnnotations,
+  createTradeAnnotation,
 } from "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import JournalPage from "../JournalPage";
 
 const mockGetPositionHistory = vi.mocked(getPositionHistory);
 const mockGetPerformanceSummary = vi.mocked(getPerformanceSummary);
+const mockGetTradeAnnotations = vi.mocked(getTradeAnnotations);
+const mockCreateTradeAnnotation = vi.mocked(createTradeAnnotation);
 
 const mockClosedPosition = {
   ticker: "AAPL",
@@ -95,6 +101,21 @@ describe("JournalPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     invalidateCache();
+    // Default: annotations endpoint returns empty for any ticker
+    mockGetTradeAnnotations.mockResolvedValue({
+      data: [] as never,
+      warnings: [],
+    });
+    mockCreateTradeAnnotation.mockResolvedValue({
+      data: {
+        id: 1,
+        position_ticker: "AAPL",
+        annotation_text: "test",
+        lesson_tag: null,
+        created_at: "2024-03-01 00:00:00",
+      } as never,
+      warnings: [],
+    });
   });
 
   it("renders skeleton while loading", () => {
@@ -179,5 +200,47 @@ describe("JournalPage", () => {
       expect(screen.getByText("Total Trades")).toBeInTheDocument();
     });
     expect(screen.getByText("Win Rate")).toBeInTheDocument();
+  });
+
+  it("renders lesson summary section when trades exist", async () => {
+    mockGetPositionHistory.mockResolvedValue({
+      data: [mockClosedPosition] as never,
+      warnings: [],
+    });
+    mockGetPerformanceSummary.mockResolvedValue({
+      data: mockPerformanceSummary as never,
+      warnings: [],
+    });
+    mockGetTradeAnnotations.mockResolvedValue({
+      data: [
+        {
+          id: 1,
+          position_ticker: "AAPL",
+          annotation_text: "Good entry timing",
+          lesson_tag: "entry_timing",
+          created_at: "2024-03-01 12:00:00",
+        },
+      ] as never,
+      warnings: [],
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Lesson Summary")).toBeInTheDocument();
+    });
+  });
+
+  it("fetches annotations for closed position tickers", async () => {
+    mockGetPositionHistory.mockResolvedValue({
+      data: [mockClosedPosition] as never,
+      warnings: [],
+    });
+    mockGetPerformanceSummary.mockResolvedValue({
+      data: mockPerformanceSummary as never,
+      warnings: [],
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(mockGetTradeAnnotations).toHaveBeenCalledWith("AAPL");
+    });
   });
 });

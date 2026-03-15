@@ -151,3 +151,34 @@ async def portfolio_correlations(
     result["tickers"] = tickers
 
     return {"data": result, "warnings": result.pop("warnings", [])}
+
+
+@router.get("/drawdown-series")
+async def drawdown_series(
+    days: int = Query(90, ge=1, le=365),
+    db_path: str = Depends(get_db_path),
+):
+    """Drawdown percentage series from portfolio value snapshots."""
+    analytics = PortfolioAnalytics(db_path)
+    data = await analytics.get_drawdown_series(days=days)
+    return {"data": data, "warnings": []}
+
+
+@router.get("/rolling-sharpe")
+async def rolling_sharpe(
+    days: int = Query(90, ge=1, le=365),
+    window: int = Query(30, ge=5, le=120),
+    db_path: str = Depends(get_db_path),
+):
+    """Rolling Sharpe ratio over a sliding window."""
+    analytics = PortfolioAnalytics(db_path)
+    data = await analytics.get_rolling_sharpe(days=days, window=window)
+    return {"data": data, "warnings": []}
+
+
+@router.get("/monthly-heatmap")
+async def monthly_heatmap(db_path: str = Depends(get_db_path)):
+    """Year/month return grid for heatmap display."""
+    analytics = PortfolioAnalytics(db_path)
+    data = await analytics.get_monthly_heatmap()
+    return {"data": data, "warnings": []}

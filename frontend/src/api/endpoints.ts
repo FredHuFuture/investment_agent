@@ -34,6 +34,11 @@ import type {
   AlertTimelinePoint,
   SignalAccuracyTrendPoint,
   AgentAgreementEntry,
+  DrawdownPoint,
+  RollingSharpePoint,
+  MonthlyHeatmapCell,
+  TradeAnnotation,
+  StressScenario,
 } from "./types";
 
 // Portfolio
@@ -295,3 +300,23 @@ export const analyzeAllWatchlist = () =>
 // Portfolio sector filter
 export const getPositionsBySector = (sector: string) =>
   apiGet<Position[]>(`/portfolio/sector/${encodeURIComponent(sector)}`);
+
+// Performance analytics (Sprint 29)
+export const getDrawdownSeries = (days = 90) =>
+  apiGet<DrawdownPoint[]>(`/analytics/drawdown-series?days=${days}`);
+export const getRollingSharpe = (days = 90, window = 30) =>
+  apiGet<RollingSharpePoint[]>(`/analytics/rolling-sharpe?days=${days}&window=${window}`);
+export const getMonthlyHeatmap = () =>
+  apiGet<MonthlyHeatmapCell[]>("/analytics/monthly-heatmap");
+
+// Journal annotations (Sprint 29)
+export const getTradeAnnotations = (ticker: string) =>
+  apiGet<TradeAnnotation[]>(`/journal/annotations/${encodeURIComponent(ticker)}`);
+export const createTradeAnnotation = (
+  ticker: string,
+  body: { annotation_text: string; lesson_tag?: string },
+) => apiPost<TradeAnnotation>(`/journal/annotations/${encodeURIComponent(ticker)}`, body);
+
+// Risk stress test (Sprint 29)
+export const getStressScenarios = () =>
+  apiGet<StressScenario[]>("/risk/stress-test");

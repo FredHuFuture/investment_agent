@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useApi } from "../hooks/useApi";
-import { getPositionHistory, getPerformanceSummary } from "../api/endpoints";
-import type { Position, PerformanceSummary } from "../api/types";
+import { getPositionHistory, getPerformanceSummary, getTradeAnnotations } from "../api/endpoints";
+import type { Position, PerformanceSummary, TradeAnnotation } from "../api/types";
 import { Card, CardHeader, CardBody } from "../components/ui/Card";
 import { SkeletonTable, SkeletonCard } from "../components/ui/Skeleton";
 import MetricCard from "../components/shared/MetricCard";
@@ -11,6 +11,8 @@ import WarningsBanner from "../components/shared/WarningsBanner";
 import { formatCurrency, formatDate, pnlColor } from "../lib/formatters";
 import { usePageTitle } from "../hooks/usePageTitle";
 import DataTable, { type Column } from "../components/shared/DataTable";
+import TradeAnnotationPanel from "../components/journal/TradeAnnotationPanel";
+import LessonSummary from "../components/journal/LessonSummary";
 import {
   BarChart,
   Bar,
@@ -217,6 +219,23 @@ export default function JournalPage() {
   );
 
   const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
+  const [allAnnotations, setAllAnnotations] = useState<TradeAnnotation[]>([]);
+
+  // Fetch annotations for all closed tickers (for LessonSummary)
+  useEffect(() => {
+    if (!historyApi.data || historyApi.data.length === 0) return;
+    const tickers = [...new Set(historyApi.data.map((p) => p.ticker))];
+    let cancelled = false;
+
+    Promise.all(tickers.map((t) => getTradeAnnotations(t).catch(() => ({ data: [] as TradeAnnotation[], warnings: [] as string[] }))))
+      .then((results) => {
+        if (cancelled) return;
+        const flat = results.flatMap((r) => r.data);
+        setAllAnnotations(flat);
+      });
+
+    return () => { cancelled = true; };
+  }, [historyApi.data]);
 
   // Sort closed positions by exit_date DESC
   const closedPositions = useMemo(() => {
@@ -475,6 +494,11 @@ export default function JournalPage() {
         </>
       )}
 
+      {/* Lesson Summary */}
+      {!loading && closedPositions.length > 0 && (
+        <LessonSummary annotations={allAnnotations} />
+      )}
+
       {/* Closed Positions Table */}
       {!loading && (
         <Card>
@@ -504,8 +528,9 @@ export default function JournalPage() {
                   }
                 />
                 {expandedTicker && closedPositions.find(p => p.ticker === expandedTicker) && (
-                  <div className="px-4 py-3 bg-gray-800/20 border-t border-gray-800/30">
+                  <div className="px-4 py-3 bg-gray-800/20 border-t border-gray-800/30 space-y-4">
                     <TradeDetail pos={closedPositions.find(p => p.ticker === expandedTicker)!} />
+                    <TradeAnnotationPanel ticker={expandedTicker} />
                   </div>
                 )}
               </>

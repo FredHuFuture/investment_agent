@@ -88,6 +88,7 @@ def create_app(db_path: str = str(DEFAULT_DB_PATH)) -> FastAPI:
     from api.routes.watchlist import router as watchlist_router
     from api.routes.regime import router as regime_router
     from api.routes.weights import router as weights_router
+    from api.routes.journal import router as journal_router
 
     app.include_router(analyze_router, prefix="/analyze", tags=["analysis"])
     app.include_router(analytics_router, prefix="/analytics", tags=["analytics"])
@@ -102,6 +103,14 @@ def create_app(db_path: str = str(DEFAULT_DB_PATH)) -> FastAPI:
     app.include_router(export_router, prefix="/api/export", tags=["export"])
     app.include_router(watchlist_router, prefix="/watchlist", tags=["watchlist"])
     app.include_router(regime_router, prefix="/regime", tags=["regime"])
+    app.include_router(journal_router, prefix="/journal", tags=["journal"])
+
+    # Risk router (Agent B — Sprint 29 Task 3)
+    try:
+        from api.routes.risk import router as risk_router
+        app.include_router(risk_router, prefix="/risk", tags=["risk"])
+    except ImportError:
+        pass  # risk route not yet implemented
 
     return app
 

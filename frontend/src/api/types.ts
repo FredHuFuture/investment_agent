@@ -481,3 +481,37 @@ export interface AgentAgreementEntry {
   agreement_pct: number;
   sample_size: number;
 }
+
+// ---------------------------------------------------------------------------
+// Sprint 29 types
+// ---------------------------------------------------------------------------
+export interface DrawdownPoint {
+  date: string;
+  drawdown_pct: number;
+}
+
+export interface RollingSharpePoint {
+  date: string;
+  sharpe: number;
+}
+
+export interface MonthlyHeatmapCell {
+  year: number;
+  month: number;
+  return_pct: number;
+}
+
+export interface TradeAnnotation {
+  id: number;
+  position_ticker: string;
+  annotation_text: string;
+  lesson_tag: string | null;
+  created_at: string;
+}
+
+export interface StressScenario {
+  name: string;
+  description: string;
+  portfolio_impact_pct: number;
+  affected_positions: Array<{ ticker: string; impact_pct: number }>;
+}

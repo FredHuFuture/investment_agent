@@ -582,6 +582,127 @@ class PortfolioAnalytics:
             })
         return result
 
+    async def get_drawdown_series(self, days: int = 90) -> list[dict]:
+        """Compute drawdown percentage series from portfolio value snapshots.
+
+        Tracks the running maximum portfolio value and computes how far
+        below that peak the current value is, expressed as a negative
+        percentage.
+
+        Returns list of ``{date, drawdown_pct}`` dicts ordered by date ascending.
+        """
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        async with aiosqlite.connect(self._db_path) as conn:
+            conn.row_factory = aiosqlite.Row
+            rows = await (
+                await conn.execute(
+                    """
+                    SELECT timestamp, total_value
+                    FROM portfolio_snapshots
+                    WHERE timestamp >= ?
+                    ORDER BY timestamp ASC
+                    """,
+                    (cutoff,),
+                )
+            ).fetchall()
+
+        result: list[dict] = []
+        running_max = 0.0
+        for row in rows:
+            value = row["total_value"]
+            if value is None:
+                continue
+            if value > running_max:
+                running_max = value
+            dd_pct = ((value - running_max) / running_max * 100) if running_max > 0 else 0.0
+            result.append({
+                "date": row["timestamp"][:10] if row["timestamp"] else "",
+                "drawdown_pct": round(dd_pct, 4),
+            })
+        return result
+
+    async def get_rolling_sharpe(self, days: int = 90, window: int = 30) -> list[dict]:
+        """Rolling Sharpe ratio over a sliding window.
+
+        Computes daily returns from portfolio value snapshots, then for each
+        day computes the annualised Sharpe ratio over the preceding *window*
+        trading days.
+
+        Returns list of ``{date, sharpe}`` dicts ordered by date ascending.
+        """
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        async with aiosqlite.connect(self._db_path) as conn:
+            conn.row_factory = aiosqlite.Row
+            rows = await (
+                await conn.execute(
+                    """
+                    SELECT timestamp, total_value
+                    FROM portfolio_snapshots
+                    WHERE timestamp >= ?
+                    ORDER BY timestamp ASC
+                    """,
+                    (cutoff,),
+                )
+            ).fetchall()
+
+        values = [(row["timestamp"], row["total_value"]) for row in rows if row["total_value"] is not None]
+
+        if len(values) < 2:
+            return []
+
+        # Compute daily returns
+        dates: list[str] = []
+        returns: list[float] = []
+        for i in range(1, len(values)):
+            prev_val = values[i - 1][1]
+            cur_val = values[i][1]
+            if prev_val and prev_val > 0:
+                returns.append((cur_val - prev_val) / prev_val)
+                dates.append(values[i][0][:10] if values[i][0] else "")
+
+        # Rolling window Sharpe
+        result: list[dict] = []
+        for i in range(window - 1, len(returns)):
+            win = returns[i - window + 1 : i + 1]
+            n = len(win)
+            if n < 2:
+                continue
+            mean_ret = sum(win) / n
+            variance = sum((r - mean_ret) ** 2 for r in win) / (n - 1)
+            std_ret = math.sqrt(variance)
+            sharpe = (mean_ret / std_ret * math.sqrt(252)) if std_ret > 0 else 0.0
+            result.append({
+                "date": dates[i],
+                "sharpe": round(sharpe, 4),
+            })
+        return result
+
+    async def get_monthly_heatmap(self) -> list[dict]:
+        """Year/month return grid for heatmap display.
+
+        Reuses monthly return data, splitting the YYYY-MM month key into
+        separate year and month integers.
+
+        Returns list of ``{year, month, return_pct}`` dicts.
+        """
+        monthly = await self.get_monthly_returns()
+        result: list[dict] = []
+        for entry in monthly:
+            month_str = entry.get("month", "")
+            if not month_str or len(month_str) < 7:
+                continue
+            try:
+                year = int(month_str[:4])
+                month = int(month_str[5:7])
+            except (ValueError, IndexError):
+                continue
+            result.append({
+                "year": year,
+                "month": month,
+                "return_pct": entry.get("return_pct", 0.0),
+            })
+        return result
+
     async def get_position_pnl_history(self, ticker: str) -> list[dict]:
         """Daily P&L history for a specific position using price snapshots.
 

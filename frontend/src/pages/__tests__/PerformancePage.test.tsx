@@ -23,6 +23,8 @@ vi.mock("recharts", () => ({
   ComposedChart: ({ children }: { children: React.ReactNode }) =>
     React.createElement("div", { "data-testid": "composed-chart" }, children),
   Line: () => null,
+  LineChart: ({ children }: { children: React.ReactNode }) =>
+    React.createElement("div", { "data-testid": "line-chart" }, children),
 }));
 
 // Mock ALL endpoint functions imported by PerformancePage
@@ -33,6 +35,9 @@ vi.mock("../../api/endpoints", () => ({
   getTopPerformers: vi.fn(),
   getBenchmarkComparison: vi.fn(),
   getCumulativePnl: vi.fn(),
+  getDrawdownSeries: vi.fn(),
+  getRollingSharpe: vi.fn(),
+  getMonthlyHeatmap: vi.fn(),
 }));
 
 import {
@@ -42,6 +47,9 @@ import {
   getTopPerformers,
   getBenchmarkComparison,
   getCumulativePnl,
+  getDrawdownSeries,
+  getRollingSharpe,
+  getMonthlyHeatmap,
 } from "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import PerformancePage from "../PerformancePage";
@@ -52,6 +60,9 @@ const mockGetMonthlyReturns = vi.mocked(getMonthlyReturns);
 const mockGetTopPerformers = vi.mocked(getTopPerformers);
 const mockGetBenchmarkComparison = vi.mocked(getBenchmarkComparison);
 const mockGetCumulativePnl = vi.mocked(getCumulativePnl);
+const mockGetDrawdownSeries = vi.mocked(getDrawdownSeries);
+const mockGetRollingSharpe = vi.mocked(getRollingSharpe);
+const mockGetMonthlyHeatmap = vi.mocked(getMonthlyHeatmap);
 
 const mockPerformanceSummary = {
   total_realized_pnl: 5000,
@@ -93,6 +104,9 @@ function mockAllApis() {
     warnings: [],
   });
   mockGetCumulativePnl.mockResolvedValue({ data: [] as never, warnings: [] });
+  mockGetDrawdownSeries.mockResolvedValue({ data: [] as never, warnings: [] });
+  mockGetRollingSharpe.mockResolvedValue({ data: [] as never, warnings: [] });
+  mockGetMonthlyHeatmap.mockResolvedValue({ data: [] as never, warnings: [] });
 }
 
 function renderPage() {
@@ -118,6 +132,9 @@ describe("PerformancePage", () => {
     mockGetTopPerformers.mockReturnValue(new Promise(() => {}));
     mockGetBenchmarkComparison.mockReturnValue(new Promise(() => {}));
     mockGetCumulativePnl.mockReturnValue(new Promise(() => {}));
+    mockGetDrawdownSeries.mockReturnValue(new Promise(() => {}));
+    mockGetRollingSharpe.mockReturnValue(new Promise(() => {}));
+    mockGetMonthlyHeatmap.mockReturnValue(new Promise(() => {}));
     renderPage();
     const skeletons = document.querySelectorAll(".animate-pulse");
     expect(skeletons.length).toBeGreaterThan(0);
@@ -130,6 +147,9 @@ describe("PerformancePage", () => {
     mockGetTopPerformers.mockRejectedValue(new Error("Server unavailable"));
     mockGetBenchmarkComparison.mockRejectedValue(new Error("Server unavailable"));
     mockGetCumulativePnl.mockRejectedValue(new Error("Server unavailable"));
+    mockGetDrawdownSeries.mockRejectedValue(new Error("Server unavailable"));
+    mockGetRollingSharpe.mockRejectedValue(new Error("Server unavailable"));
+    mockGetMonthlyHeatmap.mockRejectedValue(new Error("Server unavailable"));
     renderPage();
     await waitFor(() => {
       expect(screen.getByText("Server unavailable")).toBeInTheDocument();
@@ -180,5 +200,39 @@ describe("PerformancePage", () => {
     await waitFor(() => {
       expect(screen.getByText("Top Performers")).toBeInTheDocument();
     });
+  });
+
+  it("renders drawdown chart section", async () => {
+    mockAllApis();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Drawdown")).toBeInTheDocument();
+    });
+  });
+
+  it("renders rolling sharpe chart section", async () => {
+    mockAllApis();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Rolling Sharpe Ratio")).toBeInTheDocument();
+    });
+  });
+
+  it("renders monthly heatmap section", async () => {
+    mockAllApis();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Monthly Returns Heatmap")).toBeInTheDocument();
+    });
+  });
+
+  it("calls new analytics endpoints", async () => {
+    mockAllApis();
+    renderPage();
+    await waitFor(() => {
+      expect(mockGetDrawdownSeries).toHaveBeenCalled();
+    });
+    expect(mockGetRollingSharpe).toHaveBeenCalled();
+    expect(mockGetMonthlyHeatmap).toHaveBeenCalled();
   });
 });

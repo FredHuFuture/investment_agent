@@ -77,3 +77,30 @@ async def export_alerts_csv(
         media_type=result.content_type,
         headers={"Content-Disposition": f"attachment; filename={result.filename}"},
     )
+
+
+@router.get("/performance/csv")
+async def export_performance_csv(db_path: str = Depends(get_db_path)):
+    """Download performance summary and monthly returns as CSV."""
+    exporter = PortfolioExporter(db_path)
+    result = await exporter.export_performance_csv()
+    return StreamingResponse(
+        io.BytesIO(result.content),
+        media_type=result.content_type,
+        headers={"Content-Disposition": f"attachment; filename={result.filename}"},
+    )
+
+
+@router.get("/risk/csv")
+async def export_risk_csv(
+    days: int = Query(90, ge=7, le=365),
+    db_path: str = Depends(get_db_path),
+):
+    """Download risk metrics snapshot as CSV."""
+    exporter = PortfolioExporter(db_path)
+    result = await exporter.export_risk_csv(days=days)
+    return StreamingResponse(
+        io.BytesIO(result.content),
+        media_type=result.content_type,
+        headers={"Content-Disposition": f"attachment; filename={result.filename}"},
+    )

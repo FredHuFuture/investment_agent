@@ -16,6 +16,7 @@ from typing import Any
 
 import aiosqlite
 
+from engine.analytics import PortfolioAnalytics
 from monitoring.store import AlertStore
 from portfolio.manager import PortfolioManager
 
@@ -320,6 +321,100 @@ class PortfolioExporter:
         return ExportResult(
             content=content,
             filename=f"alerts_{today}.csv",
+            content_type="text/csv",
+        )
+
+    # ------------------------------------------------------------------
+    # Performance CSV (summary + monthly returns)
+    # ------------------------------------------------------------------
+
+    async def export_performance_csv(self) -> ExportResult:
+        """Export performance summary and monthly returns as CSV."""
+        analytics = PortfolioAnalytics(self._db_path)
+        summary = await analytics.get_performance_summary()
+        monthly = await analytics.get_monthly_returns()
+
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+
+        # --- Summary section ---
+        writer.writerow(["Performance Summary"])
+        writer.writerow(["Metric", "Value"])
+        writer.writerow(["Total Realized P&L", summary.get("total_realized_pnl", 0.0)])
+        writer.writerow(["Total Trades", summary.get("total_trades", 0)])
+        writer.writerow(["Win Count", summary.get("win_count", 0)])
+        writer.writerow(["Loss Count", summary.get("loss_count", 0)])
+        writer.writerow(["Win Rate %", summary.get("win_rate", 0.0)])
+        writer.writerow(["Avg Win %", summary.get("avg_win_pct", 0.0)])
+        writer.writerow(["Avg Loss %", summary.get("avg_loss_pct", 0.0)])
+        writer.writerow(["Avg Hold Days", summary.get("avg_hold_days", 0.0)])
+        writer.writerow(["Profit Factor", summary.get("profit_factor", "")])
+        writer.writerow(["Expectancy", summary.get("expectancy", "")])
+        writer.writerow(["Max Consecutive Wins", summary.get("max_consecutive_wins", 0)])
+        writer.writerow(["Max Consecutive Losses", summary.get("max_consecutive_losses", 0)])
+
+        best = summary.get("best_trade")
+        if best:
+            writer.writerow(["Best Trade", f"{best['ticker']} ({best['return_pct']}%)"])
+        worst = summary.get("worst_trade")
+        if worst:
+            writer.writerow(["Worst Trade", f"{worst['ticker']} ({worst['return_pct']}%)"])
+
+        # Blank separator row
+        writer.writerow([])
+
+        # --- Monthly returns section ---
+        writer.writerow(["Monthly Returns"])
+        writer.writerow(["Month", "P&L", "Trade Count", "Return %"])
+        for month in monthly:
+            writer.writerow([
+                month.get("month", ""),
+                month.get("pnl", 0.0),
+                month.get("trade_count", 0),
+                month.get("return_pct", 0.0),
+            ])
+
+        today = date.today().isoformat()
+        content = buf.getvalue().encode("utf-8")
+        return ExportResult(
+            content=content,
+            filename=f"performance_{today}.csv",
+            content_type="text/csv",
+        )
+
+    # ------------------------------------------------------------------
+    # Risk CSV (risk metrics snapshot)
+    # ------------------------------------------------------------------
+
+    async def export_risk_csv(self, days: int = 90) -> ExportResult:
+        """Export portfolio risk metrics snapshot as CSV."""
+        analytics = PortfolioAnalytics(self._db_path)
+        risk = await analytics.get_portfolio_risk(days=days)
+
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+
+        writer.writerow(["Risk Metrics Snapshot"])
+        writer.writerow(["Metric", "Value"])
+        writer.writerow(["Daily Volatility", risk.get("daily_volatility", 0.0)])
+        writer.writerow(["Annualized Volatility", risk.get("annualized_volatility", 0.0)])
+        writer.writerow(["Sharpe Ratio", risk.get("sharpe_ratio", "")])
+        writer.writerow(["Sortino Ratio", risk.get("sortino_ratio", "")])
+        writer.writerow(["Max Drawdown %", risk.get("max_drawdown_pct", 0.0)])
+        writer.writerow(["Current Drawdown %", risk.get("current_drawdown_pct", 0.0)])
+        writer.writerow(["VaR 95%", risk.get("var_95", 0.0)])
+        writer.writerow(["CVaR 95%", risk.get("cvar_95", 0.0)])
+        writer.writerow(["Best Day %", risk.get("best_day_pct", "")])
+        writer.writerow(["Worst Day %", risk.get("worst_day_pct", "")])
+        writer.writerow(["Positive Days", risk.get("positive_days", 0)])
+        writer.writerow(["Negative Days", risk.get("negative_days", 0)])
+        writer.writerow(["Data Points", risk.get("data_points", 0)])
+
+        today = date.today().isoformat()
+        content = buf.getvalue().encode("utf-8")
+        return ExportResult(
+            content=content,
+            filename=f"risk_{today}.csv",
             content_type="text/csv",
         )
 

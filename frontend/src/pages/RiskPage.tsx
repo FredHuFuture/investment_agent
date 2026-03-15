@@ -12,6 +12,7 @@ import type {
 } from "../api/types";
 import MetricCard from "../components/shared/MetricCard";
 import ErrorAlert from "../components/shared/ErrorAlert";
+import StressTestPanel from "../components/risk/StressTestPanel";
 import { Card, CardHeader, CardBody } from "../components/ui/Card";
 import { SkeletonCard } from "../components/ui/Skeleton";
 import { usePageTitle } from "../hooks/usePageTitle";
@@ -556,6 +557,9 @@ export default function RiskPage() {
           )}
         </CardBody>
       </Card>
+
+      {/* Stress Test Scenarios */}
+      <StressTestPanel />
     </div>
   );
 }
