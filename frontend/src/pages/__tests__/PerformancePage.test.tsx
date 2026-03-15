@@ -32,6 +32,7 @@ vi.mock("../../api/endpoints", () => ({
   getMonthlyReturns: vi.fn(),
   getTopPerformers: vi.fn(),
   getBenchmarkComparison: vi.fn(),
+  getCumulativePnl: vi.fn(),
 }));
 
 import {
@@ -40,6 +41,7 @@ import {
   getMonthlyReturns,
   getTopPerformers,
   getBenchmarkComparison,
+  getCumulativePnl,
 } from "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import PerformancePage from "../PerformancePage";
@@ -49,6 +51,7 @@ const mockGetPerformanceSummary = vi.mocked(getPerformanceSummary);
 const mockGetMonthlyReturns = vi.mocked(getMonthlyReturns);
 const mockGetTopPerformers = vi.mocked(getTopPerformers);
 const mockGetBenchmarkComparison = vi.mocked(getBenchmarkComparison);
+const mockGetCumulativePnl = vi.mocked(getCumulativePnl);
 
 const mockPerformanceSummary = {
   total_realized_pnl: 5000,
@@ -61,6 +64,10 @@ const mockPerformanceSummary = {
   worst_trade: { ticker: "TSLA", return_pct: -0.12, pnl: -500 },
   avg_hold_days: 45,
   total_trades: 11,
+  profit_factor: 2.5,
+  expectancy: 3.2,
+  max_consecutive_wins: 5,
+  max_consecutive_losses: 2,
 };
 
 /** Set up all API mocks with reasonable defaults */
@@ -85,6 +92,7 @@ function mockAllApis() {
     } as never,
     warnings: [],
   });
+  mockGetCumulativePnl.mockResolvedValue({ data: [] as never, warnings: [] });
 }
 
 function renderPage() {
@@ -109,6 +117,7 @@ describe("PerformancePage", () => {
     mockGetMonthlyReturns.mockReturnValue(new Promise(() => {}));
     mockGetTopPerformers.mockReturnValue(new Promise(() => {}));
     mockGetBenchmarkComparison.mockReturnValue(new Promise(() => {}));
+    mockGetCumulativePnl.mockReturnValue(new Promise(() => {}));
     renderPage();
     const skeletons = document.querySelectorAll(".animate-pulse");
     expect(skeletons.length).toBeGreaterThan(0);
@@ -120,6 +129,7 @@ describe("PerformancePage", () => {
     mockGetMonthlyReturns.mockRejectedValue(new Error("Server unavailable"));
     mockGetTopPerformers.mockRejectedValue(new Error("Server unavailable"));
     mockGetBenchmarkComparison.mockRejectedValue(new Error("Server unavailable"));
+    mockGetCumulativePnl.mockRejectedValue(new Error("Server unavailable"));
     renderPage();
     await waitFor(() => {
       expect(screen.getByText("Server unavailable")).toBeInTheDocument();

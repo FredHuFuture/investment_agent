@@ -27,6 +27,7 @@ vi.mock("../../api/endpoints", () => ({
   getAlerts: vi.fn(),
   updateThesis: vi.fn(),
   getCatalysts: vi.fn(),
+  getPositionPnlHistory: vi.fn(),
 }));
 
 import {
@@ -37,6 +38,7 @@ import {
   getSignalHistory,
   getAlerts,
   getCatalysts,
+  getPositionPnlHistory,
 } from "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import PositionDetailPage from "../PositionDetailPage";
@@ -48,6 +50,7 @@ const mockGetPriceHistory = vi.mocked(getPriceHistory);
 const mockGetSignalHistory = vi.mocked(getSignalHistory);
 const mockGetAlerts = vi.mocked(getAlerts);
 const mockGetCatalysts = vi.mocked(getCatalysts);
+const mockGetPositionPnlHistory = vi.mocked(getPositionPnlHistory);
 
 const mockPortfolio = {
   positions: [
@@ -107,6 +110,7 @@ function mockSecondaryApis() {
   mockGetSignalHistory.mockResolvedValue({ data: [], warnings: [] });
   mockGetAlerts.mockResolvedValue({ data: [], warnings: [] });
   mockGetCatalysts.mockRejectedValue(new Error("Not available"));
+  mockGetPositionPnlHistory.mockResolvedValue({ data: [] as never, warnings: [] });
 }
 
 function renderPage() {

@@ -78,6 +78,27 @@ async def benchmark_comparison(
     return {"data": data, "warnings": []}
 
 
+@router.get("/cumulative-pnl")
+async def cumulative_pnl(db_path: str = Depends(get_db_path)):
+    """Cumulative realized P&L curve across all closed trades."""
+    analytics = PortfolioAnalytics(db_path)
+    data = await analytics.get_cumulative_pnl()
+    return {"data": data, "warnings": []}
+
+
+@router.get("/position-pnl/{ticker}")
+async def position_pnl_history(
+    ticker: str,
+    db_path: str = Depends(get_db_path),
+):
+    """P&L history timeline for a specific position."""
+    analytics = PortfolioAnalytics(db_path)
+    data = await analytics.get_position_pnl_history(ticker)
+    if not data:
+        return {"data": [], "warnings": [f"No data found for {ticker.upper()}"]}
+    return {"data": data, "warnings": []}
+
+
 @router.get("/correlations")
 async def portfolio_correlations(
     lookback_days: int = Query(90, ge=30, le=365),

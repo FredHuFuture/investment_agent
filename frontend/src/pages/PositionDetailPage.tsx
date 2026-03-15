@@ -17,6 +17,7 @@ import {
   getPriceHistory,
   getSignalHistory,
   getAlerts,
+  getPositionPnlHistory,
 } from "../api/endpoints";
 import type {
   Portfolio,
@@ -25,6 +26,7 @@ import type {
   OhlcvPoint,
   SignalHistoryEntry,
   Alert,
+  PositionPnlPoint,
 } from "../api/types";
 import { Card, CardHeader, CardBody } from "../components/ui/Card";
 import { SkeletonCard, Skeleton } from "../components/ui/Skeleton";
@@ -153,6 +155,13 @@ export default function PositionDetailPage() {
     () => getAlerts({ ticker: ticker!, limit: 50 }),
     [ticker],
   );
+  // Fetch P&L history for this ticker (used by future timeline chart)
+  const _pnlHistoryApi = useApi<PositionPnlPoint[]>(
+    () => getPositionPnlHistory(ticker!),
+    [ticker],
+  );
+  // Suppress unused-var lint — data is pre-fetched for upcoming P&L timeline section
+  void _pnlHistoryApi;
 
   // Thesis editing state
   const [editing, setEditing] = useState(false);
@@ -301,6 +310,17 @@ export default function PositionDetailPage() {
           </>
         )}
       </div>
+
+      {/* -- P&L Performance Bar (open positions with stop/target) -- */}
+      {!isClosed &&
+        (position.stop_loss != null || position.target_price != null) && (
+          <PnlPerformanceBar
+            currentPrice={position.current_price}
+            entryPrice={position.avg_cost}
+            stopLoss={position.stop_loss}
+            targetPrice={position.target_price}
+          />
+        )}
 
       {/* -- Thesis vs Reality -- */}
       <Card>
@@ -573,6 +593,62 @@ export default function PositionDetailPage() {
           )}
         </CardBody>
       </Card>
+
+      {/* -- Trade Summary (closed positions only) -- */}
+      {isClosed && (
+        <Card>
+          <CardHeader title="Trade Summary" />
+          <CardBody>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+              <div className="rounded-lg bg-gray-800/40 border border-gray-700/30 p-3">
+                <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">
+                  Entry &rarr; Exit
+                </div>
+                <div className="text-sm text-gray-200 font-mono">
+                  {formatCurrency(position.avg_cost)} &rarr;{" "}
+                  {position.exit_price != null
+                    ? formatCurrency(position.exit_price)
+                    : "--"}
+                </div>
+              </div>
+              <div className="rounded-lg bg-gray-800/40 border border-gray-700/30 p-3">
+                <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">
+                  Return
+                </div>
+                <div className={`text-sm font-mono font-medium ${pnlColor(actualReturnPct)}`}>
+                  {actualReturnPct >= 0 ? "+" : ""}
+                  {actualReturnPct.toFixed(1)}%
+                </div>
+              </div>
+              <div className="rounded-lg bg-gray-800/40 border border-gray-700/30 p-3">
+                <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">
+                  P&amp;L
+                </div>
+                <div className={`text-sm font-mono font-medium ${pnlColor(position.realized_pnl ?? 0)}`}>
+                  {(position.realized_pnl ?? 0) >= 0 ? "+" : ""}
+                  {formatCurrency(position.realized_pnl ?? 0)}
+                </div>
+              </div>
+              <div className="rounded-lg bg-gray-800/40 border border-gray-700/30 p-3">
+                <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">
+                  Duration
+                </div>
+                <div className="text-sm text-gray-200 font-mono">
+                  {position.holding_days}d
+                </div>
+              </div>
+              <div className="rounded-lg bg-gray-800/40 border border-gray-700/30 p-3">
+                <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">
+                  Sector
+                </div>
+                <div className="text-sm text-gray-200">
+                  {position.sector ?? "N/A"}
+                </div>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+      )}
 
       {/* -- Price Chart -- */}
       <Card>
@@ -926,5 +1002,107 @@ function PriceChart({
         )}
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// P&L Performance Bar sub-component (open positions only)
+// ---------------------------------------------------------------------------
+function PnlPerformanceBar({
+  currentPrice,
+  entryPrice,
+  stopLoss,
+  targetPrice,
+}: {
+  currentPrice: number;
+  entryPrice: number;
+  stopLoss: number | null;
+  targetPrice: number | null;
+}) {
+  // Determine the range for the bar
+  const low = stopLoss ?? entryPrice * 0.85;
+  const high = targetPrice ?? entryPrice * 1.15;
+  const rangeMin = Math.min(low, entryPrice, currentPrice) * 0.98;
+  const rangeMax = Math.max(high, entryPrice, currentPrice) * 1.02;
+  const range = rangeMax - rangeMin || 1;
+
+  const pct = (v: number) => ((v - rangeMin) / range) * 100;
+
+  const entryPct = pct(entryPrice);
+  const currentPct = Math.max(0, Math.min(100, pct(currentPrice)));
+  const stopPct = stopLoss != null ? pct(stopLoss) : null;
+  const targetPct = targetPrice != null ? pct(targetPrice) : null;
+
+  // Bar fill: from entry to current
+  const fillLeft = Math.min(entryPct, currentPct);
+  const fillWidth = Math.abs(currentPct - entryPct);
+  const isAboveEntry = currentPrice >= entryPrice;
+
+  return (
+    <Card>
+      <CardHeader title="Price Range" />
+      <CardBody>
+        <div className="relative h-3 rounded-full bg-gray-700/50 overflow-hidden">
+          {/* Stop zone (left side tint) */}
+          {stopPct != null && (
+            <div
+              className="absolute inset-y-0 left-0 bg-red-500/15 rounded-l-full"
+              style={{ width: `${stopPct}%` }}
+            />
+          )}
+          {/* Target zone (right side tint) */}
+          {targetPct != null && (
+            <div
+              className="absolute inset-y-0 right-0 bg-emerald-500/15 rounded-r-full"
+              style={{ width: `${100 - targetPct}%` }}
+            />
+          )}
+          {/* Fill bar from entry to current */}
+          <div
+            className={`absolute inset-y-0 rounded-full ${
+              isAboveEntry ? "bg-emerald-500/50" : "bg-red-500/50"
+            }`}
+            style={{ left: `${fillLeft}%`, width: `${fillWidth}%` }}
+          />
+          {/* Entry marker (blue line) */}
+          <div
+            className="absolute top-0 bottom-0 w-0.5 bg-blue-400"
+            style={{ left: `${entryPct}%` }}
+          />
+          {/* Current price dot */}
+          <div
+            className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-gray-900 ${
+              isAboveEntry ? "bg-emerald-400" : "bg-red-400"
+            }`}
+            style={{ left: `${currentPct}%`, marginLeft: "-6px" }}
+          />
+        </div>
+        {/* Labels */}
+        <div className="relative mt-2 h-4">
+          {stopLoss != null && (
+            <span
+              className="absolute text-[10px] text-red-400 font-mono"
+              style={{ left: `${stopPct!}%`, transform: "translateX(-50%)" }}
+            >
+              Stop {formatCurrency(stopLoss)}
+            </span>
+          )}
+          <span
+            className="absolute text-[10px] text-blue-400 font-mono"
+            style={{ left: `${entryPct}%`, transform: "translateX(-50%)" }}
+          >
+            Entry {formatCurrency(entryPrice)}
+          </span>
+          {targetPrice != null && (
+            <span
+              className="absolute text-[10px] text-emerald-400 font-mono"
+              style={{ left: `${targetPct!}%`, transform: "translateX(-50%)" }}
+            >
+              Target {formatCurrency(targetPrice)}
+            </span>
+          )}
+        </div>
+      </CardBody>
+    </Card>
   );
 }

@@ -332,6 +332,25 @@ export interface PerformanceSummary {
   worst_trade: { ticker: string; return_pct: number; pnl: number } | null;
   avg_hold_days: number;
   total_trades: number;
+  // Advanced metrics (Sprint 26)
+  profit_factor: number | null;
+  expectancy: number | null;
+  max_consecutive_wins: number;
+  max_consecutive_losses: number;
+}
+
+export interface CumulativePnlPoint {
+  date: string;
+  cumulative_pnl: number;
+  trade_count: number;
+}
+
+export interface PositionPnlPoint {
+  date: string;
+  price: number;
+  cost_basis: number;
+  unrealized_pnl: number;
+  unrealized_pnl_pct: number;
 }
 
 export interface MonthlyReturn {

@@ -11,6 +11,19 @@ import WarningsBanner from "../components/shared/WarningsBanner";
 import { formatCurrency, formatDate, pnlColor } from "../lib/formatters";
 import { usePageTitle } from "../hooks/usePageTitle";
 import DataTable, { type Column } from "../components/shared/DataTable";
+import {
+  BarChart,
+  Bar,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+  ReferenceLine,
+  Cell,
+} from "recharts";
 
 function returnPct(pos: Position): number {
   if (
@@ -215,6 +228,50 @@ export default function JournalPage() {
     });
   }, [historyApi.data]);
 
+  // Return distribution histogram data
+  const distributionData = useMemo(() => {
+    if (closedPositions.length === 0) return [];
+    const bins = [
+      { label: "< -20%", min: -Infinity, max: -20, count: 0 },
+      { label: "-20 to -10%", min: -20, max: -10, count: 0 },
+      { label: "-10 to -5%", min: -10, max: -5, count: 0 },
+      { label: "-5 to 0%", min: -5, max: 0, count: 0 },
+      { label: "0 to 5%", min: 0, max: 5, count: 0 },
+      { label: "5 to 10%", min: 5, max: 10, count: 0 },
+      { label: "10 to 20%", min: 10, max: 20, count: 0 },
+      { label: "> 20%", min: 20, max: Infinity, count: 0 },
+    ];
+    for (const pos of closedPositions) {
+      const ret = returnPct(pos);
+      for (const bin of bins) {
+        if (ret >= bin.min && ret < bin.max) {
+          bin.count++;
+          break;
+        }
+      }
+    }
+    return bins.map((b) => ({
+      bin: b.label,
+      count: b.count,
+      negative: b.max <= 0,
+    }));
+  }, [closedPositions]);
+
+  // Cumulative equity curve data
+  const equityCurveData = useMemo(() => {
+    if (closedPositions.length === 0) return [];
+    const sortedByExitDate = [...closedPositions].sort((a, b) => {
+      const da = a.exit_date ?? "";
+      const db = b.exit_date ?? "";
+      return da.localeCompare(db);
+    });
+    let cumulative = 0;
+    return sortedByExitDate.map((pos) => {
+      cumulative += pos.realized_pnl ?? 0;
+      return { date: pos.exit_date ?? "", equity: cumulative };
+    });
+  }, [closedPositions]);
+
   const loading = historyApi.loading || summaryApi.loading;
   const error = historyApi.error || summaryApi.error;
   const warnings = [...historyApi.warnings, ...summaryApi.warnings];
@@ -314,6 +371,107 @@ export default function JournalPage() {
               )}
             </div>
           )}
+
+          {/* Return Distribution & Cumulative P&L Charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Return Distribution Histogram */}
+            <Card>
+              <CardHeader title="Return Distribution" />
+              <CardBody>
+                {distributionData.length === 0 ? (
+                  <EmptyState message="No closed trades yet." />
+                ) : (
+                  <ResponsiveContainer width="100%" height={280}>
+                    <BarChart data={distributionData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                      <XAxis
+                        dataKey="bin"
+                        tick={{ fill: "#6b7280", fontSize: 10 }}
+                        interval={0}
+                        angle={-30}
+                        textAnchor="end"
+                        height={50}
+                      />
+                      <YAxis
+                        tick={{ fill: "#6b7280", fontSize: 11 }}
+                        allowDecimals={false}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "#111827",
+                          border: "1px solid #374151",
+                          borderRadius: 8,
+                          fontSize: 12,
+                        }}
+                        formatter={(value: number) => [value, "Trades"]}
+                      />
+                      <Bar dataKey="count" radius={[4, 4, 0, 0]} name="Trades">
+                        {distributionData.map((entry, index) => (
+                          <Cell
+                            key={`dist-${index}`}
+                            fill={entry.negative ? "#ef4444" : "#10b981"}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </CardBody>
+            </Card>
+
+            {/* Cumulative Equity Curve */}
+            <Card>
+              <CardHeader title="Cumulative P&L" />
+              <CardBody>
+                {equityCurveData.length === 0 ? (
+                  <EmptyState message="No closed trades yet." />
+                ) : (
+                  <ResponsiveContainer width="100%" height={280}>
+                    <AreaChart data={equityCurveData}>
+                      <defs>
+                        <linearGradient id="colorEquity" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fill: "#6b7280", fontSize: 11 }}
+                        tickFormatter={(v: string) => {
+                          const d = new Date(v);
+                          return `${d.getMonth() + 1}/${d.getDate()}`;
+                        }}
+                      />
+                      <YAxis
+                        tick={{ fill: "#6b7280", fontSize: 11 }}
+                        tickFormatter={(v: number) => formatCurrency(v)}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "#111827",
+                          border: "1px solid #374151",
+                          borderRadius: 8,
+                          fontSize: 12,
+                        }}
+                        labelFormatter={(v: string) => formatDate(v)}
+                        formatter={(value: number) => [formatCurrency(value), "Cumulative P&L"]}
+                      />
+                      <ReferenceLine y={0} stroke="#4b5563" strokeDasharray="3 3" />
+                      <Area
+                        type="monotone"
+                        dataKey="equity"
+                        stroke="#10b981"
+                        fill="url(#colorEquity)"
+                        strokeWidth={2}
+                        name="Cumulative P&L"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
+              </CardBody>
+            </Card>
+          </div>
         </>
       )}
 

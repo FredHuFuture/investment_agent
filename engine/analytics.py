@@ -78,6 +78,10 @@ class PortfolioAnalytics:
                 "worst_trade": None,
                 "avg_hold_days": 0.0,
                 "total_trades": 0,
+                "profit_factor": None,
+                "expectancy": None,
+                "max_consecutive_wins": 0,
+                "max_consecutive_losses": 0,
             }
 
         total_realized_pnl = 0.0
@@ -131,6 +135,41 @@ class PortfolioAnalytics:
         avg_loss_pct = (sum(loss_pcts) / len(loss_pcts)) if loss_pcts else 0.0
         avg_hold_days = (sum(hold_days_list) / len(hold_days_list)) if hold_days_list else 0.0
 
+        # --- Advanced metrics (Sprint 26) ---
+        # Profit factor = gross wins / abs(gross losses)
+        gross_wins = sum(
+            (row["realized_pnl"] or 0.0) for row in rows if (row["realized_pnl"] or 0.0) > 0
+        )
+        gross_losses = abs(
+            sum((row["realized_pnl"] or 0.0) for row in rows if (row["realized_pnl"] or 0.0) < 0)
+        )
+        profit_factor: float | None = (
+            round(gross_wins / gross_losses, 2) if gross_losses > 0 else None
+        )
+
+        # Expectancy = avg_win * win_rate_frac - avg_loss * loss_rate_frac
+        win_rate_frac = win_count / total_trades if total_trades > 0 else 0.0
+        loss_rate_frac = loss_count / total_trades if total_trades > 0 else 0.0
+        expectancy: float | None = round(
+            avg_win_pct * win_rate_frac - abs(avg_loss_pct) * loss_rate_frac, 2
+        ) if total_trades > 0 else None
+
+        # Max consecutive wins / losses
+        max_consec_wins = 0
+        max_consec_losses = 0
+        cur_wins = 0
+        cur_losses = 0
+        for row in rows:
+            pnl_val = row["realized_pnl"] or 0.0
+            if pnl_val > 0:
+                cur_wins += 1
+                cur_losses = 0
+                max_consec_wins = max(max_consec_wins, cur_wins)
+            else:
+                cur_losses += 1
+                cur_wins = 0
+                max_consec_losses = max(max_consec_losses, cur_losses)
+
         return {
             "total_realized_pnl": round(total_realized_pnl, 2),
             "win_count": win_count,
@@ -142,6 +181,10 @@ class PortfolioAnalytics:
             "worst_trade": worst_trade,
             "avg_hold_days": round(avg_hold_days, 1),
             "total_trades": total_trades,
+            "profit_factor": profit_factor,
+            "expectancy": expectancy,
+            "max_consecutive_wins": max_consec_wins,
+            "max_consecutive_losses": max_consec_losses,
         }
 
     async def get_monthly_returns(self) -> list[dict]:
@@ -506,3 +549,102 @@ class PortfolioAnalytics:
             "negative_days": negative_days,
             "data_points": len(values),
         }
+
+    async def get_cumulative_pnl(self) -> list[dict]:
+        """Cumulative realized P&L curve, one point per trade exit date.
+
+        Returns list of ``{date, cumulative_pnl, trade_count}`` dicts ordered
+        by exit_date ascending.
+        """
+        async with aiosqlite.connect(self._db_path) as conn:
+            conn.row_factory = aiosqlite.Row
+            rows = await (
+                await conn.execute(
+                    """
+                    SELECT exit_date, realized_pnl
+                    FROM active_positions
+                    WHERE status = 'closed' AND exit_date IS NOT NULL
+                    ORDER BY exit_date ASC
+                    """
+                )
+            ).fetchall()
+
+        result: list[dict] = []
+        cumulative = 0.0
+        count = 0
+        for row in rows:
+            cumulative += row["realized_pnl"] or 0.0
+            count += 1
+            result.append({
+                "date": row["exit_date"],
+                "cumulative_pnl": round(cumulative, 2),
+                "trade_count": count,
+            })
+        return result
+
+    async def get_position_pnl_history(self, ticker: str) -> list[dict]:
+        """Daily P&L history for a specific position using price snapshots.
+
+        Returns list of ``{date, price, cost_basis, unrealized_pnl,
+        unrealized_pnl_pct}`` dicts ordered by date ascending.
+        """
+        async with aiosqlite.connect(self._db_path) as conn:
+            conn.row_factory = aiosqlite.Row
+            # Get position cost basis
+            pos_row = await (
+                await conn.execute(
+                    """
+                    SELECT avg_cost, quantity, entry_date
+                    FROM active_positions
+                    WHERE ticker = ?
+                    LIMIT 1
+                    """,
+                    (ticker.upper(),),
+                )
+            ).fetchone()
+
+            if not pos_row:
+                return []
+
+            avg_cost = pos_row["avg_cost"] or 0.0
+            quantity = pos_row["quantity"] or 0
+            entry_date = pos_row["entry_date"] or ""
+
+            # Get price history from portfolio snapshots
+            # We'll use the signal history timestamps as price reference points
+            price_rows = await (
+                await conn.execute(
+                    """
+                    SELECT DISTINCT
+                        s.created_at AS date,
+                        s.raw_score
+                    FROM signal_history s
+                    WHERE s.ticker = ?
+                    ORDER BY s.created_at ASC
+                    """,
+                    (ticker.upper(),),
+                )
+            ).fetchall()
+
+        if not price_rows and avg_cost > 0:
+            # Fallback: return a single point with entry data
+            return [{
+                "date": entry_date,
+                "price": avg_cost,
+                "cost_basis": round(avg_cost * quantity, 2),
+                "unrealized_pnl": 0.0,
+                "unrealized_pnl_pct": 0.0,
+            }]
+
+        # Build P&L history using signal dates (we don't have daily prices in DB)
+        # This is a simplified version - will be enhanced when we add price snapshots
+        result: list[dict] = []
+        for row in price_rows:
+            result.append({
+                "date": row["date"][:10] if row["date"] else "",
+                "price": avg_cost,  # placeholder - price data not in DB
+                "cost_basis": round(avg_cost * quantity, 2),
+                "unrealized_pnl": 0.0,
+                "unrealized_pnl_pct": 0.0,
+            })
+        return result

@@ -29,6 +29,8 @@ import type {
   BenchmarkComparison,
   RegimeResult,
   UpdateThesisBody,
+  CumulativePnlPoint,
+  PositionPnlPoint,
 } from "./types";
 
 // Portfolio
@@ -228,6 +230,10 @@ export const getMonthlyReturns = () =>
   apiGet<MonthlyReturn[]>("/analytics/monthly-returns");
 export const getTopPerformers = (limit = 5) =>
   apiGet<TopPerformers>(`/analytics/top-performers?limit=${limit}`);
+export const getCumulativePnl = () =>
+  apiGet<CumulativePnlPoint[]>("/analytics/cumulative-pnl");
+export const getPositionPnlHistory = (ticker: string) =>
+  apiGet<PositionPnlPoint[]>(`/analytics/position-pnl/${ticker}`);
 
 // Risk Analytics
 export const getPortfolioRisk = (days = 90) =>

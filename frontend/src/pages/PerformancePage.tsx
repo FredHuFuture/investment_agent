@@ -6,6 +6,7 @@ import {
   getMonthlyReturns,
   getTopPerformers,
   getBenchmarkComparison,
+  getCumulativePnl,
 } from "../api/endpoints";
 import type {
   ValueHistoryPoint,
@@ -13,6 +14,7 @@ import type {
   MonthlyReturn,
   TopPerformers,
   BenchmarkComparison,
+  CumulativePnlPoint,
 } from "../api/types";
 import MetricCard from "../components/shared/MetricCard";
 import { Card, CardHeader, CardBody } from "../components/ui/Card";
@@ -63,6 +65,10 @@ export default function PerformancePage() {
     () => getBenchmarkComparison(90),
     { cacheKey: "perf:benchmark", ttlMs: 120_000 },
   );
+  const cumulativePnlApi = useApi<CumulativePnlPoint[]>(
+    () => getCumulativePnl(),
+    { cacheKey: "perf:cumulativePnl", ttlMs: 120_000 },
+  );
 
   function refetchAll() {
     valueHistory.refetch();
@@ -70,6 +76,7 @@ export default function PerformancePage() {
     monthlyReturns.refetch();
     topPerformers.refetch();
     benchmarkApi.refetch();
+    cumulativePnlApi.refetch();
   }
 
   const loading =
@@ -88,6 +95,7 @@ export default function PerformancePage() {
     ...monthlyReturns.warnings,
     ...topPerformers.warnings,
     ...benchmarkApi.warnings,
+    ...cumulativePnlApi.warnings,
   ];
 
   if (loading)
@@ -165,6 +173,31 @@ export default function PerformancePage() {
             trend={benchmarkApi.data.alpha_pct >= 0 ? "up" : "down"}
           />
         )}
+      </div>
+
+      {/* Advanced trade metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <MetricCard
+          label="Profit Factor"
+          value={perf?.profit_factor != null ? perf.profit_factor.toFixed(2) : "--"}
+          sub="Gross Win / Gross Loss"
+        />
+        <MetricCard
+          label="Expectancy"
+          value={perf?.expectancy != null ? `${perf.expectancy.toFixed(2)}%` : "--"}
+          sub="Per-trade expected return"
+        />
+        <MetricCard
+          label="Max Win Streak"
+          value={String(perf?.max_consecutive_wins ?? 0)}
+          sub="consecutive wins"
+        />
+        <MetricCard
+          label="Max Loss Streak"
+          value={String(perf?.max_consecutive_losses ?? 0)}
+          sub="consecutive losses"
+          trend={(perf?.max_consecutive_losses ?? 0) > 3 ? "down" : undefined}
+        />
       </div>
 
       {/* Portfolio value chart */}
@@ -279,6 +312,66 @@ export default function PerformancePage() {
           </CardBody>
         </Card>
       )}
+
+      {/* Cumulative Realized P&L chart */}
+      <Card>
+        <CardHeader title="Cumulative Realized P&L" />
+        <CardBody>
+          {!cumulativePnlApi.data || cumulativePnlApi.data.length === 0 ? (
+            <EmptyState message="No closed trades yet." />
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={cumulativePnlApi.data}>
+                <defs>
+                  <linearGradient id="colorCumPnlPos" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="colorCumPnlNeg" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fill: "#6b7280", fontSize: 11 }}
+                  tickFormatter={(v) => {
+                    const d = new Date(v);
+                    return `${d.getMonth() + 1}/${d.getDate()}`;
+                  }}
+                />
+                <YAxis
+                  tick={{ fill: "#6b7280", fontSize: 11 }}
+                  tickFormatter={(v) => formatCurrency(v)}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#111827",
+                    border: "1px solid #374151",
+                    borderRadius: 8,
+                    fontSize: 12,
+                  }}
+                  labelFormatter={(v) => formatDate(String(v))}
+                  formatter={(value: number, _name: string) => [
+                    formatCurrency(value),
+                    "Cumulative P&L",
+                  ]}
+                />
+                <ReferenceLine y={0} stroke="#4b5563" strokeDasharray="3 3" />
+                <Area
+                  type="monotone"
+                  dataKey="cumulative_pnl"
+                  stroke="#10b981"
+                  fill="url(#colorCumPnlPos)"
+                  strokeWidth={2}
+                  name="Cumulative P&L"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </CardBody>
+      </Card>
 
       {/* Monthly returns + Top performers */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

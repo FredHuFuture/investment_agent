@@ -40,6 +40,24 @@ import { useToast } from "../contexts/ToastContext";
 import { formatCurrency, formatRelativeTime } from "../lib/formatters";
 import { usePageTitle } from "../hooks/usePageTitle";
 
+const SECTOR_COLORS = [
+  "#3b82f6",
+  "#10b981",
+  "#f59e0b",
+  "#ef4444",
+  "#8b5cf6",
+  "#ec4899",
+  "#06b6d4",
+  "#84cc16",
+];
+
+interface DriftFlag {
+  ticker: string;
+  status: "above-target" | "below-stop" | "overdue";
+  label: string;
+  reason: string;
+}
+
 const severityDotMap: Record<string, string> = {
   critical: "bg-red-400",
   high: "bg-red-400",
@@ -276,6 +294,144 @@ export default function DashboardPage() {
           </ResponsiveContainer>
         )}
       </Card>
+
+      {/* ── Sector Allocation + Thesis Drift ── */}
+      {(() => {
+        // Sector allocation data
+        const sectorEntries = Object.entries(data.sector_breakdown);
+        const hasDiversification = sectorEntries.length > 1;
+        const sectorTotal = sectorEntries.reduce((s, [, v]) => s + v, 0);
+
+        // Thesis drift flags
+        const driftFlags: DriftFlag[] = [];
+        for (const pos of data.positions) {
+          if (
+            pos.target_price != null &&
+            pos.current_price > pos.target_price * 1.1
+          ) {
+            driftFlags.push({
+              ticker: pos.ticker,
+              status: "above-target",
+              label: "Above Target",
+              reason: `Price ${formatCurrency(pos.current_price)} exceeds target ${formatCurrency(pos.target_price)} by >10%`,
+            });
+          }
+          if (pos.stop_loss != null && pos.current_price < pos.stop_loss) {
+            driftFlags.push({
+              ticker: pos.ticker,
+              status: "below-stop",
+              label: "Below Stop",
+              reason: `Price ${formatCurrency(pos.current_price)} is below stop loss ${formatCurrency(pos.stop_loss)}`,
+            });
+          }
+          if (
+            pos.expected_hold_days != null &&
+            pos.holding_days > pos.expected_hold_days
+          ) {
+            driftFlags.push({
+              ticker: pos.ticker,
+              status: "overdue",
+              label: "Overdue",
+              reason: `Held ${pos.holding_days}d vs expected ${pos.expected_hold_days}d`,
+            });
+          }
+        }
+
+        const driftBadgeClass: Record<string, string> = {
+          "above-target": "bg-yellow-500/20 text-yellow-400",
+          "below-stop": "bg-red-500/20 text-red-400",
+          overdue: "bg-orange-500/20 text-orange-400",
+        };
+
+        return (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Sector Allocation */}
+            <Card padding="md">
+              <h2 className="text-sm font-semibold text-gray-300 mb-3">
+                Sector Allocation
+              </h2>
+              {!hasDiversification ? (
+                <p className="text-sm text-gray-500">
+                  No diversification data
+                </p>
+              ) : (
+                <div>
+                  {/* Stacked bar */}
+                  <div className="flex h-6 w-full rounded overflow-hidden">
+                    {sectorEntries.map(([sector, pct], i) => (
+                      <div
+                        key={sector}
+                        style={{
+                          width: `${sectorTotal > 0 ? (pct / sectorTotal) * 100 : 0}%`,
+                          backgroundColor:
+                            SECTOR_COLORS[i % SECTOR_COLORS.length],
+                        }}
+                        title={`${sector}: ${(pct * 100).toFixed(1)}%`}
+                      />
+                    ))}
+                  </div>
+                  {/* Legend */}
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3">
+                    {sectorEntries.map(([sector, pct], i) => (
+                      <div
+                        key={sector}
+                        className="flex items-center gap-1.5 text-xs text-gray-300"
+                      >
+                        <span
+                          className="inline-block w-2.5 h-2.5 rounded-sm shrink-0"
+                          style={{
+                            backgroundColor:
+                              SECTOR_COLORS[i % SECTOR_COLORS.length],
+                          }}
+                        />
+                        <span>
+                          {sector}{" "}
+                          <span className="text-gray-500">
+                            {(pct * 100).toFixed(1)}%
+                          </span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            {/* Thesis Drift */}
+            <Card padding="md">
+              <h2 className="text-sm font-semibold text-gray-300 mb-3">
+                Thesis Drift
+              </h2>
+              {driftFlags.length === 0 ? (
+                <p className="text-sm text-gray-500">
+                  All positions on track.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {driftFlags.map((flag) => (
+                    <div
+                      key={`${flag.ticker}-${flag.status}`}
+                      className="flex items-center gap-2 text-sm"
+                    >
+                      <span className="font-mono font-medium text-white w-14 shrink-0">
+                        {flag.ticker}
+                      </span>
+                      <span
+                        className={`px-1.5 py-0.5 rounded text-xs font-medium shrink-0 ${driftBadgeClass[flag.status]}`}
+                      >
+                        {flag.label}
+                      </span>
+                      <span className="text-gray-400 text-xs truncate">
+                        {flag.reason}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </div>
+        );
+      })()}
 
       {/* ── Middle row: Open positions + Recent alerts ── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">

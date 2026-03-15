@@ -1,7 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import React from "react";
 import { ToastProvider } from "../../contexts/ToastContext";
+
+// Mock recharts to avoid canvas/SVG issues in jsdom
+vi.mock("recharts", () => ({
+  BarChart: ({ children }: { children: React.ReactNode }) =>
+    React.createElement("div", { "data-testid": "bar-chart" }, children),
+  Bar: () => null,
+  AreaChart: ({ children }: { children: React.ReactNode }) =>
+    React.createElement("div", { "data-testid": "area-chart" }, children),
+  Area: () => null,
+  XAxis: () => null,
+  YAxis: () => null,
+  Tooltip: () => null,
+  ResponsiveContainer: ({ children }: { children: React.ReactNode }) =>
+    React.createElement("div", { "data-testid": "responsive-container" }, children),
+  CartesianGrid: () => null,
+  ReferenceLine: () => null,
+  Cell: () => null,
+}));
 
 // Mock ALL endpoint functions imported by JournalPage
 vi.mock("../../api/endpoints", () => ({
@@ -56,6 +75,10 @@ const mockPerformanceSummary = {
   total_realized_pnl: 1500,
   best_trade: { ticker: "AAPL", return_pct: 13.3, pnl: 200 },
   worst_trade: { ticker: "TSLA", return_pct: -8.0, pnl: -400 },
+  profit_factor: 1.85,
+  expectancy: 5.2,
+  max_consecutive_wins: 3,
+  max_consecutive_losses: 1,
 };
 
 function renderPage() {
@@ -136,7 +159,9 @@ describe("JournalPage", () => {
     });
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText("No closed trades yet.")).toBeInTheDocument();
+      // Multiple empty states (charts + table) all show this message
+      const emptyTexts = screen.getAllByText("No closed trades yet.");
+      expect(emptyTexts.length).toBeGreaterThan(0);
     });
   });
 
