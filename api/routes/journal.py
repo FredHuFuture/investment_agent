@@ -109,3 +109,95 @@ async def lesson_stats(db_path: str = Depends(get_db_path)):
     analytics = JournalAnalytics(db_path)
     data = await analytics.get_lesson_tag_stats()
     return {"data": data, "warnings": []}
+
+
+# ---------------------------------------------------------------------------
+# Position Quick Notes
+# ---------------------------------------------------------------------------
+
+_CREATE_POSITION_NOTES_SQL = """\
+CREATE TABLE IF NOT EXISTS position_notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker TEXT NOT NULL,
+    note_text TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+)
+"""
+
+
+class CreatePositionNoteRequest(BaseModel):
+    note_text: str
+
+
+async def _ensure_position_notes_table(db_path: str) -> None:
+    """Create the position_notes table if it does not exist."""
+    async with aiosqlite.connect(db_path) as conn:
+        await conn.execute(_CREATE_POSITION_NOTES_SQL)
+        await conn.commit()
+
+
+@router.get("/position-notes/{ticker}")
+async def get_position_notes(
+    ticker: str,
+    db_path: str = Depends(get_db_path),
+):
+    """Fetch all quick notes for a position ticker."""
+    await _ensure_position_notes_table(db_path)
+    async with aiosqlite.connect(db_path) as conn:
+        conn.row_factory = aiosqlite.Row
+        cursor = await conn.execute(
+            "SELECT id, ticker, note_text, created_at "
+            "FROM position_notes WHERE ticker = ? ORDER BY created_at DESC",
+            (ticker.upper(),),
+        )
+        rows = await cursor.fetchall()
+
+    data = [
+        {
+            "id": row["id"],
+            "ticker": row["ticker"],
+            "note_text": row["note_text"],
+            "created_at": row["created_at"],
+        }
+        for row in rows
+    ]
+    return {"data": data, "warnings": []}
+
+
+@router.post("/position-notes/{ticker}")
+async def create_position_note(
+    ticker: str,
+    body: CreatePositionNoteRequest,
+    db_path: str = Depends(get_db_path),
+):
+    """Create a new quick note for a position."""
+    if not body.note_text.strip():
+        raise HTTPException(status_code=400, detail="Note text cannot be empty")
+
+    await _ensure_position_notes_table(db_path)
+    async with aiosqlite.connect(db_path) as conn:
+        cursor = await conn.execute(
+            "INSERT INTO position_notes (ticker, note_text) VALUES (?, ?)",
+            (ticker.upper(), body.note_text.strip()),
+        )
+        await conn.commit()
+        row_id = cursor.lastrowid
+
+        conn.row_factory = aiosqlite.Row
+        cursor = await conn.execute(
+            "SELECT id, ticker, note_text, created_at "
+            "FROM position_notes WHERE id = ?",
+            (row_id,),
+        )
+        row = await cursor.fetchone()
+
+    if not row:
+        raise HTTPException(status_code=500, detail="Failed to create note")
+
+    data = {
+        "id": row["id"],
+        "ticker": row["ticker"],
+        "note_text": row["note_text"],
+        "created_at": row["created_at"],
+    }
+    return {"data": data, "warnings": []}

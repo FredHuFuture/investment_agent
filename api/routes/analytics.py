@@ -502,3 +502,114 @@ async def snapshot_compare(
         },
         "warnings": [],
     }
+
+
+@router.get("/sector-performance")
+async def sector_performance(db_path: str = Depends(get_db_path)):
+    """Aggregate P&L by sector from both open and closed positions."""
+    import asyncio
+    from api.deps import map_ticker
+    from data_providers.factory import get_provider
+
+    async with aiosqlite.connect(db_path) as conn:
+        conn.row_factory = aiosqlite.Row
+        rows = await (
+            await conn.execute(
+                "SELECT ticker, asset_type, sector, quantity, avg_cost, "
+                "status, realized_pnl "
+                "FROM active_positions"
+            )
+        ).fetchall()
+
+    if not rows:
+        return {"data": [], "warnings": []}
+
+    open_positions = [r for r in rows if r["status"] != "closed"]
+    closed_positions = [r for r in rows if r["status"] == "closed"]
+
+    # Fetch live prices for open positions
+    price_map: dict[str, float] = {}
+    warnings: list[str] = []
+
+    async def _fetch(ticker: str, asset_type: str) -> tuple[str, float]:
+        try:
+            provider = get_provider(asset_type)
+            yf_ticker = map_ticker(ticker, asset_type)
+            price = await provider.get_current_price(yf_ticker)
+            return ticker, price
+        except Exception:
+            return ticker, 0.0
+
+    if open_positions:
+        results = await asyncio.gather(
+            *[_fetch(r["ticker"], r["asset_type"]) for r in open_positions]
+        )
+        price_map = dict(results)
+
+    # Build per-sector aggregation
+    sectors: dict[str, dict] = {}
+
+    for row in rows:
+        ticker = row["ticker"]
+        sector = row["sector"] or "Unknown"
+        avg_cost = row["avg_cost"]
+        quantity = row["quantity"]
+        status = row["status"]
+        cost_basis = avg_cost * quantity
+
+        if status == "closed":
+            pnl = row["realized_pnl"] or 0.0
+            pnl_pct = (pnl / cost_basis * 100) if cost_basis else 0.0
+        else:
+            current_price = price_map.get(ticker, 0.0)
+            if current_price <= 0:
+                warnings.append(f"Could not fetch price for {ticker}")
+                continue
+            pnl = (current_price - avg_cost) * quantity
+            pnl_pct = ((current_price - avg_cost) / avg_cost * 100) if avg_cost else 0.0
+
+        if sector not in sectors:
+            sectors[sector] = {
+                "sector": sector,
+                "total_pnl": 0.0,
+                "total_cost_basis": 0.0,
+                "position_count": 0,
+                "best_ticker": None,
+                "best_pnl_pct": float("-inf"),
+                "worst_ticker": None,
+                "worst_pnl_pct": float("inf"),
+            }
+
+        s = sectors[sector]
+        s["total_pnl"] += pnl
+        s["total_cost_basis"] += cost_basis
+        s["position_count"] += 1
+
+        if pnl_pct > s["best_pnl_pct"]:
+            s["best_pnl_pct"] = pnl_pct
+            s["best_ticker"] = ticker
+        if pnl_pct < s["worst_pnl_pct"]:
+            s["worst_pnl_pct"] = pnl_pct
+            s["worst_ticker"] = ticker
+
+    # Build result list
+    result = []
+    for s in sectors.values():
+        total_pnl_pct = (
+            (s["total_pnl"] / s["total_cost_basis"] * 100)
+            if s["total_cost_basis"]
+            else 0.0
+        )
+        result.append({
+            "sector": s["sector"],
+            "total_pnl": round(s["total_pnl"], 2),
+            "total_pnl_pct": round(total_pnl_pct, 2),
+            "position_count": s["position_count"],
+            "best_ticker": s["best_ticker"],
+            "worst_ticker": s["worst_ticker"],
+        })
+
+    # Sort by total_pnl descending
+    result.sort(key=lambda x: x["total_pnl"], reverse=True)
+
+    return {"data": result, "warnings": warnings}

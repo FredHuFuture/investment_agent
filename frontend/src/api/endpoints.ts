@@ -58,6 +58,10 @@ import type {
   DividendSummary,
   SnapshotComparison,
   BulkWatchlistResult,
+  EarningsEvent,
+  PortfolioGoal,
+  PositionNote,
+  SectorPerformanceEntry,
 } from "./types";
 
 // Portfolio
@@ -453,3 +457,26 @@ export const compareSnapshots = (dateA: string, dateB: string) =>
 export const bulkAddWatchlist = (tickers: Array<{
   ticker: string; asset_type?: string; notes?: string; target_buy_price?: number;
 }>) => apiPost<BulkWatchlistResult>("/watchlist/bulk-add", { items: tickers });
+
+// Earnings calendar (Sprint 37)
+export const getUpcomingEarnings = () =>
+  apiGet<EarningsEvent[]>("/portfolio/earnings/upcoming");
+
+// Portfolio goals (Sprint 37)
+export const getPortfolioGoals = () =>
+  apiGet<PortfolioGoal[]>("/portfolio/goals");
+export const addPortfolioGoal = (body: {
+  label: string; target_value: number; target_date?: string;
+}) => apiPost<PortfolioGoal>("/portfolio/goals", body);
+export const deletePortfolioGoal = (id: number) =>
+  apiDelete<{ deleted: boolean }>(`/portfolio/goals/${id}`);
+
+// Position notes (Sprint 37)
+export const getPositionNotes = (ticker: string) =>
+  apiGet<PositionNote[]>(`/journal/position-notes/${encodeURIComponent(ticker)}`);
+export const addPositionNote = (ticker: string, body: { note_text: string }) =>
+  apiPost<PositionNote>(`/journal/position-notes/${encodeURIComponent(ticker)}`, body);
+
+// Sector performance (Sprint 37)
+export const getSectorPerformance = () =>
+  apiGet<SectorPerformanceEntry[]>("/analytics/sector-performance");

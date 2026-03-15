@@ -24,6 +24,9 @@ vi.mock("../../api/endpoints", () => ({
   deleteProfile: vi.fn(),
   setDefaultProfile: vi.fn(),
   bulkImportPositions: vi.fn(),
+  getPortfolioGoals: vi.fn(),
+  addPortfolioGoal: vi.fn(),
+  deletePortfolioGoal: vi.fn(),
 }));
 
 import {
@@ -32,6 +35,7 @@ import {
   getPositionHistory,
   getLatestSummary,
   listProfiles,
+  getPortfolioGoals,
 } from "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import PortfolioPage from "../PortfolioPage";
@@ -41,6 +45,7 @@ const mockGetAlerts = vi.mocked(getAlerts);
 const mockGetPositionHistory = vi.mocked(getPositionHistory);
 const mockGetLatestSummary = vi.mocked(getLatestSummary);
 const mockListProfiles = vi.mocked(listProfiles);
+const mockGetPortfolioGoals = vi.mocked(getPortfolioGoals);
 
 const mockPortfolio = {
   positions: [
@@ -121,6 +126,12 @@ function mockSecondaryApis() {
   mockGetPositionHistory.mockResolvedValue({ data: [], warnings: [] });
   mockGetLatestSummary.mockRejectedValue({ status: 404, message: "Not found" });
   mockListProfiles.mockResolvedValue({ data: [mockDefaultProfile as never], warnings: [] });
+  mockGetPortfolioGoals.mockResolvedValue({
+    data: [
+      { id: 1, label: "Retirement Fund", target_value: 100000, target_date: "2030-01-01", created_at: "2024-01-01T00:00:00" },
+    ],
+    warnings: [],
+  });
 }
 
 function renderPage() {
@@ -207,5 +218,15 @@ describe("PortfolioPage", () => {
     await waitFor(() => {
       expect(screen.getByText("Import CSV")).toBeInTheDocument();
     });
+  });
+
+  it("renders Goal Tracker with goals", async () => {
+    mockGetPortfolio.mockResolvedValue({ data: mockPortfolio as never, warnings: [] });
+    mockSecondaryApis();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Retirement Fund")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Portfolio Goals")).toBeInTheDocument();
   });
 });

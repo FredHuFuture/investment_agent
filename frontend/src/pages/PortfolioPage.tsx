@@ -15,6 +15,7 @@ import ConfirmModal from "../components/ui/ConfirmModal";
 import ClosedPositionsTable from "../components/portfolio/ClosedPositionsTable";
 import DashboardAlertsList from "../components/monitoring/DashboardAlertsList";
 import ProfileSwitcher from "../components/portfolio/ProfileSwitcher";
+import GoalTracker from "../components/portfolio/GoalTracker";
 import WeeklySummaryCard from "../components/summary/WeeklySummaryCard";
 import ErrorAlert from "../components/shared/ErrorAlert";
 import EmptyState from "../components/shared/EmptyState";
@@ -366,6 +367,9 @@ export default function PortfolioPage() {
           sub={`${(data.cash_pct * 100).toFixed(1)}% of portfolio`}
         />
       </div>
+
+      {/* -- Goal Tracker -- */}
+      <GoalTracker currentValue={data.total_value} />
 
       {/* -- Export / Import actions -- */}
       <div className="flex gap-2">

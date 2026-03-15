@@ -40,6 +40,7 @@ vi.mock("../../api/endpoints", () => ({
   getMonthlyHeatmap: vi.fn(),
   getPerformanceAttribution: vi.fn(),
   compareSnapshots: vi.fn(),
+  getSectorPerformance: vi.fn(),
 }));
 
 import {
@@ -54,6 +55,7 @@ import {
   getMonthlyHeatmap,
   getPerformanceAttribution,
   compareSnapshots,
+  getSectorPerformance,
 } from "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import PerformancePage from "../PerformancePage";
@@ -69,6 +71,7 @@ const mockGetRollingSharpe = vi.mocked(getRollingSharpe);
 const mockGetMonthlyHeatmap = vi.mocked(getMonthlyHeatmap);
 const mockGetPerformanceAttribution = vi.mocked(getPerformanceAttribution);
 const mockCompareSnapshots = vi.mocked(compareSnapshots);
+const mockGetSectorPerformance = vi.mocked(getSectorPerformance);
 
 const mockPerformanceSummary = {
   total_realized_pnl: 5000,
@@ -121,6 +124,13 @@ function mockAllApis() {
     ] as never,
     warnings: [],
   });
+  mockGetSectorPerformance.mockResolvedValue({
+    data: [
+      { sector: "Technology", total_pnl: 2000, total_pnl_pct: 12.5, position_count: 3, best_ticker: "AAPL", worst_ticker: "INTC" },
+      { sector: "Automotive", total_pnl: -500, total_pnl_pct: -8.3, position_count: 1, best_ticker: null, worst_ticker: "TSLA" },
+    ] as never,
+    warnings: [],
+  });
   mockCompareSnapshots.mockResolvedValue({
     data: {
       date_a: "2025-01-01",
@@ -166,6 +176,7 @@ describe("PerformancePage", () => {
     mockGetRollingSharpe.mockReturnValue(new Promise(() => {}));
     mockGetMonthlyHeatmap.mockReturnValue(new Promise(() => {}));
     mockGetPerformanceAttribution.mockReturnValue(new Promise(() => {}));
+    mockGetSectorPerformance.mockReturnValue(new Promise(() => {}));
     mockCompareSnapshots.mockReturnValue(new Promise(() => {}));
     renderPage();
     const skeletons = document.querySelectorAll(".animate-pulse");
@@ -183,6 +194,7 @@ describe("PerformancePage", () => {
     mockGetRollingSharpe.mockRejectedValue(new Error("Server unavailable"));
     mockGetMonthlyHeatmap.mockRejectedValue(new Error("Server unavailable"));
     mockGetPerformanceAttribution.mockRejectedValue(new Error("Server unavailable"));
+    mockGetSectorPerformance.mockRejectedValue(new Error("Server unavailable"));
     mockCompareSnapshots.mockRejectedValue(new Error("Server unavailable"));
     renderPage();
     await waitFor(() => {
@@ -287,5 +299,14 @@ describe("PerformancePage", () => {
       ).toBeInTheDocument();
     });
     expect(screen.getByText("Compare")).toBeInTheDocument();
+  });
+
+  it("renders Sector Performance section", async () => {
+    mockAllApis();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Sector Performance")).toBeInTheDocument();
+    });
+    expect(screen.getAllByText("Technology").length).toBeGreaterThan(0);
   });
 });

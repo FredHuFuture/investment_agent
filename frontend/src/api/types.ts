@@ -723,3 +723,39 @@ export interface BulkWatchlistResult {
   skipped: number;
   errors: Array<{ ticker: string; reason: string }>;
 }
+
+// ---------------------------------------------------------------------------
+// Sprint 37 types
+// ---------------------------------------------------------------------------
+export interface EarningsEvent {
+  ticker: string;
+  earnings_date: string;
+  days_until: number;
+  estimate_eps: number | null;
+  actual_eps: number | null;
+  source: string;
+}
+
+export interface PortfolioGoal {
+  id: number;
+  label: string;
+  target_value: number;
+  target_date: string | null;
+  created_at: string;
+}
+
+export interface PositionNote {
+  id: number;
+  ticker: string;
+  note_text: string;
+  created_at: string;
+}
+
+export interface SectorPerformanceEntry {
+  sector: string;
+  total_pnl: number;
+  total_pnl_pct: number;
+  position_count: number;
+  best_ticker: string | null;
+  worst_ticker: string | null;
+}

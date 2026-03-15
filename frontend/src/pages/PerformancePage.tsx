@@ -29,6 +29,7 @@ import DrawdownChart from "../components/performance/DrawdownChart";
 import RollingSharpeChart from "../components/performance/RollingSharpeChart";
 import MonthlyHeatmapCalendar from "../components/performance/MonthlyHeatmapCalendar";
 import PerformanceAttribution from "../components/performance/PerformanceAttribution";
+import SectorPerformance from "../components/performance/SectorPerformance";
 import SnapshotComparison from "../components/performance/SnapshotComparison";
 import {
   AreaChart,
@@ -389,6 +390,9 @@ export default function PerformancePage() {
 
       {/* P&L Attribution */}
       <PerformanceAttribution />
+
+      {/* Sector Performance */}
+      <SectorPerformance />
 
       {/* Snapshot Comparison */}
       <SnapshotComparison />

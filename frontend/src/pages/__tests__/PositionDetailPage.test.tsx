@@ -31,6 +31,8 @@ vi.mock("../../api/endpoints", () => ({
   getPositionTimeline: vi.fn(),
   getDividends: vi.fn(),
   addDividend: vi.fn(),
+  getPositionNotes: vi.fn(),
+  addPositionNote: vi.fn(),
 }));
 
 import {
@@ -45,6 +47,8 @@ import {
   getPositionTimeline,
   getDividends,
   addDividend,
+  getPositionNotes,
+  addPositionNote,
 } from "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import PositionDetailPage from "../PositionDetailPage";
@@ -59,8 +63,10 @@ const mockGetCatalysts = vi.mocked(getCatalysts);
 const mockGetPositionPnlHistory = vi.mocked(getPositionPnlHistory);
 const mockGetPositionTimeline = vi.mocked(getPositionTimeline);
 const mockGetDividends = vi.mocked(getDividends);
-// addDividend is mocked but only called via user interaction; wire it up for the mock module
+const mockGetPositionNotes = vi.mocked(getPositionNotes);
+// addDividend and addPositionNote are mocked but only called via user interaction; wire them up for the mock module
 void addDividend;
+void addPositionNote;
 
 const mockPortfolio = {
   positions: [
@@ -137,6 +143,12 @@ function mockSecondaryApis() {
       total_dividends: 2.40,
       yield_on_cost_pct: 0.16,
     } as never,
+    warnings: [],
+  });
+  mockGetPositionNotes.mockResolvedValue({
+    data: [
+      { id: 1, ticker: "AAPL", note_text: "Watching for earnings catalyst", created_at: "2024-02-01T10:00:00" },
+    ],
     warnings: [],
   });
   mockGetPositionTimeline.mockResolvedValue({
@@ -282,9 +294,9 @@ describe("PositionDetailPage", () => {
     mockSecondaryApis();
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText("Dividends")).toBeInTheDocument();
+      expect(screen.getByText("Total Dividends")).toBeInTheDocument();
     });
-    expect(screen.getByText("Total Dividends")).toBeInTheDocument();
+    expect(screen.getByText("Dividends")).toBeInTheDocument();
     expect(screen.getByText("Yield on Cost")).toBeInTheDocument();
     expect(screen.getByText("Record Dividend")).toBeInTheDocument();
   });
@@ -302,5 +314,15 @@ describe("PositionDetailPage", () => {
     expect(screen.getByText("Position Timeline")).toBeInTheDocument();
     expect(screen.getByText("Signal: BUY (85%)")).toBeInTheDocument();
     expect(screen.getByText("Alert: PRICE_DROP")).toBeInTheDocument();
+  });
+
+  it("renders Quick Notes section with notes", async () => {
+    mockGetPortfolio.mockResolvedValue({ data: mockPortfolio as never, warnings: [] });
+    mockSecondaryApis();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Watching for earnings catalyst")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Quick Notes")).toBeInTheDocument();
   });
 });

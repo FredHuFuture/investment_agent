@@ -450,6 +450,114 @@ async def get_dividends(ticker: str, db_path: str = Depends(get_db_path)):
     }
 
 
+@router.get("/earnings/upcoming")
+async def get_upcoming_earnings(db_path: str = Depends(get_db_path)):
+    """Return upcoming earnings dates for all open positions (next 60 days)."""
+    from datetime import date, datetime
+
+    events: list[dict] = []
+    warnings: list[str] = []
+
+    async with aiosqlite.connect(db_path) as conn:
+        conn.row_factory = aiosqlite.Row
+        cursor = await conn.execute(
+            "SELECT ticker FROM active_positions WHERE status = 'open'"
+        )
+        rows = await cursor.fetchall()
+
+    tickers = [row["ticker"] for row in rows]
+    if not tickers:
+        return {"data": [], "warnings": []}
+
+    today = date.today()
+
+    for ticker in tickers:
+        try:
+            import yfinance as yf
+
+            yf_ticker = yf.Ticker(ticker)
+            cal = yf_ticker.calendar
+            if cal is None or (hasattr(cal, "empty") and cal.empty):
+                continue
+
+            # yfinance .calendar can return a dict or DataFrame depending on version
+            earnings_date_val = None
+            estimate_eps = None
+            actual_eps = None
+
+            if isinstance(cal, dict):
+                # Dict format: {"Earnings Date": [...], "EPS Estimate": ..., ...}
+                ed = cal.get("Earnings Date")
+                if ed:
+                    if isinstance(ed, list) and len(ed) > 0:
+                        earnings_date_val = ed[0]
+                    else:
+                        earnings_date_val = ed
+                estimate_eps = cal.get("EPS Estimate")
+                actual_eps = cal.get("Reported EPS")
+            else:
+                # DataFrame format
+                if "Earnings Date" in cal.index:
+                    ed = cal.loc["Earnings Date"]
+                    if hasattr(ed, "iloc"):
+                        earnings_date_val = ed.iloc[0]
+                    else:
+                        earnings_date_val = ed
+                if "EPS Estimate" in cal.index:
+                    est = cal.loc["EPS Estimate"]
+                    estimate_eps = est.iloc[0] if hasattr(est, "iloc") else est
+                if "Reported EPS" in cal.index:
+                    act = cal.loc["Reported EPS"]
+                    actual_eps = act.iloc[0] if hasattr(act, "iloc") else act
+
+            if earnings_date_val is None:
+                continue
+
+            # Normalize to date
+            if isinstance(earnings_date_val, datetime):
+                earnings_date_obj = earnings_date_val.date()
+            elif isinstance(earnings_date_val, date):
+                earnings_date_obj = earnings_date_val
+            elif isinstance(earnings_date_val, str):
+                earnings_date_obj = datetime.strptime(earnings_date_val[:10], "%Y-%m-%d").date()
+            else:
+                # Pandas Timestamp
+                earnings_date_obj = earnings_date_val.date() if hasattr(earnings_date_val, "date") else None
+                if earnings_date_obj is None:
+                    continue
+
+            days_until = (earnings_date_obj - today).days
+            if days_until < 0 or days_until > 60:
+                continue
+
+            # Sanitize EPS values
+            try:
+                estimate_eps = float(estimate_eps) if estimate_eps is not None else None
+            except (TypeError, ValueError):
+                estimate_eps = None
+            try:
+                actual_eps = float(actual_eps) if actual_eps is not None else None
+            except (TypeError, ValueError):
+                actual_eps = None
+
+            events.append({
+                "ticker": ticker,
+                "earnings_date": earnings_date_obj.isoformat(),
+                "days_until": days_until,
+                "estimate_eps": estimate_eps,
+                "actual_eps": actual_eps,
+                "source": "yfinance",
+            })
+        except Exception as exc:
+            logger.warning("Failed to fetch earnings for %s: %s", ticker, exc)
+            warnings.append(f"Could not fetch earnings for {ticker}")
+
+    # Sort by earnings date (soonest first)
+    events.sort(key=lambda e: e["earnings_date"])
+
+    return {"data": events, "warnings": warnings}
+
+
 @router.post("/positions/{ticker}/dividends")
 async def add_dividend(ticker: str, body: AddDividendRequest, db_path: str = Depends(get_db_path)):
     """Record a new dividend for a position."""
@@ -502,3 +610,117 @@ async def add_dividend(ticker: str, body: AddDividendRequest, db_path: str = Dep
         new_id = cursor.lastrowid
 
     return {"data": {"id": new_id}, "warnings": []}
+
+
+# ---------------------------------------------------------------------------
+# Portfolio goals endpoints
+# ---------------------------------------------------------------------------
+
+class AddGoalRequest(BaseModel):
+    label: str
+    target_value: float
+    target_date: str | None = None
+
+
+@router.get("/goals")
+async def get_portfolio_goals(db_path: str = Depends(get_db_path)):
+    """List all portfolio goals."""
+    async with aiosqlite.connect(db_path) as conn:
+        conn.row_factory = aiosqlite.Row
+        await conn.execute(
+            "CREATE TABLE IF NOT EXISTS portfolio_goals ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "label TEXT NOT NULL, "
+            "target_value REAL NOT NULL, "
+            "target_date TEXT, "
+            "created_at TEXT NOT NULL DEFAULT (datetime('now'))"
+            ")"
+        )
+        await conn.commit()
+
+        cursor = await conn.execute(
+            "SELECT id, label, target_value, target_date, created_at "
+            "FROM portfolio_goals ORDER BY created_at DESC"
+        )
+        rows = await cursor.fetchall()
+        goals = [
+            {
+                "id": r["id"],
+                "label": r["label"],
+                "target_value": r["target_value"],
+                "target_date": r["target_date"],
+                "created_at": r["created_at"],
+            }
+            for r in rows
+        ]
+
+    return {"data": goals, "warnings": []}
+
+
+@router.post("/goals")
+async def add_portfolio_goal(body: AddGoalRequest, db_path: str = Depends(get_db_path)):
+    """Add a new portfolio goal."""
+    async with aiosqlite.connect(db_path) as conn:
+        conn.row_factory = aiosqlite.Row
+        await conn.execute(
+            "CREATE TABLE IF NOT EXISTS portfolio_goals ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "label TEXT NOT NULL, "
+            "target_value REAL NOT NULL, "
+            "target_date TEXT, "
+            "created_at TEXT NOT NULL DEFAULT (datetime('now'))"
+            ")"
+        )
+
+        cursor = await conn.execute(
+            "INSERT INTO portfolio_goals (label, target_value, target_date) "
+            "VALUES (?, ?, ?)",
+            (body.label, body.target_value, body.target_date),
+        )
+        await conn.commit()
+        new_id = cursor.lastrowid
+
+        cursor = await conn.execute(
+            "SELECT id, label, target_value, target_date, created_at "
+            "FROM portfolio_goals WHERE id = ?",
+            (new_id,),
+        )
+        row = await cursor.fetchone()
+
+    return {
+        "data": {
+            "id": row["id"],
+            "label": row["label"],
+            "target_value": row["target_value"],
+            "target_date": row["target_date"],
+            "created_at": row["created_at"],
+        },
+        "warnings": [],
+    }
+
+
+@router.delete("/goals/{goal_id}")
+async def delete_portfolio_goal(goal_id: int, db_path: str = Depends(get_db_path)):
+    """Delete a portfolio goal by ID."""
+    async with aiosqlite.connect(db_path) as conn:
+        cursor = await conn.execute(
+            "DELETE FROM portfolio_goals WHERE id = ?",
+            (goal_id,),
+        )
+        await conn.commit()
+        deleted = cursor.rowcount > 0
+
+    if not deleted:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": {
+                    "code": "NOT_FOUND",
+                    "message": f"No goal with id {goal_id}",
+                    "detail": None,
+                }
+            },
+        )
+
+    return {"data": {"deleted": True}, "warnings": []}

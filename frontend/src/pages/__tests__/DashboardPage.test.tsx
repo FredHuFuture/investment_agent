@@ -38,6 +38,7 @@ vi.mock("../../api/endpoints", () => ({
   getPortfolioRisk: vi.fn(),
   getActivityFeed: vi.fn(),
   getWatchlistTargets: vi.fn(),
+  getUpcomingEarnings: vi.fn(),
 }));
 
 import {
@@ -55,6 +56,7 @@ import {
   getPortfolioRisk,
   getActivityFeed,
   getWatchlistTargets,
+  getUpcomingEarnings,
 } from "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import DashboardPage from "../DashboardPage";
@@ -73,6 +75,7 @@ const mockGetDailyReturn = vi.mocked(getDailyReturn);
 const mockGetPortfolioRisk = vi.mocked(getPortfolioRisk);
 const mockGetActivityFeed = vi.mocked(getActivityFeed);
 const mockGetWatchlistTargets = vi.mocked(getWatchlistTargets);
+const mockGetUpcomingEarnings = vi.mocked(getUpcomingEarnings);
 
 const mockPortfolio = {
   positions: [
@@ -173,6 +176,13 @@ function mockSecondaryApis() {
     data: [
       { ticker: "MSFT", target_buy_price: 400, current_price: 390, distance_pct: -2.5, last_signal: "BUY", last_confidence: 0.75 },
       { ticker: "NVDA", target_buy_price: 800, current_price: 830, distance_pct: 3.75, last_signal: "HOLD", last_confidence: 0.6 },
+    ],
+    warnings: [],
+  });
+  mockGetUpcomingEarnings.mockResolvedValue({
+    data: [
+      { ticker: "AAPL", earnings_date: "2025-04-15", days_until: 5, estimate_eps: 1.52, actual_eps: null, source: "yfinance" },
+      { ticker: "MSFT", earnings_date: "2025-04-22", days_until: 12, estimate_eps: 2.80, actual_eps: null, source: "yfinance" },
     ],
     warnings: [],
   });
@@ -300,7 +310,7 @@ describe("DashboardPage", () => {
     await waitFor(() => {
       expect(screen.getByText("Watchlist Near Target")).toBeInTheDocument();
     });
-    expect(screen.getByText("MSFT")).toBeInTheDocument();
+    expect(screen.getAllByText("MSFT").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("NVDA")).toBeInTheDocument();
   });
 
@@ -316,5 +326,15 @@ describe("DashboardPage", () => {
     });
     expect(screen.getByText("daily_scan \u2014 success")).toBeInTheDocument();
     expect(screen.getByText("Price dropped 5%")).toBeInTheDocument();
+  });
+
+  it("renders Upcoming Earnings card", async () => {
+    mockGetPortfolio.mockResolvedValue({ data: mockPortfolio as never, warnings: [] });
+    mockSecondaryApis();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Upcoming Earnings")).toBeInTheDocument();
+    });
+    expect(screen.getAllByText("AAPL").length).toBeGreaterThanOrEqual(1);
   });
 });

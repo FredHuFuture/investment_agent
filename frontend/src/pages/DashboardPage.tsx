@@ -40,6 +40,7 @@ import RiskSummaryWidget from "../components/dashboard/RiskSummaryWidget";
 import ActivityFeedWidget from "../components/dashboard/ActivityFeedWidget";
 import RegimeTimeline from "../components/dashboard/RegimeTimeline";
 import WatchlistTargetsBanner from "../components/dashboard/WatchlistTargetsBanner";
+import EarningsCalendar from "../components/dashboard/EarningsCalendar";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { SkeletonCard, SkeletonTable } from "../components/ui/Skeleton";
@@ -242,6 +243,9 @@ export default function DashboardPage() {
 
       {/* ── Watchlist Near Target ── */}
       <WatchlistTargetsBanner />
+
+      {/* ── Upcoming Earnings ── */}
+      <EarningsCalendar />
 
       {/* ── Top Movers + Signal Summary + Risk Overview ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
