@@ -16,6 +16,9 @@ import SignalHistory from "../components/signals/SignalHistory";
 import AccuracyStatsComponent from "../components/signals/AccuracyStats";
 import CalibrationChart from "../components/signals/CalibrationChart";
 import AgentPerformance from "../components/signals/AgentPerformance";
+import AccuracyTrendChart from "../components/signals/AccuracyTrendChart";
+import AgentAgreementChart from "../components/signals/AgentAgreementChart";
+import SignalTimeline from "../components/signals/SignalTimeline";
 import { Card, CardBody } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { TextInput, SelectInput } from "../components/ui/Input";
@@ -24,7 +27,15 @@ import ErrorAlert from "../components/shared/ErrorAlert";
 import EmptyState from "../components/shared/EmptyState";
 import { usePageTitle } from "../hooks/usePageTitle";
 
-const tabs = ["History", "Accuracy", "Calibration", "Agent Perf"] as const;
+const tabs = [
+  "History",
+  "Accuracy",
+  "Calibration",
+  "Agent Perf",
+  "Accuracy Trend",
+  "Agreement",
+  "Timeline",
+] as const;
 type Tab = (typeof tabs)[number];
 
 export default function SignalsPage() {
@@ -33,6 +44,7 @@ export default function SignalsPage() {
 
   const [filterTicker, setFilterTicker] = useState("");
   const [filterSignal, setFilterSignal] = useState("");
+  const [timelineTicker, setTimelineTicker] = useState("");
 
   const history = useApi<SignalHistoryEntry[]>(
     () => getSignalHistory({
@@ -84,6 +96,37 @@ export default function SignalsPage() {
             }))}
           />
         );
+
+      case "Accuracy Trend":
+        return <AccuracyTrendChart />;
+
+      case "Agreement":
+        return <AgentAgreementChart />;
+
+      case "Timeline":
+        return (
+          <div className="space-y-4">
+            <div className="flex items-end gap-3">
+              <TextInput
+                label="Ticker"
+                value={timelineTicker}
+                onChange={(e) => setTimelineTicker(e.target.value.toUpperCase())}
+                placeholder="e.g. AAPL"
+                className="w-32"
+              />
+              {timelineTicker && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setTimelineTicker("")}
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+            <SignalTimeline ticker={timelineTicker || null} />
+          </div>
+        );
     }
   }
 
@@ -122,14 +165,14 @@ export default function SignalsPage() {
         )}
       </div>
 
-      <div className="flex gap-1 border-b border-gray-800/50">
+      <div className="flex gap-1 border-b border-gray-800/50 overflow-x-auto">
         {tabs.map((t) => (
           <Button
             key={t}
             variant={tab === t ? "primary" : "ghost"}
             size="sm"
             onClick={() => setTab(t)}
-            className={`rounded-b-none border-b-2 ${
+            className={`rounded-b-none border-b-2 whitespace-nowrap ${
               tab === t
                 ? "border-blue-500"
                 : "border-transparent"

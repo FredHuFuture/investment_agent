@@ -158,6 +158,58 @@ class AlertStore:
 
         return await self._with_conn(_op)
 
+    async def batch_acknowledge(self, alert_ids: list[int]) -> int:
+        """Acknowledge multiple alerts at once. Returns count of updated rows."""
+        if not alert_ids:
+            return 0
+
+        async def _op(conn: aiosqlite.Connection) -> int:
+            placeholders = ",".join("?" for _ in alert_ids)
+            cursor = await conn.execute(
+                f"UPDATE monitoring_alerts SET acknowledged = 1 WHERE id IN ({placeholders})",
+                alert_ids,
+            )
+            await conn.commit()
+            return cursor.rowcount
+
+        return await self._with_conn(_op)
+
+    async def get_alert_timeline(self, days: int = 30) -> list[dict]:
+        """Alert count per day with severity breakdown for charting."""
+
+        async def _op(conn: aiosqlite.Connection) -> list[dict]:
+            rows = await (
+                await conn.execute(
+                    """
+                    SELECT date(created_at) AS d, severity, COUNT(*) AS cnt
+                    FROM monitoring_alerts
+                    WHERE created_at >= datetime('now', ? || ' days')
+                    GROUP BY d, severity
+                    ORDER BY d
+                    """,
+                    (f"-{days}",),
+                )
+            ).fetchall()
+
+            # Aggregate into {date -> {severity -> count}}
+            timeline: dict[str, dict[str, int]] = {}
+            for row in rows:
+                date_str, severity, count = row[0], row[1], row[2]
+                if date_str not in timeline:
+                    timeline[date_str] = {}
+                timeline[date_str][severity] = count
+
+            return [
+                {
+                    "date": date_str,
+                    "count": sum(breakdown.values()),
+                    "severity_breakdown": breakdown,
+                }
+                for date_str, breakdown in sorted(timeline.items())
+            ]
+
+        return await self._with_conn(_op)
+
     async def get_alert_count(self, ticker: str | None = None, days: int = 7) -> int:
         """Count alerts in the last N days."""
         async def _op(conn: aiosqlite.Connection) -> int:

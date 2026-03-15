@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections import defaultdict
+from itertools import combinations
 from typing import Any
 
 from tracking.store import SignalStore
@@ -210,5 +212,97 @@ class SignalTracker:
                     "HOLD": {"count": data["by_signal"]["HOLD"]["count"]},
                 },
             }
+
+        return result
+
+    async def compute_accuracy_trend(
+        self, window: int = 30
+    ) -> list[dict[str, Any]]:
+        """Rolling accuracy trend computed from resolved signals.
+
+        Query resolved signals ordered by created_at (ascending). For each
+        signal that has been resolved (has outcome WIN/LOSS), compute a
+        rolling window accuracy.
+        Return [{date, accuracy_pct, sample_size}]
+        """
+        # Get all resolved signals (large lookback to capture full history)
+        resolved = await self._store.get_resolved_signals(lookback=10_000)
+
+        if len(resolved) < window:
+            return []
+
+        # Resolved signals come back in DESC order; reverse to ascending
+        resolved.sort(key=lambda r: r["created_at"])
+
+        trend: list[dict[str, Any]] = []
+        for i in range(window, len(resolved) + 1):
+            window_slice = resolved[i - window : i]
+            wins = sum(1 for r in window_slice if r["outcome"] == "WIN")
+            accuracy = (wins / len(window_slice)) * 100
+            last_entry = window_slice[-1]
+            # Extract just the date portion from created_at
+            date_str = str(last_entry["created_at"])[:10]
+            trend.append({
+                "date": date_str,
+                "accuracy_pct": round(accuracy, 1),
+                "sample_size": len(window_slice),
+            })
+
+        return trend
+
+    async def compute_agent_agreement(
+        self, lookback: int = 100
+    ) -> list[dict[str, Any]]:
+        """Pairwise agreement rates between agents.
+
+        Parse agent_signals from the most recent ``lookback`` signals.
+        For each pair of agents, compute what percentage they gave the same
+        signal direction.
+        Return [{agent_a, agent_b, agreement_pct, sample_size}]
+        """
+        # Use get_signal_history (all signals, not just resolved)
+        signals = await self._store.get_signal_history(limit=lookback)
+
+        if not signals:
+            return []
+
+        # For each signal row, extract per-agent direction
+        pair_counts: dict[tuple[str, str], dict[str, int]] = defaultdict(
+            lambda: {"agree": 0, "total": 0}
+        )
+
+        for row in signals:
+            agent_signals = row.get("agent_signals", [])
+            if not agent_signals or not isinstance(agent_signals, list):
+                continue
+
+            # Build map: agent_name -> signal direction
+            agent_dirs: dict[str, str] = {}
+            for asig in agent_signals:
+                name = asig.get("agent_name", "")
+                sig = asig.get("signal", "")
+                if name and sig:
+                    agent_dirs[name] = sig
+
+            # Compare all pairs
+            agent_names = sorted(agent_dirs.keys())
+            for a, b in combinations(agent_names, 2):
+                pair_key = (a, b)
+                pair_counts[pair_key]["total"] += 1
+                if agent_dirs[a] == agent_dirs[b]:
+                    pair_counts[pair_key]["agree"] += 1
+
+        result: list[dict[str, Any]] = []
+        for (agent_a, agent_b), counts in sorted(pair_counts.items()):
+            total = counts["total"]
+            if total == 0:
+                continue
+            agreement_pct = (counts["agree"] / total) * 100
+            result.append({
+                "agent_a": agent_a,
+                "agent_b": agent_b,
+                "agreement_pct": round(agreement_pct, 1),
+                "sample_size": total,
+            })
 
         return result

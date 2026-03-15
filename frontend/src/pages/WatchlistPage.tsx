@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   getWatchlist,
   addToWatchlist,
@@ -7,7 +7,7 @@ import {
   analyzeAllWatchlist,
   updateWatchlistItem,
 } from "../api/endpoints";
-import type { WatchlistItem } from "../api/types";
+import type { WatchlistItem, AnalysisResult } from "../api/types";
 import SignalBadge from "../components/shared/SignalBadge";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { Card } from "../components/ui/Card";
@@ -17,6 +17,13 @@ import { SkeletonTable } from "../components/ui/Skeleton";
 import { useToast } from "../contexts/ToastContext";
 import ConfirmModal from "../components/ui/ConfirmModal";
 import { formatRelativeDate } from "../lib/formatters";
+import InlineAnalysisPanel from "../components/watchlist/InlineAnalysisPanel";
+import SignalFilterBar, {
+  type SignalFilter,
+} from "../components/watchlist/SignalFilterBar";
+import ComparisonTable from "../components/watchlist/ComparisonTable";
+
+const MAX_COMPARE = 5;
 
 export default function WatchlistPage() {
   usePageTitle("Watchlist");
@@ -50,12 +57,30 @@ export default function WatchlistPage() {
     success_count: number;
   } | null>(null);
 
+  // --- Inline analysis results (Feature 1) ---
+  const [analysisResults, setAnalysisResults] = useState<
+    Record<string, AnalysisResult>
+  >({});
+  const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
+
+  // --- Signal filter (Feature 2) ---
+  const [signalFilter, setSignalFilter] = useState<SignalFilter>("ALL");
+
+  // --- Comparison mode (Feature 3) ---
+  const [compareMode, setCompareMode] = useState(false);
+  const [selectedTickers, setSelectedTickers] = useState<Set<string>>(
+    new Set(),
+  );
+
   const fetchWatchlist = useCallback(async () => {
     try {
       const res = await getWatchlist();
       setItems(res.data);
     } catch (err) {
-      toast.error("Failed to load watchlist", err instanceof Error ? err.message : "Unknown error");
+      toast.error(
+        "Failed to load watchlist",
+        err instanceof Error ? err.message : "Unknown error",
+      );
     } finally {
       setLoading(false);
     }
@@ -64,6 +89,34 @@ export default function WatchlistPage() {
   useEffect(() => {
     fetchWatchlist();
   }, [fetchWatchlist]);
+
+  // Filtered items based on signal filter
+  const filteredItems = useMemo(() => {
+    switch (signalFilter) {
+      case "BUY":
+        return items.filter(
+          (i) => i.last_signal?.toUpperCase() === "BUY",
+        );
+      case "SELL":
+        return items.filter(
+          (i) => i.last_signal?.toUpperCase() === "SELL",
+        );
+      case "HOLD":
+        return items.filter(
+          (i) => i.last_signal?.toUpperCase() === "HOLD",
+        );
+      case "UNANALYZED":
+        return items.filter((i) => !i.last_signal);
+      default:
+        return items;
+    }
+  }, [items, signalFilter]);
+
+  // Items selected for comparison
+  const comparedItems = useMemo(
+    () => items.filter((i) => selectedTickers.has(i.ticker)),
+    [items, selectedTickers],
+  );
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -82,7 +135,10 @@ export default function WatchlistPage() {
       setTargetPrice("");
       await fetchWatchlist();
     } catch (err) {
-      toast.error("Failed to add", err instanceof Error ? err.message : "Unknown error");
+      toast.error(
+        "Failed to add",
+        err instanceof Error ? err.message : "Unknown error",
+      );
     } finally {
       setAdding(false);
     }
@@ -94,20 +150,39 @@ export default function WatchlistPage() {
       await removeFromWatchlist(confirmRemove);
       toast.success("Removed", confirmRemove + " removed from watchlist");
       setConfirmRemove(null);
+      // Clean up related state
+      setSelectedTickers((prev) => {
+        const next = new Set(prev);
+        next.delete(confirmRemove);
+        return next;
+      });
+      if (expandedTicker === confirmRemove) setExpandedTicker(null);
       await fetchWatchlist();
     } catch (err) {
-      toast.error("Failed to remove", err instanceof Error ? err.message : "Unknown error");
+      toast.error(
+        "Failed to remove",
+        err instanceof Error ? err.message : "Unknown error",
+      );
     }
   }
 
   async function handleAnalyze(t: string) {
     setAnalyzingTicker(t);
     try {
-      await analyzeWatchlistTicker(t);
+      const res = await analyzeWatchlistTicker(t);
+      // Store analysis result for inline display
+      setAnalysisResults((prev) => ({
+        ...prev,
+        [t]: res.data.analysis,
+      }));
+      setExpandedTicker(t);
       toast.success("Analysis complete", t);
       await fetchWatchlist();
     } catch (err) {
-      toast.error("Analysis failed", err instanceof Error ? err.message : "Unknown error");
+      toast.error(
+        "Analysis failed",
+        err instanceof Error ? err.message : "Unknown error",
+      );
     } finally {
       setAnalyzingTicker(null);
     }
@@ -122,10 +197,16 @@ export default function WatchlistPage() {
         total: res.data.total,
         success_count: res.data.success_count,
       });
-      toast.success("Batch complete", `${res.data.success_count}/${res.data.total} succeeded`);
+      toast.success(
+        "Batch complete",
+        `${res.data.success_count}/${res.data.total} succeeded`,
+      );
       await fetchWatchlist();
     } catch (err) {
-      toast.error("Batch analysis failed", err instanceof Error ? err.message : "Unknown error");
+      toast.error(
+        "Batch analysis failed",
+        err instanceof Error ? err.message : "Unknown error",
+      );
     } finally {
       setAnalyzingAll(false);
     }
@@ -135,8 +216,10 @@ export default function WatchlistPage() {
     setEditingTicker(item.ticker);
     setEditForm({
       notes: item.notes || "",
-      target_buy_price: item.target_buy_price != null ? String(item.target_buy_price) : "",
-      alert_below_price: item.alert_below_price != null ? String(item.alert_below_price) : "",
+      target_buy_price:
+        item.target_buy_price != null ? String(item.target_buy_price) : "",
+      alert_below_price:
+        item.alert_below_price != null ? String(item.alert_below_price) : "",
     });
   }
 
@@ -146,14 +229,21 @@ export default function WatchlistPage() {
     try {
       await updateWatchlistItem(editingTicker, {
         notes: editForm.notes || undefined,
-        target_buy_price: editForm.target_buy_price ? parseFloat(editForm.target_buy_price) : undefined,
-        alert_below_price: editForm.alert_below_price ? parseFloat(editForm.alert_below_price) : undefined,
+        target_buy_price: editForm.target_buy_price
+          ? parseFloat(editForm.target_buy_price)
+          : undefined,
+        alert_below_price: editForm.alert_below_price
+          ? parseFloat(editForm.alert_below_price)
+          : undefined,
       });
       toast.success("Updated", `${editingTicker} watchlist entry saved`);
       setEditingTicker(null);
       await fetchWatchlist();
     } catch (err) {
-      toast.error("Update failed", err instanceof Error ? err.message : "Unknown error");
+      toast.error(
+        "Update failed",
+        err instanceof Error ? err.message : "Unknown error",
+      );
     } finally {
       setSaving(false);
     }
@@ -163,9 +253,44 @@ export default function WatchlistPage() {
     setEditingTicker(null);
   }
 
+  function toggleCompareSelect(t: string) {
+    setSelectedTickers((prev) => {
+      const next = new Set(prev);
+      if (next.has(t)) {
+        next.delete(t);
+      } else if (next.size < MAX_COMPARE) {
+        next.add(t);
+      }
+      return next;
+    });
+  }
+
+  function handleExitCompare() {
+    setCompareMode(false);
+    setSelectedTickers(new Set());
+  }
+
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-white">Watchlist</h1>
+      {/* Page header with Compare toggle */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-white">Watchlist</h1>
+        {items.length >= 2 && (
+          <Button
+            variant={compareMode ? "primary" : "ghost"}
+            size="sm"
+            onClick={() => {
+              if (compareMode) {
+                handleExitCompare();
+              } else {
+                setCompareMode(true);
+              }
+            }}
+          >
+            {compareMode ? "Exit Compare" : "Compare"}
+          </Button>
+        )}
+      </div>
 
       {/* Add Form */}
       <Card padding="md">
@@ -207,7 +332,12 @@ export default function WatchlistPage() {
               placeholder="Why you're watching..."
               className="flex-1 min-w-[120px]"
             />
-            <Button type="submit" size="sm" loading={adding} disabled={!ticker.trim()}>
+            <Button
+              type="submit"
+              size="sm"
+              loading={adding}
+              disabled={!ticker.trim()}
+            >
               Add
             </Button>
           </div>
@@ -217,7 +347,11 @@ export default function WatchlistPage() {
       {/* Analyze All + Batch Result */}
       {items.length > 0 && (
         <div className="flex items-center gap-4">
-          <Button variant="primary" loading={analyzingAll} onClick={handleAnalyzeAll}>
+          <Button
+            variant="primary"
+            loading={analyzingAll}
+            onClick={handleAnalyzeAll}
+          >
             Analyze All
           </Button>
           {batchResult && (
@@ -238,154 +372,78 @@ export default function WatchlistPage() {
             No tickers on your watchlist yet. Add one above.
           </div>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-800/50 text-xs text-gray-500 uppercase tracking-wider">
-                <th className="text-left px-4 py-3">Ticker</th>
-                <th className="text-left px-4 py-3">Type</th>
-                <th className="text-left px-4 py-3">Target Price</th>
-                <th className="text-left px-4 py-3">Alert Price</th>
-                <th className="text-left px-4 py-3">Notes</th>
-                <th className="text-center px-4 py-3">Signal</th>
-                <th className="text-center px-4 py-3">Confidence</th>
-                <th className="text-right px-4 py-3">Last Analyzed</th>
-                <th className="text-right px-4 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => {
-                const isEditing = editingTicker === item.ticker;
-                return (
-                  <tr
-                    key={item.id}
-                    className="border-b border-gray-800/30 hover:bg-gray-800/20 transition-colors"
-                  >
-                    <td className="px-4 py-3 font-mono font-bold text-white">
-                      {item.ticker}
-                    </td>
-                    <td className="px-4 py-3 text-gray-400">{item.asset_type}</td>
-                    <td className="px-4 py-3 text-gray-300">
-                      {isEditing ? (
-                        <TextInput
-                          type="number"
-                          step="0.01"
-                          value={editForm.target_buy_price}
-                          onChange={(e) =>
-                            setEditForm((f) => ({ ...f, target_buy_price: e.target.value }))
-                          }
-                          placeholder="Target price"
-                          className="w-28"
-                        />
-                      ) : (
-                        item.target_buy_price != null
-                          ? `$${item.target_buy_price.toFixed(2)}`
-                          : "-"
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-gray-300">
-                      {isEditing ? (
-                        <TextInput
-                          type="number"
-                          step="0.01"
-                          value={editForm.alert_below_price}
-                          onChange={(e) =>
-                            setEditForm((f) => ({ ...f, alert_below_price: e.target.value }))
-                          }
-                          placeholder="Alert price"
-                          className="w-28"
-                        />
-                      ) : (
-                        item.alert_below_price != null
-                          ? `$${item.alert_below_price.toFixed(2)}`
-                          : "-"
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-gray-400 max-w-[200px]">
-                      {isEditing ? (
-                        <TextInput
-                          value={editForm.notes}
-                          onChange={(e) =>
-                            setEditForm((f) => ({ ...f, notes: e.target.value }))
-                          }
-                          placeholder="Notes"
-                          className="w-full"
-                        />
-                      ) : (
-                        <span className="truncate block">{item.notes || "-"}</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {item.last_signal ? (
-                        <SignalBadge signal={item.last_signal} />
-                      ) : (
-                        <span className="text-gray-600">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center text-gray-300">
-                      {item.last_confidence != null
-                        ? `${item.last_confidence.toFixed(1)}%`
-                        : "-"}
-                    </td>
-                    <td className="px-4 py-3 text-right text-gray-500 text-xs">
-                      {item.last_analysis_at
-                        ? formatRelativeDate(item.last_analysis_at)
-                        : "Never"}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {isEditing ? (
-                          <>
-                            <Button
-                              variant="primary"
-                              size="sm"
-                              loading={saving}
-                              onClick={handleSaveEdit}
-                            >
-                              Save
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={handleCancelEdit}
-                            >
-                              Cancel
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => startEdit(item)}
-                            >
-                              Edit
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              loading={analyzingTicker === item.ticker}
-                              onClick={() => handleAnalyze(item.ticker)}
-                            >
-                              Analyze
-                            </Button>
-                            <Button
-                              variant="danger"
-                              size="sm"
-                              onClick={() => setConfirmRemove(item.ticker)}
-                            >
-                              Remove
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <>
+            {/* Signal Filter Bar (Feature 2) */}
+            <SignalFilterBar
+              active={signalFilter}
+              onChange={setSignalFilter}
+            />
+
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-800/50 text-xs text-gray-500 uppercase tracking-wider">
+                  {compareMode && (
+                    <th className="w-10 px-3 py-3">
+                      <span className="sr-only">Select</span>
+                    </th>
+                  )}
+                  <th className="text-left px-4 py-3">Ticker</th>
+                  <th className="text-left px-4 py-3">Type</th>
+                  <th className="text-left px-4 py-3">Target Price</th>
+                  <th className="text-left px-4 py-3">Alert Price</th>
+                  <th className="text-left px-4 py-3">Notes</th>
+                  <th className="text-center px-4 py-3">Signal</th>
+                  <th className="text-center px-4 py-3">Confidence</th>
+                  <th className="text-right px-4 py-3">Last Analyzed</th>
+                  <th className="text-right px-4 py-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredItems.map((item) => {
+                  const isEditing = editingTicker === item.ticker;
+                  const isExpanded = expandedTicker === item.ticker;
+                  const hasAnalysis = !!analysisResults[item.ticker];
+                  const colSpanCount = compareMode ? 10 : 9;
+
+                  return (
+                    <WatchlistRow
+                      key={item.id}
+                      item={item}
+                      isEditing={isEditing}
+                      isExpanded={isExpanded && hasAnalysis}
+                      analysis={analysisResults[item.ticker] ?? null}
+                      compareMode={compareMode}
+                      isSelected={selectedTickers.has(item.ticker)}
+                      maxSelected={selectedTickers.size >= MAX_COMPARE}
+                      colSpanCount={colSpanCount}
+                      analyzingTicker={analyzingTicker}
+                      saving={saving}
+                      editForm={editForm}
+                      setEditForm={setEditForm}
+                      onStartEdit={() => startEdit(item)}
+                      onSaveEdit={handleSaveEdit}
+                      onCancelEdit={handleCancelEdit}
+                      onAnalyze={() => handleAnalyze(item.ticker)}
+                      onRemove={() => setConfirmRemove(item.ticker)}
+                      onToggleCompare={() => toggleCompareSelect(item.ticker)}
+                      onClosePanel={() => setExpandedTicker(null)}
+                    />
+                  );
+                })}
+              </tbody>
+            </table>
+          </>
         )}
       </Card>
+
+      {/* Comparison Table (Feature 3) */}
+      {compareMode && comparedItems.length >= 2 && (
+        <ComparisonTable
+          items={comparedItems}
+          analysisResults={analysisResults}
+          onClose={handleExitCompare}
+        />
+      )}
 
       <ConfirmModal
         open={confirmRemove !== null}
@@ -397,5 +455,193 @@ export default function WatchlistPage() {
         variant="danger"
       />
     </div>
+  );
+}
+
+// --------------------------------------------------------------------------
+// Extracted row component to keep the main component readable
+// --------------------------------------------------------------------------
+interface WatchlistRowProps {
+  item: WatchlistItem;
+  isEditing: boolean;
+  isExpanded: boolean;
+  analysis: AnalysisResult | null;
+  compareMode: boolean;
+  isSelected: boolean;
+  maxSelected: boolean;
+  colSpanCount: number;
+  analyzingTicker: string | null;
+  saving: boolean;
+  editForm: { notes: string; target_buy_price: string; alert_below_price: string };
+  setEditForm: React.Dispatch<
+    React.SetStateAction<{
+      notes: string;
+      target_buy_price: string;
+      alert_below_price: string;
+    }>
+  >;
+  onStartEdit: () => void;
+  onSaveEdit: () => void;
+  onCancelEdit: () => void;
+  onAnalyze: () => void;
+  onRemove: () => void;
+  onToggleCompare: () => void;
+  onClosePanel: () => void;
+}
+
+function WatchlistRow({
+  item,
+  isEditing,
+  isExpanded,
+  analysis,
+  compareMode,
+  isSelected,
+  maxSelected,
+  analyzingTicker,
+  saving,
+  editForm,
+  setEditForm,
+  onStartEdit,
+  onSaveEdit,
+  onCancelEdit,
+  onAnalyze,
+  onRemove,
+  onToggleCompare,
+  onClosePanel,
+}: WatchlistRowProps) {
+  return (
+    <>
+      <tr className="border-b border-gray-800/30 hover:bg-gray-800/20 transition-colors">
+        {compareMode && (
+          <td className="px-3 py-3 text-center">
+            <input
+              type="checkbox"
+              checked={isSelected}
+              disabled={!isSelected && maxSelected}
+              onChange={onToggleCompare}
+              className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-900 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            />
+          </td>
+        )}
+        <td className="px-4 py-3 font-mono font-bold text-white">
+          {item.ticker}
+        </td>
+        <td className="px-4 py-3 text-gray-400">{item.asset_type}</td>
+        <td className="px-4 py-3 text-gray-300">
+          {isEditing ? (
+            <TextInput
+              type="number"
+              step="0.01"
+              value={editForm.target_buy_price}
+              onChange={(e) =>
+                setEditForm((f) => ({
+                  ...f,
+                  target_buy_price: e.target.value,
+                }))
+              }
+              placeholder="Target price"
+              className="w-28"
+            />
+          ) : item.target_buy_price != null ? (
+            `$${item.target_buy_price.toFixed(2)}`
+          ) : (
+            "-"
+          )}
+        </td>
+        <td className="px-4 py-3 text-gray-300">
+          {isEditing ? (
+            <TextInput
+              type="number"
+              step="0.01"
+              value={editForm.alert_below_price}
+              onChange={(e) =>
+                setEditForm((f) => ({
+                  ...f,
+                  alert_below_price: e.target.value,
+                }))
+              }
+              placeholder="Alert price"
+              className="w-28"
+            />
+          ) : item.alert_below_price != null ? (
+            `$${item.alert_below_price.toFixed(2)}`
+          ) : (
+            "-"
+          )}
+        </td>
+        <td className="px-4 py-3 text-gray-400 max-w-[200px]">
+          {isEditing ? (
+            <TextInput
+              value={editForm.notes}
+              onChange={(e) =>
+                setEditForm((f) => ({ ...f, notes: e.target.value }))
+              }
+              placeholder="Notes"
+              className="w-full"
+            />
+          ) : (
+            <span className="truncate block">{item.notes || "-"}</span>
+          )}
+        </td>
+        <td className="px-4 py-3 text-center">
+          {item.last_signal ? (
+            <SignalBadge signal={item.last_signal} />
+          ) : (
+            <span className="text-gray-600">-</span>
+          )}
+        </td>
+        <td className="px-4 py-3 text-center text-gray-300">
+          {item.last_confidence != null
+            ? `${item.last_confidence.toFixed(1)}%`
+            : "-"}
+        </td>
+        <td className="px-4 py-3 text-right text-gray-500 text-xs">
+          {item.last_analysis_at
+            ? formatRelativeDate(item.last_analysis_at)
+            : "Never"}
+        </td>
+        <td className="px-4 py-3 text-right">
+          <div className="flex items-center justify-end gap-2">
+            {isEditing ? (
+              <>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  loading={saving}
+                  onClick={onSaveEdit}
+                >
+                  Save
+                </Button>
+                <Button variant="ghost" size="sm" onClick={onCancelEdit}>
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" onClick={onStartEdit}>
+                  Edit
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  loading={analyzingTicker === item.ticker}
+                  onClick={onAnalyze}
+                >
+                  Analyze
+                </Button>
+                <Button variant="danger" size="sm" onClick={onRemove}>
+                  Remove
+                </Button>
+              </>
+            )}
+          </div>
+        </td>
+      </tr>
+
+      {/* Inline Analysis Panel (Feature 1) */}
+      {isExpanded && analysis && (
+        <InlineAnalysisPanel analysis={analysis} onClose={onClosePanel} />
+      )}
+    </>
   );
 }

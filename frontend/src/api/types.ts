@@ -459,3 +459,25 @@ export interface BenchmarkComparison {
   alpha_pct: number;
   data_points: number;
 }
+
+// ---------------------------------------------------------------------------
+// Sprint 27 types
+// ---------------------------------------------------------------------------
+export interface AlertTimelinePoint {
+  date: string;
+  count: number;
+  severity_breakdown: Record<string, number>;
+}
+
+export interface SignalAccuracyTrendPoint {
+  date: string;
+  accuracy_pct: number;
+  sample_size: number;
+}
+
+export interface AgentAgreementEntry {
+  agent_a: string;
+  agent_b: string;
+  agreement_pct: number;
+  sample_size: number;
+}

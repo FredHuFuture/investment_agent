@@ -31,6 +31,9 @@ import type {
   UpdateThesisBody,
   CumulativePnlPoint,
   PositionPnlPoint,
+  AlertTimelinePoint,
+  SignalAccuracyTrendPoint,
+  AgentAgreementEntry,
 } from "./types";
 
 // Portfolio
@@ -172,6 +175,10 @@ export const getCalibration = () =>
   apiGet<CalibrationBucket[]>("/signals/calibration");
 export const getAgentPerformance = () =>
   apiGet<Record<string, AgentPerformanceEntry>>("/signals/agents");
+export const getAccuracyTrend = (window = 30) =>
+  apiGet<SignalAccuracyTrendPoint[]>(`/signals/accuracy-trend?window=${window}`);
+export const getAgentAgreement = (lookback = 100) =>
+  apiGet<AgentAgreementEntry[]>(`/signals/agent-agreement?lookback=${lookback}`);
 
 // Alerts
 export const getAlerts = (params?: {
@@ -197,6 +204,10 @@ export const deleteAlert = (id: number) =>
   apiDelete<{ id: number; deleted: boolean }>(`/alerts/${id}`);
 export const runMonitorCheck = () =>
   apiPost<Record<string, unknown>>("/monitor/check");
+export const batchAcknowledgeAlerts = (alertIds: number[]) =>
+  apiPatch<{ acknowledged_count: number }>("/alerts/batch-acknowledge", { alert_ids: alertIds });
+export const getAlertTimeline = (days = 30) =>
+  apiGet<AlertTimelinePoint[]>(`/alerts/timeline?days=${days}`);
 
 // Weights
 export const getWeights = () => apiGet<WeightsData>("/weights");
@@ -263,7 +274,7 @@ export const updateWatchlistItem = (
   body: { notes?: string; target_buy_price?: number; alert_below_price?: number },
 ) => apiPut<WatchlistItem>(`/watchlist/${ticker}`, body);
 export const analyzeWatchlistTicker = (ticker: string) =>
-  apiPost<{ watchlist_item: WatchlistItem; analysis: unknown }>(
+  apiPost<{ watchlist_item: WatchlistItem; analysis: AnalysisResult }>(
     `/watchlist/${ticker}/analyze`,
     {},
   );

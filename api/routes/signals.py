@@ -57,3 +57,25 @@ async def get_agent_performance(
     tracker = SignalTracker(SignalStore(db_path))
     perf = await tracker.compute_agent_performance(lookback=lookback)
     return {"data": perf, "warnings": []}
+
+
+@router.get("/accuracy-trend")
+async def accuracy_trend(
+    window: int = Query(30, ge=5, le=100),
+    db_path: str = Depends(get_db_path),
+):
+    """Rolling accuracy trend over resolved signals."""
+    tracker = SignalTracker(SignalStore(db_path))
+    data = await tracker.compute_accuracy_trend(window)
+    return {"data": data, "warnings": []}
+
+
+@router.get("/agent-agreement")
+async def agent_agreement(
+    lookback: int = Query(100, ge=10, le=500),
+    db_path: str = Depends(get_db_path),
+):
+    """Pairwise agreement rates between agents."""
+    tracker = SignalTracker(SignalStore(db_path))
+    data = await tracker.compute_agent_agreement(lookback)
+    return {"data": data, "warnings": []}

@@ -1,7 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import React from "react";
 import { ToastProvider } from "../../contexts/ToastContext";
+
+// Mock recharts to avoid canvas/SVG issues in jsdom
+vi.mock("recharts", () => ({
+  BarChart: ({ children }: { children: React.ReactNode }) =>
+    React.createElement("div", { "data-testid": "bar-chart" }, children),
+  Bar: () => null,
+  XAxis: () => null,
+  YAxis: () => null,
+  CartesianGrid: () => null,
+  Tooltip: () => null,
+  ResponsiveContainer: ({ children }: { children: React.ReactNode }) =>
+    React.createElement("div", { "data-testid": "responsive-container" }, children),
+  Legend: () => null,
+}));
 
 // Mock the API endpoints module -- vi.mock is hoisted above imports
 vi.mock("../../api/endpoints", () => ({
@@ -9,13 +24,16 @@ vi.mock("../../api/endpoints", () => ({
   runMonitorCheck: vi.fn(),
   acknowledgeAlert: vi.fn(),
   deleteAlert: vi.fn(),
+  batchAcknowledgeAlerts: vi.fn(),
+  getAlertTimeline: vi.fn(),
 }));
 
-import { getAlerts } from "../../api/endpoints";
+import { getAlerts, getAlertTimeline } from "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import MonitoringPage from "../MonitoringPage";
 
 const mockGetAlerts = vi.mocked(getAlerts);
+const mockGetAlertTimeline = vi.mocked(getAlertTimeline);
 
 function renderPage() {
   return render(
@@ -31,6 +49,8 @@ describe("MonitoringPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     invalidateCache();
+    // Default: timeline returns empty
+    mockGetAlertTimeline.mockResolvedValue({ data: [], warnings: [] });
   });
 
   it("renders skeleton while loading", () => {
@@ -56,7 +76,7 @@ describe("MonitoringPage", () => {
           id: 1,
           ticker: "AAPL",
           alert_type: "PRICE_DROP",
-          severity: "high",
+          severity: "HIGH",
           message: "Price dropped 5%",
           acknowledged: 0,
           created_at: "2024-06-01T12:00:00Z",
@@ -65,7 +85,7 @@ describe("MonitoringPage", () => {
           id: 2,
           ticker: "TSLA",
           alert_type: "VOLUME_SPIKE",
-          severity: "medium",
+          severity: "WARNING",
           message: "Volume spike detected",
           acknowledged: 0,
           created_at: "2024-06-01T13:00:00Z",
@@ -90,6 +110,58 @@ describe("MonitoringPage", () => {
           "No alerts. Run a health check to generate alerts.",
         ),
       ).toBeInTheDocument();
+    });
+  });
+
+  it("renders severity summary chips when alerts have different severities", async () => {
+    mockGetAlerts.mockResolvedValue({
+      data: [
+        {
+          id: 1,
+          ticker: "AAPL",
+          alert_type: "PRICE_DROP",
+          severity: "CRITICAL",
+          message: "Critical alert",
+          acknowledged: 0,
+          created_at: "2024-06-01T12:00:00Z",
+        },
+        {
+          id: 2,
+          ticker: "TSLA",
+          alert_type: "VOLUME_SPIKE",
+          severity: "CRITICAL",
+          message: "Another critical",
+          acknowledged: 0,
+          created_at: "2024-06-01T13:00:00Z",
+        },
+        {
+          id: 3,
+          ticker: "GOOG",
+          alert_type: "INFO",
+          severity: "INFO",
+          message: "Info alert",
+          acknowledged: 1,
+          created_at: "2024-06-01T14:00:00Z",
+        },
+      ],
+      warnings: [],
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText(/2 Critical/)).toBeInTheDocument();
+      expect(screen.getByText(/1 Info/)).toBeInTheDocument();
+    });
+  });
+
+  it("renders severity filter bar with pill buttons", async () => {
+    mockGetAlerts.mockResolvedValue({ data: [], warnings: [] });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Critical")).toBeInTheDocument();
+      expect(screen.getByText("High")).toBeInTheDocument();
+      expect(screen.getByText("Warning")).toBeInTheDocument();
+      expect(screen.getByText("Low")).toBeInTheDocument();
+      expect(screen.getByText("Info")).toBeInTheDocument();
     });
   });
 });

@@ -120,6 +120,29 @@ async def test_email_notification(db_path: str = Depends(get_db_path)):
     }
 
 
+@router.patch("/alerts/batch-acknowledge")
+async def batch_acknowledge_alerts(
+    body: dict,
+    db_path: str = Depends(get_db_path),
+):
+    """Acknowledge multiple alerts at once."""
+    alert_ids = body.get("alert_ids", [])
+    store = AlertStore(db_path)
+    count = await store.batch_acknowledge(alert_ids)
+    return {"data": {"acknowledged_count": count}, "warnings": []}
+
+
+@router.get("/alerts/timeline")
+async def alert_timeline(
+    days: int = Query(30, ge=1, le=90),
+    db_path: str = Depends(get_db_path),
+):
+    """Alert count per day with severity breakdown for charting."""
+    store = AlertStore(db_path)
+    data = await store.get_alert_timeline(days)
+    return {"data": data, "warnings": []}
+
+
 @router.post("/monitor/check")
 async def run_monitor_check(db_path: str = Depends(get_db_path)):
     """Run a portfolio health check (saves alerts + snapshot)."""
