@@ -59,10 +59,12 @@ class SignalAggregator:
             "SentimentAgent": 0.15,
         },
         "btc": {
-            "CryptoAgent": 1.0,
+            "CryptoAgent": 0.80,
+            "TechnicalAgent": 0.20,
         },
         "eth": {
-            "CryptoAgent": 1.0,
+            "CryptoAgent": 0.80,
+            "TechnicalAgent": 0.20,
         },
     }
 

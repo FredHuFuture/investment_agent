@@ -5,6 +5,7 @@ All tests are fully offline — Claude API and news providers are mocked.
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -49,25 +50,26 @@ class _MockNewsProvider(NewsProvider):
 
 
 def _sample_headlines() -> list[NewsHeadline]:
-    """Return a small set of test headlines."""
+    """Return a small set of test headlines with recent timestamps."""
+    now = datetime.now(timezone.utc)
     return [
         NewsHeadline(
             title="AAPL beats Q1 earnings expectations",
             source="Reuters",
-            published_at="2026-03-10T14:00:00Z",
+            published_at=(now - timedelta(hours=2)).isoformat(),
             url="https://example.com/1",
             snippet="Apple reported strong results driven by Services growth.",
         ),
         NewsHeadline(
             title="AAPL announces record buyback programme",
             source="Bloomberg",
-            published_at="2026-03-09T10:00:00Z",
+            published_at=(now - timedelta(hours=12)).isoformat(),
             url="https://example.com/2",
         ),
         NewsHeadline(
             title="Concerns about iPhone sales in China",
             source="CNBC",
-            published_at="2026-03-08T08:00:00Z",
+            published_at=(now - timedelta(hours=24)).isoformat(),
         ),
     ]
 

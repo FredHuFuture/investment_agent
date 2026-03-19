@@ -57,13 +57,20 @@ class MacroAgent(BaseAgent):
         signal = self._regime_to_signal(regime, agent_input.asset_type)
         confidence = self._compute_confidence(net_score)
 
+        vix_current = macro_data.get("vix_current")
+        vix_sma_20 = macro_data.get("vix_sma_20")
+        vix_ratio = None
+        if vix_current is not None and vix_sma_20 is not None and vix_sma_20 > 0:
+            vix_ratio = round(vix_current / vix_sma_20, 3)
+
         metrics = {
             "regime": regime.value,
             "net_score": net_score,
             "risk_on_points": risk_on,
             "risk_off_points": risk_off,
-            "vix_current": macro_data.get("vix_current"),
-            "vix_sma_20": macro_data.get("vix_sma_20"),
+            "vix_current": vix_current,
+            "vix_sma_20": vix_sma_20,
+            "vix_ratio": vix_ratio,
             "fed_funds_rate": macro_data.get("fed_funds_rate"),
             "treasury_10y": macro_data.get("treasury_10y"),
             "treasury_2y": macro_data.get("treasury_2y"),
@@ -171,7 +178,29 @@ class MacroAgent(BaseAgent):
 
         vix = macro_data.get("vix_current")
         vix_sma = macro_data.get("vix_sma_20")
-        if vix is not None:
+
+        # VIX scoring: prefer relative (vs SMA) when available, with
+        # absolute levels as secondary signal.  Pure absolute thresholds
+        # fail across different vol regimes (e.g. 2017 avg~11 vs 2022 avg~25).
+        if vix is not None and vix_sma is not None and vix_sma > 0:
+            # Primary: relative VIX (vs its own 20-day SMA)
+            vix_ratio = vix / vix_sma
+            if vix_ratio < 0.85:
+                risk_on += 15          # VIX falling well below its average
+            elif vix_ratio < 0.95:
+                risk_on += 8
+            elif vix_ratio > 1.20:
+                risk_off += 15         # VIX spiking above its average
+            elif vix_ratio > 1.05:
+                risk_off += 8
+
+            # Secondary: absolute level (smaller contribution)
+            if vix < 15:
+                risk_on += 5
+            elif vix >= 30:
+                risk_off += 10
+        elif vix is not None:
+            # Fallback: absolute-only when SMA unavailable
             if vix < 15:
                 risk_on += 20
             elif 15 <= vix < 20:
@@ -182,12 +211,6 @@ class MacroAgent(BaseAgent):
                 risk_off += 20
             else:
                 risk_off += 30
-
-        if vix is not None and vix_sma is not None:
-            if vix < vix_sma:
-                risk_on += 10
-            elif vix > vix_sma * 1.2:
-                risk_off += 15
 
         spread = macro_data.get("yield_curve_spread")
         if spread is not None:
@@ -229,10 +252,19 @@ class MacroAgent(BaseAgent):
         return regime, risk_on, risk_off, net_score
 
     def _regime_to_signal(self, regime: Regime, asset_type: str) -> Signal:
+        """Convert regime to signal with asset-type sensitivity.
+
+        Crypto assets are more sensitive to macro risk-off environments than
+        defensive equities, so crypto gets a SELL signal even in NEUTRAL
+        regimes that lean risk-off.
+        """
         if regime == Regime.RISK_ON:
             return Signal.BUY
         if regime == Regime.RISK_OFF:
             return Signal.SELL
+        # NEUTRAL regime: stocks stay HOLD, but crypto leans cautious
+        if asset_type in ("btc", "eth") and regime == Regime.NEUTRAL:
+            return Signal.HOLD
         return Signal.HOLD
 
     def _compute_confidence(self, net_score: float) -> float:

@@ -300,13 +300,16 @@ def test_network_adoption_constants() -> None:
     provider = MockCryptoProvider()
     agent = CryptoAgent(provider)
 
-    score_btc, metrics_btc = agent._score_network_adoption("btc", [])
-    score_eth, metrics_eth = agent._score_network_adoption("eth", [])
+    warnings_btc: list[str] = []
+    warnings_eth: list[str] = []
+    score_btc, metrics_btc = agent._score_network_adoption("btc", warnings_btc)
+    score_eth, metrics_eth = agent._score_network_adoption("eth", warnings_eth)
 
     # BTC: age>10 (+10), ETF (+10), FAVORABLE (+5), bear>=4 (+10) = 35
     assert score_btc == 35
     assert metrics_btc["etf_access"] is True
     assert metrics_btc["regulatory_status"] == "FAVORABLE"
+    assert metrics_btc["adoption_data_source"] == "static"
 
     # ETH: age>5<10 (+5), ETF (+10), NEUTRAL (0), bear>=4 (+10) = 25
     assert score_eth == 25
@@ -314,6 +317,10 @@ def test_network_adoption_constants() -> None:
 
     # BTC should score higher due to age + regulatory
     assert score_btc > score_eth
+
+    # Static data warning should be emitted
+    assert any("static" in w.lower() for w in warnings_btc)
+    assert any("static" in w.lower() for w in warnings_eth)
 
 
 def test_cycle_timing_halving() -> None:

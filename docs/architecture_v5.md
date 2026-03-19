@@ -12,12 +12,37 @@
 | Sprint 5 status | Planned | **COMPLETE (Tasks 020-021, adaptive weights + batch backtesting)** |
 | Sprint 6 status | Planned | **COMPLETE (Task 022, FastAPI REST API -- 22 endpoints)** |
 | Sprint 7 status | Planned | **COMPLETE (Tasks 023-026, React frontend + thesis tracking + SummaryAgent)** |
-| Agent design | 5 agents (incl LLM-based) | **5 agents: 4 rule-based + 1 LLM-based (SummaryAgent)** |
+| Agent design | 5 agents (incl LLM-based) | **6 agents: 4 rule-based + 2 LLM-based (SentimentAgent + SummaryAgent)** |
 | Data schema | 8 tables (speculative) | **9 tables (actual, tested, in production)** |
 | Learning system | L1/L2/L3 planned | **L1 COMPLETE: EWMA weight adaptation + Sharpe-based optimizer** |
 | Report format | Simple summary | **Standard + Detail mode (--detail flag)** |
 | API layer | Not planned | **COMPLETE: FastAPI + 8 route modules + Pydantic v2** |
 | Frontend | Not planned | **COMPLETE: React 18 + TypeScript + Tailwind + Recharts, 7 pages** |
+| Prediction model review | N/A | **v5.1: 9-file critical review + fix (2026-03-19)** |
+
+### 0.1 v5.1 Prediction Model Review & Fix (2026-03-19)
+
+Critical review of all prediction models identified and fixed the following issues:
+
+| File | Issue | Severity | Fix |
+|------|-------|----------|-----|
+| `technical.py` | RSI<30 always scored +10 (value trap in downtrend) | High | Context-aware: +10 in uptrend, -5 in downtrend |
+| `technical.py` | No RSI direction detection (point-in-time only) | High | Added 5-bar RSI momentum (+5/-5 for improving/deteriorating) |
+| `technical.py` | trend_score unclamped after weekly confirmation (range could exceed ±100) | Medium | Added re-clamp after weekly SMA check |
+| `fundamental.py` | Universal P/E thresholds across all sectors | High | Sector-relative scoring using `SECTOR_PE_MEDIANS` (12 sectors) |
+| `fundamental.py` | No confidence penalty for sparse data | Medium | Missing-metric counter: 4+/8 missing → -25% confidence |
+| `macro.py` | Static VIX thresholds fail across vol regimes | High | Primary: VIX/SMA ratio (relative); secondary: absolute level |
+| `macro.py` | Same signal for stock and crypto in all regimes | High | Asset-type aware `_regime_to_signal` |
+| `crypto.py` | Network Adoption = hardcoded constant bias (always +35/+25) | High | Weight reduced 10%→5%, warning emitted, redistributed to data-driven factors |
+| `crypto.py` | ATH based on 1yr window only | High | Uses `key_stats['52w_high']` when available; warns when falling back to data window |
+| `crypto.py` | Direct yfinance import bypasses provider DI | Medium | Provider-first with yfinance fallback; testable |
+| `sentiment.py` | No recency filter on headlines | Medium | 72h cutoff via `_filter_recent()` |
+| `aggregator.py` | Crypto uses single agent (no cross-validation) | High | BTC/ETH: CryptoAgent 80% + TechnicalAgent 20% |
+| `weight_adapter.py` | Threshold optimization only for BUY (SELL skipped) | Medium | Independent BUY/SELL grid search |
+| `monte_carlo.py` | i.i.d. resampling ignores volatility clustering | High | Block bootstrap (block_size=5) preserves serial dependence |
+| `stress_test.py` | No crisis correlation adjustment | Medium | Per-scenario `correlation_multiplier` (1.0–1.20) |
+
+**Test impact**: 517 tests pass, 0 failures. 3 test files updated (aggregator, macro, sentiment, crypto).
 
 -----
 
@@ -537,15 +562,14 @@ class AgentOutput:
 
 | Agent | Assets | Metrics computed | Signal logic |
 |-------|--------|-----------------|--------------|
-| TechnicalAgent | All | 17: SMA 20/50/200, RSI, MACD (line/signal/hist), BB (upper/mid/lower), ATR, volume_ratio, trend/momentum/volatility/composite scores, weekly_trend_confirms | Sub-score weighted composite -> threshold mapping |
-| FundamentalAgent | Stock only | 20: P/E trailing/forward, P/B, EV/EBITDA, PEG ratio, ROE, profit_margin, debt_equity, current_ratio, FCF yield, revenue_growth, earnings_growth, analyst_rating, market_cap, dividend_yield, sector, pct_from_52w_high, value/quality/growth/composite scores | Value + quality + growth sub-scores -> composite |
-| MacroAgent | All | 11: VIX current/SMA20, treasury 10Y/2Y, yield_curve_spread, fed_funds_rate/trend, M2 YoY growth, regime, net_score, risk_on/off points | Point-based scoring -> regime classification |
-| CryptoAgent | BTC/ETH | 7 factors (34 sub-metrics): market_structure, momentum_trend, volatility_risk, liquidity_volume, macro_correlation, network_adoption, cycle_timing, composite_score | Weighted 7-factor composite: Market Structure 15%, Momentum 20%, Volatility 15%, Liquidity 10%, Macro 15%, Network 10%, Cycle 15% |
-
+| TechnicalAgent | All | 18: SMA 20/50/200, RSI, MACD (line/signal/hist), BB (upper/mid/lower), ATR, volume_ratio, trend/momentum/volatility/composite scores, weekly_trend_confirms, **rsi_direction** | Sub-score weighted composite -> threshold mapping. **v5.1: RSI context-aware (trend-dependent oversold scoring), RSI direction detection, re-clamp after weekly** |
+| FundamentalAgent | Stock only | 20: P/E trailing/forward, P/B, EV/EBITDA, PEG ratio, ROE, profit_margin, debt_equity, current_ratio, FCF yield, revenue_growth, earnings_growth, analyst_rating, market_cap, dividend_yield, sector, pct_from_52w_high, value/quality/growth/composite scores | Value + quality + growth sub-scores -> composite. **v5.1: Sector-relative P/E scoring (12 sector medians), missing-data confidence penalty** |
+| MacroAgent | All | 12: VIX current/SMA20/**vix_ratio**, treasury 10Y/2Y, yield_curve_spread, fed_funds_rate/trend, M2 YoY growth, regime, net_score, risk_on/off points | Point-based scoring -> regime classification. **v5.1: Relative VIX (ratio vs SMA20) as primary signal, asset-type differentiated regime→signal mapping** |
+| CryptoAgent | BTC/ETH | 7 factors (34+ sub-metrics): market_structure, momentum_trend, volatility_risk, liquidity_volume, macro_correlation, network_adoption, cycle_timing, composite_score | Weighted 7-factor composite: Market Structure 15%, Momentum **22.5%**, Volatility **17.5%**, Liquidity 10%, Macro 15%, Network **5%**, Cycle 15%. **v5.1: Adoption weight reduced (static data), ATH from key_stats, provider-first DI** |
+| SentimentAgent | All | 5: sentiment_score, catalyst_count, headline_count, cost_usd, model | Claude API sentiment analysis of news headlines. **v5.1: 72h recency filter on headlines** |
 | SummaryAgent | All | Portfolio-level: per-position thesis review, divergence detection, hold duration check | Claude API natural language evaluation, cost-tracked |
 
 **Planned agents (future):**
-- SentimentAgent: Web search + Claude API for news/catalyst evaluation
 - OnChainAgent: BTC-specific on-chain metrics (Phase 3)
 - ValidationAgent: Cross-agent logic consistency check
 
@@ -554,19 +578,21 @@ class AgentOutput:
 ```python
 class SignalAggregator:
     DEFAULT_WEIGHTS = {
-        "stock": {"TechnicalAgent": 0.30, "FundamentalAgent": 0.45, "MacroAgent": 0.25},
-        "btc":   {"CryptoAgent": 1.0},
-        "eth":   {"CryptoAgent": 1.0},
+        "stock": {"TechnicalAgent": 0.25, "FundamentalAgent": 0.40,
+                  "MacroAgent": 0.20, "SentimentAgent": 0.15},
+        "btc":   {"CryptoAgent": 0.80, "TechnicalAgent": 0.20},   # v5.1: multi-agent
+        "eth":   {"CryptoAgent": 0.80, "TechnicalAgent": 0.20},   # v5.1: multi-agent
     }
 ```
 
 Aggregation algorithm:
-1. For each agent: `effective_weight = agent_weight * (confidence / 100)`
-2. `weighted_sum = SUM(signal_value * effective_weight)` where BUY=+1, HOLD=0, SELL=-1
-3. `raw_score = weighted_sum / total_effective_weight`
-4. Signal determination: raw_score >= +0.30 -> BUY, <= -0.30 -> SELL, else HOLD
-5. Confidence: base from raw_score distance to threshold, clamped [30, 90]
-6. Consensus check: if < 50% agents agree -> confidence *= 0.8 (penalty)
+1. Re-normalize weights to only agents present in outputs (graceful degradation)
+2. For each agent: `effective_weight = agent_weight * (confidence / 100)`
+3. `weighted_sum = SUM(signal_value * effective_weight)` where BUY=+1, HOLD=0, SELL=-1
+4. `raw_score = weighted_sum` (unnormalized so confidence affects thresholds)
+5. Signal determination: raw_score >= +0.30 -> BUY, <= -0.30 -> SELL, else HOLD
+6. Confidence: base from raw_score distance to threshold, clamped [30, 90]
+7. Consensus check: if < 50% agents agree -> confidence *= 0.8 (penalty)
 
 Output: `AggregatedSignal` containing final_signal, final_confidence, regime, agent_signals list, reasoning, metrics (raw_score, consensus_score, weights_used, agent_contributions), ticker_info, warnings.
 
@@ -584,8 +610,8 @@ class AnalysisPipeline:
 ```
 
 Agent selection by asset type:
-- stock: TechnicalAgent + FundamentalAgent + MacroAgent (weights 0.30/0.45/0.25)
-- btc/eth: CryptoAgent (weight 1.0)
+- stock: TechnicalAgent + FundamentalAgent + MacroAgent + SentimentAgent (weights 0.25/0.40/0.20/0.15)
+- btc/eth: CryptoAgent + TechnicalAgent (weights 0.80/0.20) — v5.1: cross-validated
 
 Graceful degradation: if FRED_API_KEY not set, MacroAgent skipped with warning (analysis continues with remaining agents).
 
@@ -1265,9 +1291,18 @@ Monthly cost: **$0** (core). SummaryAgent LLM costs ~$5-10/mo if enabled (Claude
 | Dividend exclusion from return drift | Return drift doesn't account for dividends | Phase 3 |
 | pandas_ta Pandas 3.x deprecation warning | Cosmetic console noise | Non-fatal, upstream fix pending |
 | FredProvider RuntimeWarning without API key | Warning on import when FRED_API_KEY not set | Non-fatal, by design |
-| Single-agent aggregation edge case | Confidence can reach 90 from single signal | Acceptable behavior |
 | Portfolio exposure uses cost_basis | Should use market_value when live prices wired | Phase 2 (live price refresh) |
 | Expected/Actual data fragmented | Spread across 3 tables instead of unified trade_records | Phase 2 consolidation |
+| ~~RSI oversold value trap~~ | ~~RSI<30 always positive in downtrends~~ | **FIXED v5.1** |
+| ~~Universal P/E thresholds~~ | ~~Same 15/30 for all sectors~~ | **FIXED v5.1** |
+| ~~Static VIX thresholds~~ | ~~Fail across different vol regimes~~ | **FIXED v5.1** |
+| ~~Crypto single-agent aggregation~~ | ~~No cross-validation for BTC/ETH~~ | **FIXED v5.1** |
+| ~~i.i.d. Monte Carlo~~ | ~~Underestimates tail risk~~ | **FIXED v5.1 (block bootstrap)** |
+| FundamentalAgent non-PIT in backtest | yfinance data reflects restated financials | Warning present; PIT data source needed for accurate backtest |
+| SentimentAgent LLM non-determinism | Same headlines may produce different scores | Known limitation; consider temperature=0 or caching |
+| CryptoAgent network adoption static | Hardcoded age/ETF/regulatory constants | Weight reduced to 5%; future: live chain data |
+| No transaction cost model | Backtests and signals ignore fees/slippage | Phase 2 |
+| No position sizing model | BUY/SELL only, no Kelly criterion or risk parity | Phase 2 |
 
 -----
 
@@ -1280,7 +1315,7 @@ Features spec'd in v4 that are **still deferred** (not cancelled):
 | 4.4 | Portfolio-Aware Analysis (overlay, constraints) | Sprint 9 | Core analysis works; this is optimization |
 | 6.4 | Catalyst Scanner (LLM news eval) | Sprint 8 | Claude API available; SentimentAgent next |
 | 6.6 | Alert Dispatcher (email, push) | Sprint 10+ | SQLite-only sufficient for now |
-| 8.1 | SentimentAgent | Sprint 8 | Next LLM integration priority |
+| ~~8.1~~ | ~~SentimentAgent~~ | ~~Sprint 8~~ | **DELIVERED (Sprint 10, v5.1 recency filter)** |
 | 8.1 | OnChainAgent | Phase 3 | Binance geo-restriction, lower priority |
 | 9.2 | ValidationAgent | Sprint 8+ | LLM-dependent |
 | 10 | L2 Regime Switching | Sprint 9 | L1 done; L2 needs more signal history |
@@ -1388,3 +1423,11 @@ Features **added** that were not in v4:
 | 16 | Backtest aggregator weight override | Production aggregator gives TechnicalAgent 0 weight for crypto; backtest needs equal-weight fallback | 2026-03-11 |
 | 17 | Annualized return from calendar dates | Using equity curve entry count as days is wrong for non-daily rebalance; use actual date span | 2026-03-11 |
 | 18 | Backtest value = drawdown protection | System doesn't beat B&H on returns in bull market; value is risk management | 2026-03-11 |
+| 19 | Sector-relative P/E scoring | Absolute P/E thresholds (15/30) penalise growth sectors and reward naturally low-P/E sectors; 12-sector median table fixes this | 2026-03-19 |
+| 20 | Relative VIX (ratio to SMA) over absolute | VIX 18 means different things in 2017 (high) vs 2022 (low); ratio normalises across regimes | 2026-03-19 |
+| 21 | Crypto multi-agent (CryptoAgent 80% + TechnicalAgent 20%) | Single agent = single point of failure; TechnicalAgent provides independent cross-validation | 2026-03-19 |
+| 22 | Block bootstrap for Monte Carlo | i.i.d. resampling destroys volatility clustering (GARCH effect), underestimating tail risk; block bootstrap (5-day) preserves serial dependence | 2026-03-19 |
+| 23 | CryptoAgent adoption weight reduced 10%→5% | Hardcoded constants (age, ETF, regulatory) act as fixed bias, not dynamic signal; freed weight goes to data-driven factors | 2026-03-19 |
+| 24 | Independent BUY/SELL threshold optimisation | BUY and SELL have different risk profiles; symmetric thresholds miss asymmetric signal quality | 2026-03-19 |
+| 25 | RSI context-aware oversold scoring | RSI<30 in uptrend = buying opportunity; RSI<30 in downtrend = value trap. Previous universal +10 score was incorrect | 2026-03-19 |
+| 26 | Crisis correlation multiplier in stress tests | During systemic events correlations spike towards 1.0; simple sum-of-parts understates portfolio loss | 2026-03-19 |

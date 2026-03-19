@@ -109,8 +109,12 @@ class TechnicalAgent(BaseAgent):
         else:
             warnings.append("Weekly data unavailable; skipping trend confirmation.")
 
+        # Re-clamp after weekly confirmation to keep range symmetric with other sub-scores
+        trend_score = max(-100.0, min(100.0, trend_score))
+
         momentum_score = 0.0
         rsi_last = _safe_last(rsi_14)
+        rsi_direction: float | None = None
         if rsi_last is None:
             warnings.append("RSI unavailable.")
         else:
@@ -119,9 +123,25 @@ class TechnicalAgent(BaseAgent):
             elif rsi_last >= 70:
                 momentum_score -= 10
             elif rsi_last < 30:
-                momentum_score += 10
+                # Context-aware: oversold in uptrend = bounce opportunity,
+                # oversold in downtrend = potential value trap
+                if trend_score > 0:
+                    momentum_score += 10
+                else:
+                    momentum_score -= 5
             elif 30 <= rsi_last < 50:
                 momentum_score -= 15
+
+            # RSI direction: is momentum improving or deteriorating?
+            if rsi_14 is not None:
+                rsi_series = rsi_14.dropna()
+                if len(rsi_series) >= 6:
+                    rsi_prev = float(rsi_series.iloc[-6])
+                    rsi_direction = round(rsi_last - rsi_prev, 2)
+                    if rsi_direction > 5:
+                        momentum_score += 5
+                    elif rsi_direction < -5:
+                        momentum_score -= 5
 
         macd_line = None
         macd_signal = None
@@ -269,6 +289,7 @@ class TechnicalAgent(BaseAgent):
             "current_price": float(current_price),
             "volume_ratio": _to_float(volume_ratio),
             "weekly_trend_confirms": weekly_trend_confirms,
+            "rsi_direction": _to_float(rsi_direction),
         }
 
         return AgentOutput(

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import math
-import threading
 from datetime import datetime, timezone
 from typing import Any
 
@@ -28,14 +27,17 @@ CRYPTO_ADOPTION: dict[str, dict[str, Any]] = {
     "eth": {"age_years": 10, "etf_access": True, "regulatory": "NEUTRAL", "bear_survivals": 4},
 }
 
-# Factor weights
+# Factor weights — v2: network_adoption reduced from 10% to 5% because it uses
+# hardcoded static constants (age, ETF status) that act as a fixed bias rather
+# than a dynamic signal.  The freed 5% goes to momentum (+2.5%) and volatility
+# (+2.5%) which are data-driven.
 FACTOR_WEIGHTS = {
     "market_structure": 0.15,
-    "momentum_trend": 0.20,
-    "volatility_risk": 0.15,
+    "momentum_trend": 0.225,
+    "volatility_risk": 0.175,
     "liquidity_volume": 0.10,
     "macro_correlation": 0.15,
-    "network_adoption": 0.10,
+    "network_adoption": 0.05,
     "cycle_timing": 0.15,
 }
 
@@ -94,7 +96,7 @@ class CryptoAgent(BaseAgent):
         volume = price_df["Volume"]
 
         f1, f1_metrics = self._score_market_structure(asset_type, key_stats, warnings)
-        f2, f2_metrics = self._score_momentum_trend(close, warnings)
+        f2, f2_metrics = self._score_momentum_trend(close, warnings, key_stats=key_stats)
         f3, f3_metrics = self._score_volatility_risk(close, warnings)
         f4, f4_metrics = self._score_liquidity_volume(close, volume, key_stats, warnings)
         f5, f5_metrics = self._score_macro_correlation(close, spy_df, vix_value, warnings)
@@ -222,6 +224,7 @@ class CryptoAgent(BaseAgent):
         self,
         close: pd.Series,
         warnings: list[str],
+        key_stats: dict[str, Any] | None = None,
     ) -> tuple[float, dict[str, Any]]:
         score = 0.0
         metrics: dict[str, Any] = {}
@@ -253,8 +256,18 @@ class CryptoAgent(BaseAgent):
         else:
             metrics["return_12m_pct"] = None
 
-        # Distance from ATH (all-time high within available data)
-        ath = float(close.max())
+        # Distance from ATH — prefer key_stats '52w_high' (covers full 52 weeks)
+        # over close.max() (only covers the fetched 1y window which may be shorter).
+        ath_from_stats = _to_float(key_stats.get("52w_high")) if key_stats else None
+        ath_from_data = float(close.max())
+        if ath_from_stats is not None and ath_from_stats > ath_from_data:
+            ath = ath_from_stats
+        else:
+            ath = ath_from_data
+            if ath_from_stats is None:
+                warnings.append(
+                    "ATH based on available price window only (not true all-time high)."
+                )
         ath_distance = (current_price / ath - 1) * 100 if ath > 0 else 0
         metrics["ath_distance_pct"] = ath_distance
         if ath_distance > -10:
@@ -501,6 +514,11 @@ class CryptoAgent(BaseAgent):
         metrics["etf_access"] = adoption["etf_access"]
         metrics["regulatory_status"] = adoption["regulatory"]
         metrics["bear_survivals"] = adoption["bear_survivals"]
+        metrics["adoption_data_source"] = "static"
+        warnings.append(
+            "Network adoption uses static constants (not live chain data). "
+            "Factor weight reduced to 5%."
+        )
 
         # Age > 10 years: +10 (battle-tested)
         if adoption["age_years"] > 10:
@@ -623,7 +641,21 @@ class CryptoAgent(BaseAgent):
     # ------------------------------------------------------------------
 
     async def _fetch_spy_prices(self) -> pd.DataFrame:
-        """Fetch S&P 500 price history for correlation calculation."""
+        """Fetch S&P 500 price history for correlation calculation.
+
+        Uses the injected provider for testability; falls back to direct
+        yfinance only when the provider cannot serve index tickers.
+        """
+        try:
+            data = await self._provider.get_price_history(
+                "^GSPC", period="6mo", interval="1d"
+            )
+            if data is not None and not data.empty:
+                return data
+        except Exception:
+            pass
+
+        # Fallback: direct yfinance (provider may not support index tickers)
         import yfinance as yf
         from data_providers.yfinance_provider import _yfinance_lock
 
@@ -641,7 +673,20 @@ class CryptoAgent(BaseAgent):
         return await asyncio.to_thread(_download)
 
     async def _fetch_vix(self) -> float:
-        """Fetch current VIX level."""
+        """Fetch current VIX level.
+
+        Uses the injected provider first; falls back to direct yfinance.
+        """
+        try:
+            data = await self._provider.get_price_history(
+                "^VIX", period="5d", interval="1d"
+            )
+            if data is not None and not data.empty:
+                return float(data["Close"].iloc[-1])
+        except Exception:
+            pass
+
+        # Fallback: direct yfinance
         import yfinance as yf
         from data_providers.yfinance_provider import _yfinance_lock
 

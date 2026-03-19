@@ -13,6 +13,23 @@ NON_PIT_WARNING = (
     "Do not use for backtesting without PIT adjustment."
 )
 
+# Sector median P/E ratios for relative valuation.
+# Source: long-run averages; updated periodically.
+SECTOR_PE_MEDIANS: dict[str, float] = {
+    "technology": 28.0,
+    "healthcare": 22.0,
+    "financial services": 13.0,
+    "financials": 13.0,
+    "consumer cyclical": 20.0,
+    "consumer defensive": 22.0,
+    "industrials": 20.0,
+    "energy": 12.0,
+    "utilities": 17.0,
+    "real estate": 35.0,
+    "basic materials": 15.0,
+    "communication services": 18.0,
+}
+
 
 class FundamentalAgent(BaseAgent):
     @property
@@ -67,6 +84,21 @@ class FundamentalAgent(BaseAgent):
 
         composite = value_score * 0.35 + quality_score * 0.35 + growth_score * 0.30
         signal, confidence = self._composite_to_signal(composite)
+
+        # Penalise confidence when many core metrics are missing —
+        # a score built on sparse data is unreliable.
+        core_keys = [
+            "pe_trailing", "pb_ratio", "ev_ebitda", "roe",
+            "profit_margin", "revenue_growth", "debt_equity", "fcf_yield",
+        ]
+        missing_count = sum(1 for k in core_keys if metrics.get(k) is None)
+        if missing_count >= 4:
+            confidence *= 0.75
+            warnings.append(f"{missing_count}/8 core metrics missing — confidence reduced.")
+        elif missing_count >= 2:
+            confidence *= 0.90
+            warnings.append(f"{missing_count}/8 core metrics missing — confidence slightly reduced.")
+        confidence = max(30.0, min(90.0, confidence))
 
         reasoning = self._build_reasoning(metrics, value_score, quality_score, growth_score)
 
@@ -188,7 +220,7 @@ class FundamentalAgent(BaseAgent):
 
     def _compute_value_score(self, metrics: dict[str, Any]) -> float:
         score = 0.0
-        score += _score_pe_trailing(metrics.get("pe_trailing"))
+        score += _score_pe_trailing(metrics.get("pe_trailing"), metrics.get("sector"))
         score += _score_linear(
             metrics.get("pe_forward"), 12, 25, 15, -15, higher_is_better=False
         )
@@ -417,14 +449,29 @@ def _clamp(value: float) -> float:
     return max(-100.0, min(100.0, value))
 
 
-def _score_pe_trailing(value: float | None) -> float:
+def _score_pe_trailing(value: float | None, sector: str | None = None) -> float:
+    """Score P/E relative to sector median (if available) or absolute thresholds.
+
+    Sector-relative scoring prevents penalising high-P/E growth sectors
+    (Technology) or rewarding naturally low-P/E sectors (Energy/Financials)
+    when compared against a single universal threshold.
+    """
     if value is None:
         return 0.0
+    median = SECTOR_PE_MEDIANS.get((sector or "").lower())
+    if median is not None and median > 0:
+        ratio = value / median
+        if ratio < 0.75:
+            return 25.0          # 25%+ below sector median → cheap
+        if ratio > 1.50:
+            return -20.0         # 50%+ above sector median → expensive
+        # Linear interpolation between cheap and expensive
+        return 25.0 + (ratio - 0.75) * ((-20.0 - 25.0) / (1.50 - 0.75))
+    # Fallback: absolute thresholds (no sector info)
     if value < 15:
         return 25.0
     if value > 30:
         return -20.0
-    # interpolate from +15 at 15 to -10 at 30
     return 15.0 + (value - 15.0) * ((-10.0 - 15.0) / (30.0 - 15.0))
 
 

@@ -118,23 +118,24 @@ class TestSignalAggregator:
         fund_contrib = abs(result.metrics["agent_contributions"]["FundamentalAgent"]["weighted_contribution"])
         assert tech_contrib > fund_contrib
 
-    # 6. Crypto weights: CryptoAgent is sole agent, others ignored
+    # 6. Crypto weights: CryptoAgent dominant, TechnicalAgent secondary, others ignored
     def test_crypto_weights(self) -> None:
         outputs = [
             _make_output("CryptoAgent", Signal.BUY, 70),
-            _make_output("TechnicalAgent", Signal.BUY, 80),  # should be ignored for btc
+            _make_output("TechnicalAgent", Signal.BUY, 80),
             _make_output("FundamentalAgent", Signal.BUY, 80),  # should be ignored for btc
         ]
         result = self.agg.aggregate(outputs, "BTC", "btc")
 
-        # TechnicalAgent and FundamentalAgent have no weight for btc → excluded
-        assert "TechnicalAgent" not in result.metrics["agent_contributions"]
+        # FundamentalAgent has no weight for btc → excluded
         assert "FundamentalAgent" not in result.metrics["agent_contributions"]
-        # Only CryptoAgent used
+        # Both CryptoAgent and TechnicalAgent used (80/20 split)
         assert "CryptoAgent" in result.metrics["agent_contributions"]
+        assert "TechnicalAgent" in result.metrics["agent_contributions"]
         # Verify btc weights used
         weights_used = result.metrics["weights_used"]
-        assert weights_used.get("CryptoAgent") == pytest.approx(1.0)
+        assert weights_used.get("CryptoAgent") == pytest.approx(0.80)
+        assert weights_used.get("TechnicalAgent") == pytest.approx(0.20)
 
     # 7. Consensus score calculation accuracy
     def test_consensus_score_calculation(self) -> None:

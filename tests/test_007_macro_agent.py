@@ -11,15 +11,29 @@ from agents.models import AgentInput, Regime, Signal
 from data_providers.base import DataProvider
 
 
-def _mock_vix_data(vix_value: float, num_days: int = 60) -> pd.DataFrame:
+def _mock_vix_data(
+    vix_value: float,
+    num_days: int = 60,
+    sma_offset: float = 0.0,
+) -> pd.DataFrame:
+    """Build VIX DataFrame.
+
+    If *sma_offset* is non-zero the first 20 bars are set to
+    ``vix_value + sma_offset`` so the 20-day SMA differs from the
+    final value, enabling relative-VIX scoring tests.
+    """
     dates = pd.date_range(end=datetime.now(timezone.utc), periods=num_days, freq="B")
-    n = len(dates)  # may differ from num_days on weekends (pandas 3.x)
+    n = len(dates)
+    closes = [vix_value] * n
+    if sma_offset != 0.0 and n > 20:
+        for i in range(n - 20):
+            closes[i] = vix_value + sma_offset
     data = pd.DataFrame(
         {
-            "Open": [vix_value] * n,
-            "High": [vix_value] * n,
-            "Low": [vix_value] * n,
-            "Close": [vix_value] * n,
+            "Open": closes,
+            "High": closes,
+            "Low": closes,
+            "Close": closes,
             "Volume": [1_000_000] * n,
         },
         index=dates,
@@ -101,6 +115,7 @@ def _build_agent(
     treasury_10y: float,
     treasury_2y: float,
     m2_values: list[float],
+    vix_sma_offset: float = 0.0,
 ) -> MacroAgent:
     fred = MockFredProvider(
         fed_funds=_mock_fred_series(fed_funds),
@@ -108,7 +123,7 @@ def _build_agent(
         treasury_2y=_mock_fred_series([treasury_2y]),
         m2=_mock_fred_series(m2_values),
     )
-    vix = MockVixProvider(_mock_vix_data(vix_value))
+    vix = MockVixProvider(_mock_vix_data(vix_value, sma_offset=vix_sma_offset))
     return MacroAgent(fred, vix)
 
 
@@ -119,6 +134,7 @@ def test_risk_on_regime() -> None:
         treasury_10y=4.0,
         treasury_2y=3.0,
         m2_values=[100] * 12 + [106],
+        vix_sma_offset=6.0,  # SMA ~20 → VIX 14 well below → risk_on
     )
     output = asyncio.run(agent.analyze(AgentInput(ticker="SPY", asset_type="stock")))
     assert output.metrics["regime"] == Regime.RISK_ON.value
@@ -132,6 +148,7 @@ def test_risk_off_regime() -> None:
         treasury_10y=3.5,
         treasury_2y=4.0,
         m2_values=[100] * 12 + [98],
+        vix_sma_offset=-8.0,  # SMA ~24 → VIX 32 spiking above → risk_off
     )
     output = asyncio.run(agent.analyze(AgentInput(ticker="SPY", asset_type="stock")))
     assert output.metrics["regime"] == Regime.RISK_OFF.value
@@ -158,6 +175,7 @@ def test_crypto_buy_in_risk_on() -> None:
         treasury_10y=4.0,
         treasury_2y=3.0,
         m2_values=[100] * 12 + [106],
+        vix_sma_offset=6.0,
     )
     output = asyncio.run(agent.analyze(AgentInput(ticker="BTC", asset_type="btc")))
     assert output.signal == Signal.BUY
@@ -170,6 +188,7 @@ def test_crypto_sell_in_risk_off() -> None:
         treasury_10y=3.5,
         treasury_2y=4.0,
         m2_values=[100] * 12 + [98],
+        vix_sma_offset=-8.0,
     )
     output = asyncio.run(agent.analyze(AgentInput(ticker="BTC", asset_type="btc")))
     assert output.signal == Signal.SELL

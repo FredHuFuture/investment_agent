@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from agents.base import BaseAgent
@@ -193,6 +193,9 @@ class SentimentAgent(BaseAgent):
             except Exception as exc:
                 warnings.append(f"News fetch failed: {exc}")
 
+        # Filter out stale headlines (>72h old) to avoid sentiment drift
+        headlines = _filter_recent(headlines, max_age_hours=72)
+
         if not headlines:
             return self._fallback_output(
                 ticker,
@@ -281,3 +284,23 @@ class SentimentAgent(BaseAgent):
             },
             warnings=all_warnings,
         )
+
+
+def _filter_recent(
+    headlines: list[NewsHeadline],
+    max_age_hours: int = 72,
+) -> list[NewsHeadline]:
+    """Drop headlines older than *max_age_hours* to avoid stale sentiment."""
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
+    recent: list[NewsHeadline] = []
+    for h in headlines:
+        try:
+            pub = datetime.fromisoformat(h.published_at.replace("Z", "+00:00"))
+            if pub.tzinfo is None:
+                pub = pub.replace(tzinfo=timezone.utc)
+            if pub >= cutoff:
+                recent.append(h)
+        except (ValueError, TypeError, AttributeError):
+            # If we can't parse the date, keep the headline (safe fallback)
+            recent.append(h)
+    return recent

@@ -18,6 +18,11 @@ class _Scenario:
     crypto_impact: float
     # Optional per-sector overrides for stocks (sector_name_lower -> impact)
     sector_overrides: dict[str, float] = field(default_factory=dict)
+    # Crisis correlation uplift: during systemic events correlations spike
+    # towards 1.0.  This multiplier amplifies the portfolio-level impact
+    # beyond the sum-of-parts to reflect "everything drops together".
+    # 1.0 = no adjustment, 1.15 = 15% worse than simple sum.
+    correlation_multiplier: float = 1.0
 
 
 _SCENARIOS: list[_Scenario] = [
@@ -26,18 +31,21 @@ _SCENARIOS: list[_Scenario] = [
         description="Broad equity collapse and crypto sell-off mirroring 2008 conditions",
         stock_impact=-0.38,
         crypto_impact=-0.50,
+        correlation_multiplier=1.20,  # systemic: correlations spike to ~1
     ),
     _Scenario(
         name="COVID Crash",
         description="Rapid market sell-off similar to March 2020",
         stock_impact=-0.34,
         crypto_impact=-0.45,
+        correlation_multiplier=1.15,  # sharp but short correlation spike
     ),
     _Scenario(
         name="Rate Hike Shock",
         description="Aggressive interest-rate increases pressure growth assets",
         stock_impact=-0.15,
         crypto_impact=-0.25,
+        correlation_multiplier=1.05,  # mild: sector dispersion still exists
     ),
     _Scenario(
         name="Sector Rotation (Tech Crash)",
@@ -45,12 +53,14 @@ _SCENARIOS: list[_Scenario] = [
         stock_impact=-0.10,
         crypto_impact=-0.20,
         sector_overrides={"technology": -0.25, "tech": -0.25},
+        correlation_multiplier=1.0,   # sector-specific, not systemic
     ),
     _Scenario(
         name="Crypto Winter",
         description="Prolonged cryptocurrency downturn with limited equity impact",
         stock_impact=-0.05,
         crypto_impact=-0.70,
+        correlation_multiplier=1.0,   # limited cross-asset contagion
     ),
 ]
 
@@ -129,14 +139,19 @@ class StressTestEngine:
                     "impact_pct": round(impact_pct * 100, 2),
                 })
 
+            # Apply crisis correlation multiplier: during systemic events,
+            # assets become more correlated, amplifying portfolio-level losses
+            # beyond the sum of individual position impacts.
+            adjusted_impact = total_impact_dollars * scenario.correlation_multiplier
             portfolio_impact_pct = round(
-                (total_impact_dollars / total_portfolio_value) * 100, 2
+                (adjusted_impact / total_portfolio_value) * 100, 2
             )
 
             results.append({
                 "name": scenario.name,
                 "description": scenario.description,
                 "portfolio_impact_pct": portfolio_impact_pct,
+                "correlation_multiplier": scenario.correlation_multiplier,
                 "affected_positions": affected,
             })
 

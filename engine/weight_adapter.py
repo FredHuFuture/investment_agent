@@ -327,38 +327,53 @@ class WeightAdapter:
         if len(signal_outcomes) < 5:
             return (0.30, -0.30)
 
-        # Grid search
-        best_threshold = 0.30
-        best_score = -999.0
+        # Grid search — optimise BUY and SELL thresholds independently.
+        # BUY threshold: a signal above this triggers a long entry.
+        # SELL threshold: a signal below the negative triggers an exit/short.
+        best_buy_threshold = 0.30
+        best_buy_score = -999.0
+        best_sell_threshold = -0.30
+        best_sell_score = -999.0
 
         low, high = threshold_range
         t = low
         while t <= high + 1e-9:
-            # Score: how well does this threshold separate winners from losers?
-            correct = 0
-            total = 0
+            # --- BUY side ---
+            buy_correct = 0
+            buy_total = 0
             for raw_score, is_win in signal_outcomes:
                 if raw_score >= t:
-                    # Would BUY -- correct if winning trade
-                    correct += int(is_win)
-                    total += 1
-                elif raw_score <= -t:
-                    # Would SELL -- skip for now (we only have LONG trades)
-                    pass
-                # HOLD: no trade, skip
+                    buy_correct += int(is_win)
+                    buy_total += 1
 
-            accuracy = correct / total if total > 0 else 0.0
-            # Penalize thresholds that generate too few trades
-            trade_ratio = total / len(signal_outcomes) if signal_outcomes else 0
-            score = accuracy * 0.7 + trade_ratio * 0.3
+            buy_accuracy = buy_correct / buy_total if buy_total > 0 else 0.0
+            buy_trade_ratio = buy_total / len(signal_outcomes) if signal_outcomes else 0
+            buy_score = buy_accuracy * 0.7 + buy_trade_ratio * 0.3
 
-            if score > best_score:
-                best_score = score
-                best_threshold = round(t, 2)
+            if buy_score > best_buy_score:
+                best_buy_score = buy_score
+                best_buy_threshold = round(t, 2)
+
+            # --- SELL side ---
+            sell_correct = 0
+            sell_total = 0
+            for raw_score, is_win in signal_outcomes:
+                if raw_score <= -t:
+                    # SELL signal correct when position would have lost
+                    sell_correct += int(not is_win)
+                    sell_total += 1
+
+            sell_accuracy = sell_correct / sell_total if sell_total > 0 else 0.0
+            sell_trade_ratio = sell_total / len(signal_outcomes) if signal_outcomes else 0
+            sell_score = sell_accuracy * 0.7 + sell_trade_ratio * 0.3
+
+            if sell_score > best_sell_score:
+                best_sell_score = sell_score
+                best_sell_threshold = round(-t, 2)
 
             t += step
 
-        return (best_threshold, -best_threshold)
+        return (best_buy_threshold, best_sell_threshold)
 
     # ----------------------------------------------------------------
     # Persistence
