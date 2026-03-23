@@ -4,6 +4,7 @@ import asyncio
 
 import pytest
 
+from data_providers.cached_provider import CachedFredProvider, CachedProvider
 from data_providers.ccxt_provider import CcxtProvider
 from data_providers.factory import get_provider
 from data_providers.fred_provider import FredProvider
@@ -11,12 +12,20 @@ from data_providers.yfinance_provider import YFinanceProvider
 
 
 def test_factory_returns_correct_types() -> None:
-    assert isinstance(get_provider("stock"), YFinanceProvider)
-    assert isinstance(get_provider("btc"), YFinanceProvider)   # Phase 1: yfinance for crypto too
-    assert isinstance(get_provider("eth"), YFinanceProvider)   # Phase 1: yfinance for crypto too
-    assert isinstance(get_provider("macro"), FredProvider)
+    # With caching disabled, raw providers are returned.
+    assert isinstance(get_provider("stock", cached=False), YFinanceProvider)
+    assert isinstance(get_provider("btc", cached=False), YFinanceProvider)
+    assert isinstance(get_provider("eth", cached=False), YFinanceProvider)
+    assert isinstance(get_provider("macro", cached=False), FredProvider)
     with pytest.raises(ValueError):
         get_provider("unknown")
+
+
+def test_factory_returns_cached_providers_by_default() -> None:
+    assert isinstance(get_provider("stock"), CachedProvider)
+    assert isinstance(get_provider("macro"), CachedFredProvider)
+    # The wrapped provider should still satisfy the DataProvider interface.
+    assert get_provider("stock").supported_asset_types() == ["stock"]
 
 
 def test_is_point_in_time() -> None:

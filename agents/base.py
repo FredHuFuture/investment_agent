@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 
 from agents.models import AgentInput, AgentOutput
@@ -11,6 +12,7 @@ class BaseAgent(ABC):
 
     def __init__(self, provider: DataProvider) -> None:
         self._provider = provider
+        self._logger = logging.getLogger(f"investment_agent.{self.name}")
 
     @property
     @abstractmethod

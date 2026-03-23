@@ -10,6 +10,7 @@ import pandas as pd
 
 from agents.base import BaseAgent
 from agents.models import AgentInput, AgentOutput, Regime, Signal
+from agents.utils import _clamp, _to_float
 
 # BTC halving dates (most recent first)
 HALVING_DATES = [
@@ -54,6 +55,7 @@ class CryptoAgent(BaseAgent):
 
     async def analyze(self, agent_input: AgentInput) -> AgentOutput:
         self._validate_asset_type(agent_input)
+        self._logger.info("Analyzing %s", agent_input.ticker)
 
         warnings: list[str] = []
         ticker = agent_input.ticker
@@ -155,6 +157,9 @@ class CryptoAgent(BaseAgent):
         metrics.update(f6_metrics)
         metrics.update(f7_metrics)
 
+        self._logger.info(
+            "Completed %s: %s @ %.0f%% confidence", ticker, signal.value, confidence
+        )
         return AgentOutput(
             agent_name=self.name,
             ticker=ticker,
@@ -795,17 +800,3 @@ class CryptoAgent(BaseAgent):
 # ---------------------------------------------------------------------------
 
 
-def _to_float(value: Any) -> float | None:
-    if value is None:
-        return None
-    try:
-        result = float(value)
-        if math.isnan(result):
-            return None
-        return result
-    except (TypeError, ValueError):
-        return None
-
-
-def _clamp(value: float) -> float:
-    return max(-100.0, min(100.0, value))

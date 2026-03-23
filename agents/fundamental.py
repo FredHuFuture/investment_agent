@@ -6,6 +6,7 @@ import pandas as pd
 
 from agents.base import BaseAgent
 from agents.models import AgentInput, AgentOutput, Signal
+from agents.utils import _clamp, _to_float
 
 NON_PIT_WARNING = (
     "Data sourced from yfinance (non-point-in-time). "
@@ -41,12 +42,14 @@ class FundamentalAgent(BaseAgent):
 
     async def analyze(self, agent_input: AgentInput) -> AgentOutput:
         self._validate_asset_type(agent_input)
+        self._logger.info("Analyzing %s", agent_input.ticker)
 
         warnings: list[str] = [NON_PIT_WARNING]
         try:
             key_stats = await self._provider.get_key_stats(agent_input.ticker)
             financials = await self._provider.get_financials(agent_input.ticker)
         except Exception as exc:
+            self._logger.warning("Fundamental data unavailable for %s: %s", agent_input.ticker, exc)
             warnings.append(f"Fundamental data unavailable: {exc}")
             return AgentOutput(
                 agent_name=self.name,
@@ -69,6 +72,7 @@ class FundamentalAgent(BaseAgent):
         metrics["analyst_rating"] = analyst_rating
 
         if _all_metrics_missing(metrics):
+            self._logger.warning("All fundamental metrics missing for %s", agent_input.ticker)
             return AgentOutput(
                 agent_name=self.name,
                 ticker=agent_input.ticker,
@@ -95,6 +99,7 @@ class FundamentalAgent(BaseAgent):
         if missing_count >= 4:
             confidence *= 0.75
             warnings.append(f"{missing_count}/8 core metrics missing — confidence reduced.")
+            self._logger.warning("%d/8 core metrics missing for %s", missing_count, agent_input.ticker)
         elif missing_count >= 2:
             confidence *= 0.90
             warnings.append(f"{missing_count}/8 core metrics missing — confidence slightly reduced.")
@@ -111,6 +116,9 @@ class FundamentalAgent(BaseAgent):
             }
         )
 
+        self._logger.info(
+            "Completed %s: %s @ %.0f%% confidence", agent_input.ticker, signal.value, confidence
+        )
         return AgentOutput(
             agent_name=self.name,
             ticker=agent_input.ticker,
@@ -407,15 +415,6 @@ def _safe_series(df: pd.DataFrame | None, row_names: list[str]) -> pd.Series | N
     return None
 
 
-def _to_float(value: Any) -> float | None:
-    if value is None:
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
-
-
 def _score_linear(
     value: float | None,
     bullish_threshold: float,
@@ -443,10 +442,6 @@ def _score_linear(
     return bullish_score + (bearish_score - bullish_score) * (
         (value - bullish_threshold) / (bearish_threshold - bullish_threshold)
     )
-
-
-def _clamp(value: float) -> float:
-    return max(-100.0, min(100.0, value))
 
 
 def _score_pe_trailing(value: float | None, sector: str | None = None) -> float:

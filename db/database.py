@@ -6,6 +6,8 @@ from pathlib import Path
 
 import aiosqlite
 
+from db.connection_pool import db_pool
+
 DEFAULT_DB_PATH = Path("data/investment_agent.db")
 
 
@@ -180,17 +182,15 @@ async def _migrate_ticker_unique_to_partial(conn: aiosqlite.Connection) -> None:
 async def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
     """Initialize SQLite database and required schema.
 
-    The connection enforces WAL mode to support concurrent reads/writes.
+    Also initialises the module-level ``db_pool`` singleton so the daemon can
+    reuse connections without opening a new one per operation.
     """
     path = Path(db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    async with aiosqlite.connect(path) as conn:
-        await conn.execute("PRAGMA journal_mode=WAL;")
-        await conn.execute("PRAGMA busy_timeout=5000;")  # retry 5s before "locked"
-        await conn.execute("PRAGMA synchronous=NORMAL;")
-        await conn.execute("PRAGMA foreign_keys=ON;")
+    await db_pool.init(path)
 
+    async with db_pool.connection() as conn:
         await conn.execute(
             """
             CREATE TABLE IF NOT EXISTS positions_thesis (

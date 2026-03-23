@@ -9,10 +9,18 @@ import pandas as pd
 from fredapi import Fred
 
 from data_providers.base import DataProvider
+from data_providers.rate_limiter import AsyncRateLimiter
 
 
 class FredProvider(DataProvider):
     """Macro data provider backed by FRED."""
+
+    # Class-level limiter shared across all instances.
+    # FRED API allows 120 req/min; 5/sec is a safe default.
+    _limiter = AsyncRateLimiter(
+        max_calls=int(os.getenv("FRED_RATE_LIMIT", "5")),
+        period_seconds=1.0,
+    )
 
     def __init__(self, api_key: str | None = None) -> None:
         resolved_key = api_key or os.getenv("FRED_API_KEY")
@@ -51,7 +59,8 @@ class FredProvider(DataProvider):
         def _fetch() -> pd.Series:
             return self._client.get_series(series_id, observation_start=start, observation_end=end)
 
-        return await asyncio.to_thread(_fetch)
+        async with self._limiter:
+            return await asyncio.to_thread(_fetch)
 
     async def get_fed_funds_rate(self) -> pd.Series:
         return await self.get_series("FEDFUNDS")

@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import math
-from typing import Any
-
 import pandas as pd
 import pandas_ta as ta
 
 from agents.base import BaseAgent
 from agents.models import AgentInput, AgentOutput, Signal
+from agents.utils import _safe_last, _to_float
 
 
 class TechnicalAgent(BaseAgent):
@@ -20,6 +18,7 @@ class TechnicalAgent(BaseAgent):
 
     async def analyze(self, agent_input: AgentInput) -> AgentOutput:
         self._validate_asset_type(agent_input)
+        self._logger.info("Analyzing %s", agent_input.ticker)
 
         warnings: list[str] = []
         daily_df = await self._provider.get_price_history(
@@ -60,8 +59,10 @@ class TechnicalAgent(BaseAgent):
         trend_score = 0.0
         if sma20_last is None or sma50_last is None:
             warnings.append("Insufficient data for SMA 20/50.")
+            self._logger.warning("Missing SMA 20/50 for %s", agent_input.ticker)
         if sma200_last is None:
             warnings.append("Insufficient data for SMA 200.")
+            self._logger.warning("Missing SMA 200 for %s", agent_input.ticker)
 
         if sma20_last is not None:
             if current_price > sma20_last:
@@ -292,6 +293,9 @@ class TechnicalAgent(BaseAgent):
             "rsi_direction": _to_float(rsi_direction),
         }
 
+        self._logger.info(
+            "Completed %s: %s @ %.0f%% confidence", agent_input.ticker, signal.value, confidence
+        )
         return AgentOutput(
             agent_name=self.name,
             ticker=agent_input.ticker,
@@ -303,30 +307,11 @@ class TechnicalAgent(BaseAgent):
         )
 
 
-def _safe_last(series: pd.Series | None) -> float | None:
-    if series is None or series.empty:
-        return None
-    value = series.iloc[-1]
-    try:
-        numeric = float(value)
-    except (TypeError, ValueError):
-        return None
-    if math.isnan(numeric):
-        return None
-    return numeric
-
-
 def _find_col(df: pd.DataFrame, prefix: str) -> str | None:
     for col in df.columns:
         if str(col).startswith(prefix):
             return col
     return None
-
-
-def _to_float(value: float | None) -> float | None:
-    if value is None:
-        return None
-    return float(value)
 
 
 def _build_reasoning(

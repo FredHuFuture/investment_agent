@@ -25,11 +25,13 @@ class MacroAgent(BaseAgent):
 
     async def analyze(self, agent_input: AgentInput) -> AgentOutput:
         self._validate_asset_type(agent_input)
+        self._logger.info("Analyzing %s", agent_input.ticker)
 
         warnings: list[str] = []
         try:
             macro_data = await self._fetch_macro_data(warnings)
         except RuntimeError as exc:
+            self._logger.warning("Macro data fetch failed for %s: %s", agent_input.ticker, exc)
             warnings.append(str(exc))
             return AgentOutput(
                 agent_name=self.name,
@@ -42,6 +44,7 @@ class MacroAgent(BaseAgent):
             )
 
         if _all_missing(macro_data):
+            self._logger.warning("All macro data sources unavailable for %s", agent_input.ticker)
             warnings.append("All macro data sources unavailable.")
             return AgentOutput(
                 agent_name=self.name,
@@ -81,6 +84,9 @@ class MacroAgent(BaseAgent):
 
         reasoning = _build_reasoning(regime, net_score, macro_data)
 
+        self._logger.info(
+            "Completed %s: %s @ %.0f%% confidence", agent_input.ticker, signal.value, confidence
+        )
         return AgentOutput(
             agent_name=self.name,
             ticker=agent_input.ticker,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import threading
 from typing import Any
 
@@ -8,6 +9,7 @@ import pandas as pd
 import yfinance as yf
 
 from data_providers.base import DataProvider
+from data_providers.rate_limiter import AsyncRateLimiter
 
 # yfinance is NOT thread-safe — concurrent yf.download() calls corrupt
 # internal state (MultiIndex column handling). Serialize all downloads.
@@ -16,6 +18,13 @@ _yfinance_lock = threading.Lock()
 
 class YFinanceProvider(DataProvider):
     """Data provider backed by yfinance. Supports stocks and crypto."""
+
+    # Class-level limiter so all instances share the same call budget.
+    # Yahoo Finance throttles aggressively; 2 calls/second is conservative.
+    _limiter = AsyncRateLimiter(
+        max_calls=int(os.getenv("YFINANCE_RATE_LIMIT", "2")),
+        period_seconds=1.0,
+    )
 
     async def get_price_history(
         self, ticker: str, period: str = "1y", interval: str = "1d"
@@ -30,7 +39,8 @@ class YFinanceProvider(DataProvider):
                     auto_adjust=False,
                 )
 
-        data = await asyncio.to_thread(_download)
+        async with self._limiter:
+            data = await asyncio.to_thread(_download)
         if data is None or data.empty:
             raise ValueError(f"No price history found for {ticker}.")
 
@@ -81,7 +91,8 @@ class YFinanceProvider(DataProvider):
 
                 raise ValueError(f"Unable to determine current price for {ticker}.")
 
-        return await asyncio.to_thread(_fetch)
+        async with self._limiter:
+            return await asyncio.to_thread(_fetch)
 
     async def get_financials(self, ticker: str, period: str = "annual") -> dict:
         def _fetch() -> dict:
@@ -99,7 +110,8 @@ class YFinanceProvider(DataProvider):
                     "cash_flow": ticker_obj.cashflow,
                 }
 
-        return await asyncio.to_thread(_fetch)
+        async with self._limiter:
+            return await asyncio.to_thread(_fetch)
 
     async def get_key_stats(self, ticker: str) -> dict:
         def _fetch() -> dict:
@@ -130,7 +142,8 @@ class YFinanceProvider(DataProvider):
                 "recommendationMean": _safe_float(info.get("recommendationMean")),
             }
 
-        return await asyncio.to_thread(_fetch)
+        async with self._limiter:
+            return await asyncio.to_thread(_fetch)
 
     def is_point_in_time(self) -> bool:
         return False
