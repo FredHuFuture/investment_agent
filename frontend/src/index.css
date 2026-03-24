@@ -2,19 +2,125 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
-  background-color: #030712; /* gray-950 */
-  color: #f3f4f6; /* gray-100 */
+/* ═══════════════════════════════════════════════════════════
+   Grip Design System — "Modern Craft"
+   Editorial Financial Intelligence
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Light Mode Tokens ── */
+:root {
+  --gray-50:  15 14 12;
+  --gray-100: 30 28 24;
+  --gray-200: 55 52 46;
+  --gray-300: 80 76 68;
+  --gray-400: 100 95 87;
+  --gray-500: 118 113 104;
+  --gray-600: 158 152 143;
+  --gray-700: 198 193 186;
+  --gray-800: 225 221 215;
+  --gray-900: 250 248 245;
+  --gray-950: 243 240 236;
+
+  --accent: 20 110 75;
+  --accent-light: 38 148 105;
+  --accent-dark: 12 82 55;
+  --accent-surface: 232 246 239;
+
+  --up: 18 120 55;
+  --up-surface: 228 248 236;
+  --down: 192 45 35;
+  --down-surface: 252 232 228;
+  --caution: 172 112 8;
+  --caution-surface: 254 243 220;
+
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-card-hover: 0 4px 14px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-elevated: 0 12px 32px rgba(0,0,0,0.12), 0 4px 8px rgba(0,0,0,0.06);
 }
 
+/* ── Dark Mode Tokens ── */
+.dark {
+  --gray-50:  240 235 226;
+  --gray-100: 228 222 212;
+  --gray-200: 208 202 192;
+  --gray-300: 180 174 164;
+  --gray-400: 145 139 130;
+  --gray-500: 115 110 102;
+  --gray-600: 82 78 70;
+  --gray-700: 58 54 48;
+  --gray-800: 36 33 28;
+  --gray-900: 22 20 16;
+  --gray-950: 12 11 9;
+
+  --accent: 50 175 120;
+  --accent-light: 72 200 145;
+  --accent-dark: 32 148 98;
+  --accent-surface: 15 35 25;
+
+  --up: 50 190 105;
+  --up-surface: 12 32 20;
+  --down: 232 72 60;
+  --down-surface: 35 12 10;
+  --caution: 212 158 22;
+  --caution-surface: 30 25 8;
+
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-card-hover: 0 4px 14px rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.25);
+  --shadow-elevated: 0 12px 32px rgba(0,0,0,0.5), 0 4px 8px rgba(0,0,0,0.3);
+}
+
+/* ── Global Styles ── */
+body {
+  margin: 0;
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--gray-700));
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--gray-600));
+}
+
+/* ── Selection ── */
+::selection {
+  background: rgb(var(--accent) / 0.2);
+  color: inherit;
+}
+
+/* ── Staggered fade-up animation ── */
+.stagger-fade-up > * {
+  animation: fade-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.stagger-fade-up > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-fade-up > *:nth-child(2) { animation-delay: 50ms; }
+.stagger-fade-up > *:nth-child(3) { animation-delay: 100ms; }
+.stagger-fade-up > *:nth-child(4) { animation-delay: 150ms; }
+.stagger-fade-up > *:nth-child(5) { animation-delay: 200ms; }
+.stagger-fade-up > *:nth-child(6) { animation-delay: 250ms; }
+.stagger-fade-up > *:nth-child(7) { animation-delay: 300ms; }
+.stagger-fade-up > *:nth-child(8) { animation-delay: 350ms; }
+
+/* ── Legacy animation utilities ── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 @keyframes pulse-subtle {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
-
 @keyframes slide-in-right {
   from { transform: translateX(100%); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
@@ -28,4 +134,20 @@ body {
 }
 .animate-fade-out {
   animation: fade-out 150ms ease-in forwards;
+}
+
+/* ── Toast animations ── */
+@keyframes toast-slide-in {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes toast-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+.toast-enter {
+  animation: toast-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.toast-exit {
+  animation: toast-fade-out 0.2s ease-in forwards;
 }

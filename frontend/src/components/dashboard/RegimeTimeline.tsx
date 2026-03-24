@@ -138,7 +138,7 @@ export default function RegimeTimeline() {
       <CardBody>
         {loading ? (
           <div className="flex items-center justify-center py-8">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-600 border-t-blue-400" />
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-600 border-t-accent" />
           </div>
         ) : error ? (
           <p className="text-xs text-red-400">Failed to load regime history.</p>

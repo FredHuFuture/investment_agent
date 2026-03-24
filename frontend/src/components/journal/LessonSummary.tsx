@@ -2,7 +2,7 @@ import type { TradeAnnotation, LessonTagStats } from "../../api/types";
 import { Card, CardHeader, CardBody } from "../ui/Card";
 
 const LESSON_TAG_COLORS: Record<string, string> = {
-  entry_timing: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  entry_timing: "bg-accent/20 text-accent-light border-accent/30",
   exit_timing: "bg-purple-500/20 text-purple-400 border-purple-500/30",
   position_sizing: "bg-amber-500/20 text-amber-400 border-amber-500/30",
   thesis_quality: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",

@@ -212,7 +212,7 @@ export default function DataTable<T>({
                         <span
                           className={
                             sortCol === col.key && sortDir === "asc"
-                              ? "text-blue-400"
+                              ? "text-accent-light"
                               : "text-gray-600"
                           }
                         >
@@ -221,7 +221,7 @@ export default function DataTable<T>({
                         <span
                           className={
                             sortCol === col.key && sortDir === "desc"
-                              ? "text-blue-400"
+                              ? "text-accent-light"
                               : "text-gray-600"
                           }
                         >
@@ -247,7 +247,7 @@ export default function DataTable<T>({
                       </p>
                       <button
                         onClick={clearSearch}
-                        className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                        className="text-xs text-accent-light hover:text-accent transition-colors"
                       >
                         Clear search
                       </button>

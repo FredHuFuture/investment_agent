@@ -19,7 +19,6 @@ function Icon({ d, className }: { d: string; className?: string }) {
   );
 }
 
-// Multi-path icon for more complex shapes
 function MultiIcon({
   paths,
   className,
@@ -44,9 +43,7 @@ function MultiIcon({
   );
 }
 
-// Heroicons / Lucide-inspired paths
 const NAV_ICONS: Record<string, () => JSX.Element> = {
-  // Dashboard — grid of 4 squares
   Dashboard: () => (
     <MultiIcon
       paths={[
@@ -57,7 +54,6 @@ const NAV_ICONS: Record<string, () => JSX.Element> = {
       ]}
     />
   ),
-  // Analysis — magnifying glass with chart
   Analysis: () => (
     <MultiIcon
       paths={[
@@ -68,7 +64,6 @@ const NAV_ICONS: Record<string, () => JSX.Element> = {
       ]}
     />
   ),
-  // Portfolio — briefcase
   Portfolio: () => (
     <MultiIcon
       paths={[
@@ -77,48 +72,6 @@ const NAV_ICONS: Record<string, () => JSX.Element> = {
       ]}
     />
   ),
-  // Backtest — rewind / history clock
-  Backtest: () => (
-    <MultiIcon
-      paths={[
-        "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8",
-        "M3 3v5h5",
-        "M12 7v5l4 2",
-      ]}
-    />
-  ),
-  // Signals — lightning bolt
-  Signals: () => <Icon d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />,
-  // Monitoring — bell
-  Monitoring: () => (
-    <MultiIcon
-      paths={[
-        "M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9",
-        "M13.73 21a2 2 0 0 1-3.46 0",
-      ]}
-    />
-  ),
-  // Weights — scale / balance
-  Weights: () => (
-    <MultiIcon
-      paths={[
-        "M12 3v18",
-        "M5 8l7-5 7 5",
-        "M5 8l-2 8h6L7 8",
-        "M19 8l-2 8h6l-2-8",
-      ]}
-    />
-  ),
-  // Daemon — cog / gear
-  Daemon: () => (
-    <MultiIcon
-      paths={[
-        "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
-        "M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z",
-      ]}
-    />
-  ),
-  // Watchlist — eye icon
   Watchlist: () => (
     <MultiIcon
       paths={[
@@ -127,16 +80,9 @@ const NAV_ICONS: Record<string, () => JSX.Element> = {
       ]}
     />
   ),
-  // Performance — trending-up chart
   Performance: () => (
-    <MultiIcon
-      paths={[
-        "M22 12l-4-4-6 6-4-4-6 6",
-        "M22 6v6h-6",
-      ]}
-    />
+    <MultiIcon paths={["M22 12l-4-4-6 6-4-4-6 6", "M22 6v6h-6"]} />
   ),
-  // Risk — warning triangle
   Risk: () => (
     <MultiIcon
       paths={[
@@ -146,7 +92,6 @@ const NAV_ICONS: Record<string, () => JSX.Element> = {
       ]}
     />
   ),
-  // Journal — book / notebook
   Journal: () => (
     <MultiIcon
       paths={[
@@ -154,7 +99,16 @@ const NAV_ICONS: Record<string, () => JSX.Element> = {
       ]}
     />
   ),
-  // History — file-text / document list
+  Backtest: () => (
+    <MultiIcon
+      paths={[
+        "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8",
+        "M3 3v5h5",
+        "M12 7v5l4 2",
+      ]}
+    />
+  ),
+  Signals: () => <Icon d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />,
   History: () => (
     <MultiIcon
       paths={[
@@ -166,7 +120,32 @@ const NAV_ICONS: Record<string, () => JSX.Element> = {
       ]}
     />
   ),
-  // Settings — sliders / adjustments
+  Monitoring: () => (
+    <MultiIcon
+      paths={[
+        "M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9",
+        "M13.73 21a2 2 0 0 1-3.46 0",
+      ]}
+    />
+  ),
+  Weights: () => (
+    <MultiIcon
+      paths={[
+        "M12 3v18",
+        "M5 8l7-5 7 5",
+        "M5 8l-2 8h6L7 8",
+        "M19 8l-2 8h6l-2-8",
+      ]}
+    />
+  ),
+  Daemon: () => (
+    <MultiIcon
+      paths={[
+        "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
+        "M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z",
+      ]}
+    />
+  ),
   Settings: () => (
     <MultiIcon
       paths={[
@@ -177,23 +156,56 @@ const NAV_ICONS: Record<string, () => JSX.Element> = {
   ),
 };
 
-const links = [
-  { to: "/", label: "Dashboard" },
-  { to: "/analyze", label: "Analysis" },
-  { to: "/portfolio", label: "Portfolio" },
-  { to: "/watchlist", label: "Watchlist" },
-  { to: "/performance", label: "Performance" },
-  { to: "/risk", label: "Risk" },
-  { to: "/journal", label: "Journal" },
-  { to: "/backtest", label: "Backtest" },
-  { to: "/signals", label: "Signals" },
-  { to: "/analysis-history", label: "History" },
-  { to: "/monitoring", label: "Monitoring" },
-  { to: "/weights", label: "Weights" },
-  { to: "/daemon", label: "Daemon" },
-  { to: "/settings", label: "Settings" },
+// ---------------------------------------------------------------------------
+// Grouped navigation — editorial information architecture
+// ---------------------------------------------------------------------------
+interface NavItem {
+  to: string;
+  label: string;
+  icon: string;
+}
+
+interface NavGroup {
+  label?: string;
+  items: NavItem[];
+}
+
+const navGroups: NavGroup[] = [
+  {
+    items: [{ to: "/", label: "Dashboard", icon: "Dashboard" }],
+  },
+  {
+    label: "Research",
+    items: [
+      { to: "/analyze", label: "Analysis", icon: "Analysis" },
+      { to: "/watchlist", label: "Watchlist", icon: "Watchlist" },
+      { to: "/signals", label: "Signals", icon: "Signals" },
+      { to: "/analysis-history", label: "History", icon: "History" },
+    ],
+  },
+  {
+    label: "Portfolio",
+    items: [
+      { to: "/portfolio", label: "Portfolio", icon: "Portfolio" },
+      { to: "/performance", label: "Performance", icon: "Performance" },
+      { to: "/risk", label: "Risk", icon: "Risk" },
+      { to: "/journal", label: "Journal", icon: "Journal" },
+    ],
+  },
+  {
+    label: "Tools",
+    items: [
+      { to: "/backtest", label: "Backtest", icon: "Backtest" },
+      { to: "/weights", label: "Weights", icon: "Weights" },
+      { to: "/monitoring", label: "Monitoring", icon: "Monitoring" },
+      { to: "/daemon", label: "Daemon", icon: "Daemon" },
+    ],
+  },
 ];
 
+// ---------------------------------------------------------------------------
+// Sidebar component
+// ---------------------------------------------------------------------------
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
@@ -209,54 +221,81 @@ export default function Sidebar({
   collapsed,
   onToggle,
 }: SidebarProps) {
-  // On mobile: always expanded (w-64), positioned fixed with slide transform
-  // On desktop: collapsible (w-16 / w-56), normal flow
   const asideClasses = isMobile
     ? [
         "fixed inset-y-0 left-0 z-50 w-64",
-        "bg-gray-900 border-r border-gray-800/40 flex flex-col",
-        "transition-transform duration-300 ease-in-out",
+        "bg-gray-950 border-r border-gray-800/40 flex flex-col",
+        "transition-transform duration-300 ease-out",
         isOpen ? "translate-x-0" : "-translate-x-full",
       ].join(" ")
     : [
-        "shrink-0 bg-gray-900/80 border-r border-gray-800/40 flex flex-col backdrop-blur-sm transition-all duration-200",
+        "shrink-0 bg-gray-950 border-r border-gray-800/40 flex flex-col transition-all duration-200",
         collapsed ? "w-16" : "w-56",
       ].join(" ");
 
   const showLabels = isMobile ? true : !collapsed;
 
+  function renderNavItem(item: NavItem) {
+    const IconComponent = NAV_ICONS[item.icon];
+    return (
+      <NavLink
+        key={item.to}
+        to={item.to}
+        end={item.to === "/"}
+        title={!showLabels ? item.label : undefined}
+        onClick={isMobile ? onClose : undefined}
+        className={({ isActive }) =>
+          [
+            "group flex items-center rounded-lg text-[13px] font-medium transition-all duration-150",
+            !showLabels
+              ? "justify-center px-0 py-2.5"
+              : "gap-2.5 px-3 py-[7px]",
+            isActive
+              ? "bg-accent/10 text-accent"
+              : "text-gray-500 hover:text-gray-200 hover:bg-gray-800/40",
+          ].join(" ")
+        }
+      >
+        {({ isActive }) => (
+          <>
+            <span
+              className={`transition-colors duration-150 shrink-0 ${
+                isActive
+                  ? "text-accent"
+                  : "text-gray-600 group-hover:text-gray-400"
+              }`}
+            >
+              {IconComponent && <IconComponent />}
+            </span>
+            {showLabels && <span>{item.label}</span>}
+          </>
+        )}
+      </NavLink>
+    );
+  }
+
   return (
     <aside className={asideClasses}>
-      {/* Header: logo + toggle */}
+      {/* Header: Logo + toggle */}
       <div
         className={`flex items-center ${
           !isMobile && collapsed
-            ? "justify-center px-2 pt-4 pb-3"
-            : "px-4 pt-4 pb-3"
+            ? "justify-center px-2 pt-5 pb-4"
+            : "px-4 pt-5 pb-4"
         }`}
       >
-        {showLabels && (
-          <div className="flex items-center gap-2.5 flex-1 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
-              <svg
-                className="w-4.5 h-4.5 text-white"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-              </svg>
-            </div>
-            <span className="text-[15px] font-semibold text-white tracking-tight truncate">
-              Investment Agent
+        {showLabels ? (
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <span className="font-display text-[22px] font-bold text-accent tracking-tight">
+              Grip
             </span>
           </div>
+        ) : (
+          <span className="font-display text-lg font-bold text-accent">
+            G
+          </span>
         )}
 
-        {/* Close button on mobile, collapse toggle on desktop */}
         {isMobile ? (
           <button
             onClick={onClose}
@@ -279,7 +318,7 @@ export default function Sidebar({
           <button
             onClick={onToggle}
             className={`p-1.5 rounded-md text-gray-500 hover:text-gray-300 hover:bg-gray-800/50 transition-colors ${
-              collapsed ? "" : "ml-1 shrink-0"
+              collapsed ? "" : "ml-auto shrink-0"
             }`}
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
@@ -301,65 +340,37 @@ export default function Sidebar({
         )}
       </div>
 
-      {/* Divider */}
-      <div
-        className={`border-b border-gray-800/50 ${
-          !isMobile && collapsed ? "mx-2" : "mx-4"
-        }`}
-      />
-
-      {/* Navigation */}
+      {/* Navigation groups */}
       <nav
-        className={`flex-1 pt-3 space-y-0.5 ${
+        className={`flex-1 overflow-y-auto pt-1 pb-4 ${
           !isMobile && collapsed ? "px-2" : "px-3"
         }`}
       >
-        {links.map((l) => {
-          const IconComponent = NAV_ICONS[l.label];
-          return (
-            <NavLink
-              key={l.to}
-              to={l.to}
-              end={l.to === "/"}
-              title={!isMobile && collapsed ? l.label : undefined}
-              onClick={isMobile ? onClose : undefined}
-              className={({ isActive }) =>
-                [
-                  "group flex items-center rounded-lg text-[13px] font-medium transition-all duration-150",
-                  !isMobile && collapsed
-                    ? "justify-center px-0 py-2.5"
-                    : "gap-3 px-3 py-2",
-                  isActive
-                    ? "bg-blue-500/15 text-blue-400 border-l-[3px] border-blue-500"
-                    : "text-gray-500 hover:text-gray-200 hover:bg-gray-800/40 border-l-[3px] border-transparent",
-                ].join(" ")
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <span
-                    className={`transition-colors duration-150 shrink-0 ${
-                      isActive
-                        ? "text-blue-400"
-                        : "text-gray-600 group-hover:text-gray-400"
-                    }`}
-                  >
-                    {IconComponent && <IconComponent />}
-                  </span>
-                  {showLabels && <span>{l.label}</span>}
-                </>
-              )}
-            </NavLink>
-          );
-        })}
+        {navGroups.map((group, gi) => (
+          <div key={gi} className={gi > 0 ? "mt-5" : ""}>
+            {group.label && showLabels && (
+              <div className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-gray-600">
+                {group.label}
+              </div>
+            )}
+            {group.label && !showLabels && (
+              <div className="mx-auto mb-1.5 w-5 border-t border-gray-800/50" />
+            )}
+            <div className="space-y-0.5">
+              {group.items.map((item) => renderNavItem(item))}
+            </div>
+          </div>
+        ))}
       </nav>
 
-      {/* Footer */}
-      {showLabels && (
-        <div className="px-5 py-3 text-[10px] text-gray-700 text-center">
-          v5 · Sprint 38
-        </div>
-      )}
+      {/* Settings — pinned at bottom */}
+      <div
+        className={`border-t border-gray-800/40 ${
+          !isMobile && collapsed ? "px-2 py-3" : "px-3 py-3"
+        }`}
+      >
+        {renderNavItem({ to: "/settings", label: "Settings", icon: "Settings" })}
+      </div>
     </aside>
   );
 }

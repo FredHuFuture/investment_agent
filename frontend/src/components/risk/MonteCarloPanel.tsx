@@ -66,11 +66,11 @@ function CustomTooltip({ active, payload, label }: any) {
     <div className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs shadow-lg">
       <p className="text-gray-400 mb-1">{label}</p>
       <div className="space-y-0.5">
-        <p className="text-blue-200">P95 (Best): {formatCurrency(point.p95)}</p>
-        <p className="text-blue-300">P75: {formatCurrency(point.p75)}</p>
-        <p className="text-blue-400 font-semibold">Median: {formatCurrency(point.p50)}</p>
-        <p className="text-blue-300">P25: {formatCurrency(point.p25)}</p>
-        <p className="text-blue-200">P5 (Worst): {formatCurrency(point.p5)}</p>
+        <p className="text-accent/70">P95 (Best): {formatCurrency(point.p95)}</p>
+        <p className="text-accent">P75: {formatCurrency(point.p75)}</p>
+        <p className="text-accent-light font-semibold">Median: {formatCurrency(point.p50)}</p>
+        <p className="text-accent">P25: {formatCurrency(point.p25)}</p>
+        <p className="text-accent/70">P5 (Worst): {formatCurrency(point.p5)}</p>
       </div>
     </div>
   );
@@ -162,7 +162,7 @@ export default function MonteCarloPanel() {
               step={1}
               value={horizon}
               onChange={(e) => setHorizon(Number(e.target.value))}
-              className="w-28 accent-blue-500"
+              className="w-28 accent-accent"
             />
             <span className="text-xs text-gray-300 w-6 text-right">{horizon}</span>
           </div>
@@ -179,7 +179,7 @@ export default function MonteCarloPanel() {
               step={100}
               value={simulations}
               onChange={(e) => setSimulations(Number(e.target.value))}
-              className="w-28 accent-blue-500"
+              className="w-28 accent-accent"
             />
             <span className="text-xs text-gray-300 w-12 text-right">
               {simulations.toLocaleString()}
@@ -192,22 +192,22 @@ export default function MonteCarloPanel() {
           <ComposedChart data={chartData}>
             <defs>
               <linearGradient id="mcBandOuter" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.10} />
-                <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.05} />
+                <stop offset="0%" stopColor="#32af78" stopOpacity={0.10} />
+                <stop offset="100%" stopColor="#32af78" stopOpacity={0.05} />
               </linearGradient>
               <linearGradient id="mcBandInner" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.25} />
-                <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.10} />
+                <stop offset="0%" stopColor="#32af78" stopOpacity={0.25} />
+                <stop offset="100%" stopColor="#32af78" stopOpacity={0.10} />
               </linearGradient>
             </defs>
 
             <XAxis
               dataKey="date"
-              tick={{ fill: "#6b7280", fontSize: 11 }}
+              tick={{ fill: "#736e66", fontSize: 11 }}
               tickFormatter={formatDate}
             />
             <YAxis
-              tick={{ fill: "#6b7280", fontSize: 11 }}
+              tick={{ fill: "#736e66", fontSize: 11 }}
               tickFormatter={(v: number) => formatCurrency(v)}
               domain={["auto", "auto"]}
               width={80}
@@ -250,7 +250,7 @@ export default function MonteCarloPanel() {
             <Line
               type="monotone"
               dataKey="p50"
-              stroke="#3b82f6"
+              stroke="#32af78"
               strokeWidth={2}
               dot={false}
               isAnimationActive={false}
@@ -262,7 +262,7 @@ export default function MonteCarloPanel() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4 pt-4 border-t border-gray-800/50">
           <div>
             <p className="text-xs text-gray-500 uppercase tracking-wider">Median Outcome</p>
-            <p className="text-sm font-semibold text-blue-400 mt-0.5">
+            <p className="text-sm font-semibold text-accent-light mt-0.5">
               {formatCurrency(medianOutcome)}
             </p>
           </div>

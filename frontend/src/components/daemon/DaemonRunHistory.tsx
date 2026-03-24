@@ -23,7 +23,7 @@ function StatusBadge({ status }: { status: string }) {
     status === "success"
       ? "bg-green-400/10 text-green-400 border-green-400/20"
       : status === "running"
-        ? "bg-blue-400/10 text-blue-400 border-blue-400/20"
+        ? "bg-accent-light/10 text-accent-light border-accent-light/20"
         : status === "error" || status === "failed"
           ? "bg-red-400/10 text-red-400 border-red-400/20"
           : "bg-gray-600/10 text-gray-500 border-gray-600/20";
@@ -142,7 +142,7 @@ export default function DaemonRunHistory({ jobName }: DaemonRunHistoryProps) {
                   {(run.result_json || run.error_message) ? (
                     <button
                       type="button"
-                      className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                      className="text-xs text-accent-light hover:text-accent transition-colors"
                       onClick={() =>
                         setExpandedId(expandedId === run.id ? null : run.id)
                       }

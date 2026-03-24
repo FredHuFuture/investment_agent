@@ -35,7 +35,7 @@ export default function WatchlistTargetsBanner() {
         action={
           <Link
             to="/watchlist"
-            className="text-xs text-blue-400 hover:text-blue-300 transition-colors duration-150"
+            className="text-xs text-accent-light hover:text-accent transition-colors duration-150"
           >
             View all &rarr;
           </Link>
@@ -47,7 +47,7 @@ export default function WatchlistTargetsBanner() {
             <Link
               key={item.ticker}
               to={`/analyze/${item.ticker}`}
-              className="flex items-center gap-3 rounded-lg bg-gray-800/50 border border-gray-700/50 px-4 py-3 hover:border-blue-500/40 transition-colors duration-150 min-w-[200px]"
+              className="flex items-center gap-3 rounded-lg bg-gray-800/50 border border-gray-700/50 px-4 py-3 hover:border-accent/40 transition-colors duration-150 min-w-[200px]"
             >
               <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dotColor(item.distance_pct)}`} />
               <div className="min-w-0 flex-1">

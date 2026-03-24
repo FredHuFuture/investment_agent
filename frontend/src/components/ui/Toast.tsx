@@ -14,9 +14,9 @@ const typeStyles: Record<ToastType["type"], { border: string; icon: string; bg: 
     bg: "bg-red-500/10",
   },
   info: {
-    border: "border-blue-500/50",
-    icon: "text-blue-400",
-    bg: "bg-blue-500/10",
+    border: "border-accent/50",
+    icon: "text-accent-light",
+    bg: "bg-accent/10",
   },
   warning: {
     border: "border-yellow-500/50",

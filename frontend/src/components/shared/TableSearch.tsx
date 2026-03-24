@@ -50,7 +50,7 @@ export default function TableSearch({
         onChange={(e) => setLocal(e.target.value)}
         placeholder={placeholder}
         aria-label="Search table"
-        className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+        className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition-colors"
       />
 
       {/* Clear button */}

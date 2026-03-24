@@ -13,13 +13,13 @@ interface SelectInputProps extends SelectHTMLAttributes<HTMLSelectElement> {
 }
 
 const baseInputStyles = [
-  "w-full bg-gray-800 border rounded-lg px-3 py-2.5 text-gray-100",
-  "focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none",
+  "w-full bg-gray-800 border rounded-lg px-3 py-2.5 text-gray-100 text-sm",
+  "focus:ring-2 focus:ring-accent/40 focus:border-accent outline-none",
   "transition-colors duration-150",
   "placeholder:text-gray-500",
 ].join(" ");
 
-const errorBorderStyle = "border-red-500";
+const errorBorderStyle = "border-down";
 const normalBorderStyle = "border-gray-700";
 
 export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(
@@ -46,7 +46,7 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(
           `}
           {...rest}
         />
-        {error && <p className="text-red-400 text-sm mt-1">{error}</p>}
+        {error && <p className="text-down text-sm mt-1">{error}</p>}
         {hint && !error && (
           <p className="text-xs text-gray-500 mt-1">{hint}</p>
         )}
@@ -86,7 +86,7 @@ export const SelectInput = forwardRef<HTMLSelectElement, SelectInputProps>(
             </option>
           ))}
         </select>
-        {error && <p className="text-red-400 text-sm mt-1">{error}</p>}
+        {error && <p className="text-down text-sm mt-1">{error}</p>}
       </div>
     );
   },

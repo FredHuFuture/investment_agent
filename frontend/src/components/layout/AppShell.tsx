@@ -17,17 +17,17 @@ export default function AppShell({ children }: AppShellProps) {
     <div className="flex h-screen overflow-hidden bg-gray-950 text-gray-100">
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:bg-blue-600 focus:text-white focus:px-4 focus:py-2 focus:rounded-lg focus:text-sm focus:font-medium"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:bg-accent focus:text-white focus:px-4 focus:py-2 focus:rounded-lg focus:text-sm focus:font-medium"
       >
         Skip to content
       </a>
 
       {/* Mobile header bar */}
       {isMobile && (
-        <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center border-b border-gray-800 bg-gray-900 px-4">
+        <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center border-b border-gray-800/60 bg-gray-950/95 backdrop-blur-sm px-4">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="rounded-md p-2 text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors"
+            className="rounded-lg p-2 text-gray-400 hover:bg-gray-800/50 hover:text-gray-200 transition-colors"
             aria-label="Open menu"
           >
             <svg
@@ -42,18 +42,17 @@ export default function AppShell({ children }: AppShellProps) {
               <path d="M3 12h18M3 6h18M3 18h18" />
             </svg>
           </button>
-          <span className="flex-1 text-center text-sm font-semibold text-white tracking-tight">
-            Investment Agent
+          <span className="flex-1 text-center font-display text-lg font-bold text-accent tracking-tight">
+            Grip
           </span>
-          {/* Spacer to balance hamburger button */}
           <div className="w-9" />
         </header>
       )}
 
-      {/* Backdrop (mobile only) */}
+      {/* Backdrop (mobile) */}
       {isMobile && sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 transition-opacity"
+          className="fixed inset-0 z-40 bg-gray-950/60 backdrop-blur-sm transition-opacity"
           onClick={closeSidebar}
           aria-hidden="true"
         />
@@ -71,11 +70,11 @@ export default function AppShell({ children }: AppShellProps) {
       {/* Main content */}
       <main
         id="main-content"
-        className={`flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 ${
-          isMobile ? "pt-20" : ""
-        }`}
+        className={`flex-1 overflow-y-auto ${isMobile ? "pt-20" : ""}`}
       >
-        {children}
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+          {children}
+        </div>
       </main>
     </div>
   );

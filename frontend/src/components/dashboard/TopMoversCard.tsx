@@ -51,7 +51,7 @@ export default function TopMoversCard({ positions }: TopMoversCardProps) {
                   <li key={pos.ticker} className="flex items-center gap-2">
                     <Link
                       to={`/portfolio/${pos.ticker}`}
-                      className="font-mono text-sm font-medium text-white hover:text-blue-400 transition-colors w-14 shrink-0"
+                      className="font-mono text-sm font-medium text-white hover:text-accent-light transition-colors w-14 shrink-0"
                     >
                       {pos.ticker}
                     </Link>
@@ -88,7 +88,7 @@ export default function TopMoversCard({ positions }: TopMoversCardProps) {
                   <li key={pos.ticker} className="flex items-center gap-2">
                     <Link
                       to={`/portfolio/${pos.ticker}`}
-                      className="font-mono text-sm font-medium text-white hover:text-blue-400 transition-colors w-14 shrink-0"
+                      className="font-mono text-sm font-medium text-white hover:text-accent-light transition-colors w-14 shrink-0"
                     >
                       {pos.ticker}
                     </Link>

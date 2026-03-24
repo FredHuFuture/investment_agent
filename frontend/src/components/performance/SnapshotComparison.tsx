@@ -46,7 +46,7 @@ export default function SnapshotComparison() {
               type="date"
               value={dateA}
               onChange={(e) => setDateA(e.target.value)}
-              className="bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"
+              className="bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-accent"
             />
           </div>
           <div>
@@ -55,7 +55,7 @@ export default function SnapshotComparison() {
               type="date"
               value={dateB}
               onChange={(e) => setDateB(e.target.value)}
-              className="bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"
+              className="bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-accent"
             />
           </div>
           <Button onClick={handleCompare} disabled={loading} size="sm">

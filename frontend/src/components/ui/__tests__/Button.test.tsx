@@ -54,19 +54,19 @@ describe("Button", () => {
   it("applies primary variant styles by default", () => {
     render(<Button>Primary</Button>);
     const button = screen.getByRole("button");
-    expect(button.className).toContain("bg-blue-600");
+    expect(button.className).toContain("bg-accent");
   });
 
   it("applies secondary variant styles", () => {
     render(<Button variant="secondary">Secondary</Button>);
     const button = screen.getByRole("button");
-    expect(button.className).toContain("bg-gray-700");
+    expect(button.className).toContain("bg-gray-800");
   });
 
   it("applies danger variant styles", () => {
     render(<Button variant="danger">Danger</Button>);
     const button = screen.getByRole("button");
-    expect(button.className).toContain("bg-red-600");
+    expect(button.className).toContain("bg-down");
   });
 
   it("applies ghost variant styles", () => {

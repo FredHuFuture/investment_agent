@@ -93,7 +93,7 @@ export default function RiskSummaryWidget() {
         <div className="mt-4 pt-3 border-t border-gray-800/50">
           <Link
             to="/risk"
-            className="text-xs text-blue-400 hover:text-blue-300 transition-colors duration-150"
+            className="text-xs text-accent-light hover:text-accent transition-colors duration-150"
           >
             View Details &rarr;
           </Link>

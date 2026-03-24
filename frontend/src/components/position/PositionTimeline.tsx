@@ -14,7 +14,7 @@ function dotColor(event: PositionEvent): string {
     case "entry":
       return "bg-emerald-400";
     case "signal":
-      return "bg-blue-400";
+      return "bg-accent-light";
     case "alert": {
       const sev = (event.severity ?? "").toLowerCase();
       if (sev === "critical" || sev === "high") return "bg-red-400";
@@ -37,7 +37,7 @@ function lineColor(event: PositionEvent): string {
     case "entry":
       return "border-emerald-400/30";
     case "signal":
-      return "border-blue-400/30";
+      return "border-accent-light/30";
     case "alert":
       return "border-red-400/30";
     case "thesis_change":

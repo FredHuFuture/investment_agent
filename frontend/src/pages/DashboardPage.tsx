@@ -49,13 +49,13 @@ import { formatCurrency, formatRelativeTime } from "../lib/formatters";
 import { usePageTitle } from "../hooks/usePageTitle";
 
 const SECTOR_COLORS = [
-  "#3b82f6",
-  "#10b981",
-  "#f59e0b",
-  "#ef4444",
+  "#32af78",
+  "#e09f3e",
+  "#6366f1",
+  "#e05c4c",
   "#8b5cf6",
   "#ec4899",
-  "#06b6d4",
+  "#0ea5e9",
   "#84cc16",
 ];
 
@@ -215,7 +215,7 @@ export default function DashboardPage() {
       <WarningsBanner warnings={[...warnings, ...alertsApi.warnings]} />
 
       {/* ── Top row: 5 metric cards ── */}
-      <div className="grid grid-cols-1 md:grid-cols-4 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 xl:grid-cols-5 gap-4 stagger-fade-up">
         <MetricCard
           label="Portfolio Value"
           value={formatCurrency(data.total_value)}
@@ -266,7 +266,7 @@ export default function DashboardPage() {
         </h3>
         {valueHistoryApi.loading ? (
           <div className="flex items-center justify-center py-8">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-600 border-t-blue-400" />
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-600 border-t-accent" />
           </div>
         ) : valueHistoryApi.error ? (
           <p className="text-xs text-red-400">
@@ -282,20 +282,20 @@ export default function DashboardPage() {
             >
               <defs>
                 <linearGradient id="valGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+                  <stop offset="0%" stopColor="#32af78" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="#32af78" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <XAxis
                 dataKey="label"
-                tick={{ fontSize: 10, fill: "#6b7280" }}
+                tick={{ fontSize: 10, fill: "#736e66" }}
                 axisLine={false}
                 tickLine={false}
                 interval="preserveStartEnd"
               />
               <YAxis
                 domain={["auto", "auto"]}
-                tick={{ fontSize: 10, fill: "#6b7280" }}
+                tick={{ fontSize: 10, fill: "#736e66" }}
                 axisLine={false}
                 tickLine={false}
                 tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
@@ -303,18 +303,18 @@ export default function DashboardPage() {
               />
               <Tooltip
                 contentStyle={{
-                  background: "#1f2937",
-                  border: "1px solid #374151",
+                  background: "#161410",
+                  border: "1px solid #2a2720",
                   borderRadius: 8,
                   fontSize: 12,
                 }}
-                labelStyle={{ color: "#9ca3af" }}
+                labelStyle={{ color: "#918b82" }}
                 formatter={(v: number) => [formatCurrency(v), "Value"]}
               />
               <Area
                 type="monotone"
                 dataKey="total_value"
-                stroke="#3b82f6"
+                stroke="#32af78"
                 strokeWidth={2}
                 fill="url(#valGrad)"
               />
@@ -488,7 +488,7 @@ export default function DashboardPage() {
                   {data.positions.map((pos) => {
                     const pnlPct = pos.unrealized_pnl_pct * 100;
                     const pnlColor =
-                      pnlPct >= 0 ? "text-green-400" : "text-red-400";
+                      pnlPct >= 0 ? "text-up" : "text-down";
                     return (
                       <tr
                         key={pos.ticker}
@@ -496,7 +496,7 @@ export default function DashboardPage() {
                         onClick={() => navigate(`/portfolio/${pos.ticker}`)}
                       >
                         <td className="py-2 pr-4 font-mono font-medium">
-                          <Link to={`/portfolio/${pos.ticker}`} className="text-white hover:text-blue-400 transition-colors">
+                          <Link to={`/portfolio/${pos.ticker}`} className="text-white hover:text-accent-light transition-colors">
                             {pos.ticker}
                           </Link>
                         </td>
@@ -529,14 +529,14 @@ export default function DashboardPage() {
             </h2>
             <button
               onClick={() => navigate("/monitoring")}
-              className="text-xs text-blue-400 hover:text-blue-300 transition-colors duration-150"
+              className="text-xs text-accent-light hover:text-accent transition-colors duration-150"
             >
               View all
             </button>
           </div>
           {alertsApi.loading ? (
             <div className="flex items-center justify-center py-6">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-600 border-t-blue-400" />
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-600 border-t-accent" />
             </div>
           ) : alertsApi.data && alertsApi.data.length > 0 ? (
             <ul className="space-y-2">
@@ -579,14 +579,14 @@ export default function DashboardPage() {
           </h3>
           <Link
             to="/watchlist"
-            className="text-xs text-blue-400 hover:text-blue-300 transition-colors duration-150"
+            className="text-xs text-accent-light hover:text-accent transition-colors duration-150"
           >
             View all &rarr;
           </Link>
         </div>
         {watchlistApi.loading ? (
           <div className="flex items-center justify-center py-6">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-600 border-t-blue-400" />
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-600 border-t-accent" />
           </div>
         ) : watchlistApi.error ? (
           <p className="text-xs text-red-400">

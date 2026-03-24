@@ -34,14 +34,14 @@ const severityBorderMap: Record<string, string> = {
   critical: "border-l-red-500",
   high: "border-l-orange-500",
   warning: "border-l-yellow-500",
-  info: "border-l-blue-500",
+  info: "border-l-accent",
 };
 
 /** Dot color based on entry type. */
 const typeDotMap: Record<string, string> = {
   daemon_run: "bg-gray-400",
   alert: "bg-red-400",
-  signal: "bg-blue-400",
+  signal: "bg-accent-light",
   trade: "bg-green-400",
 };
 
