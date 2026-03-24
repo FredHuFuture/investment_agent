@@ -129,7 +129,7 @@ export default function PriceHistoryChart({ ticker, assetType }: Props) {
       height: el.clientHeight,
       layout: {
         background: { type: ColorType.Solid, color: "transparent" },
-        textColor: "#6b7280",
+        textColor: "#736e66",
         fontSize: 11,
       },
       grid: {
@@ -142,13 +142,13 @@ export default function PriceHistoryChart({ ticker, assetType }: Props) {
           color: "rgba(107,114,128,0.4)",
           width: 1,
           style: 2,
-          labelBackgroundColor: "#374151",
+          labelBackgroundColor: "#2a2720",
         },
         horzLine: {
           color: "rgba(107,114,128,0.4)",
           width: 1,
           style: 2,
-          labelBackgroundColor: "#374151",
+          labelBackgroundColor: "#2a2720",
         },
       },
       rightPriceScale: {

@@ -21,7 +21,7 @@ const SEVERITY_DOT_COLORS: Record<string, string> = {
   WARNING: "bg-yellow-400",
   MEDIUM: "bg-yellow-400",
   LOW: "bg-gray-400",
-  INFO: "bg-blue-400",
+  INFO: "bg-accent-light",
 };
 
 /** Ordering so critical appears first in the severity list. */
@@ -85,8 +85,8 @@ export default function AlertAnalyticsPanel() {
                   layout="vertical"
                   margin={{ top: 0, right: 16, bottom: 0, left: 0 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" horizontal={false} />
-                  <XAxis type="number" allowDecimals={false} tick={{ fill: "#9ca3af", fontSize: 11 }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#2a2720" horizontal={false} />
+                  <XAxis type="number" allowDecimals={false} tick={{ fill: "#918b82", fontSize: 11 }} />
                   <YAxis
                     type="category"
                     dataKey="ticker"
@@ -95,15 +95,15 @@ export default function AlertAnalyticsPanel() {
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: "#1f2937",
-                      border: "1px solid #374151",
+                      backgroundColor: "#161410",
+                      border: "1px solid #2a2720",
                       borderRadius: 8,
                       fontSize: 12,
                     }}
                     labelStyle={{ color: "#d1d5db" }}
                     formatter={(value: number) => [value, "Alerts"]}
                   />
-                  <Bar dataKey="count" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={20} />
+                  <Bar dataKey="count" fill="#32af78" radius={[0, 4, 4, 0]} barSize={20} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

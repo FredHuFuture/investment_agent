@@ -168,7 +168,7 @@ export default function GoalTracker({ currentValue }: GoalTrackerProps) {
                             progress >= 100
                               ? "bg-emerald-500"
                               : progress >= 75
-                                ? "bg-blue-500"
+                                ? "bg-accent"
                                 : progress >= 50
                                   ? "bg-yellow-500"
                                   : "bg-gray-500"
@@ -220,7 +220,7 @@ export default function GoalTracker({ currentValue }: GoalTrackerProps) {
                     placeholder="Retirement Fund"
                     value={label}
                     onChange={(e) => setLabel(e.target.value)}
-                    className="w-44 rounded-md bg-gray-800/60 border border-gray-700/50 px-2.5 py-1.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-blue-500/50"
+                    className="w-44 rounded-md bg-gray-800/60 border border-gray-700/50 px-2.5 py-1.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-accent/50"
                     required
                   />
                 </div>
@@ -239,7 +239,7 @@ export default function GoalTracker({ currentValue }: GoalTrackerProps) {
                     placeholder="100000"
                     value={targetValue}
                     onChange={(e) => setTargetValue(e.target.value)}
-                    className="w-32 rounded-md bg-gray-800/60 border border-gray-700/50 px-2.5 py-1.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-blue-500/50"
+                    className="w-32 rounded-md bg-gray-800/60 border border-gray-700/50 px-2.5 py-1.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-accent/50"
                     required
                   />
                 </div>
@@ -255,13 +255,13 @@ export default function GoalTracker({ currentValue }: GoalTrackerProps) {
                     type="date"
                     value={targetDate}
                     onChange={(e) => setTargetDate(e.target.value)}
-                    className="w-36 rounded-md bg-gray-800/60 border border-gray-700/50 px-2.5 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500/50"
+                    className="w-36 rounded-md bg-gray-800/60 border border-gray-700/50 px-2.5 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-accent/50"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="px-4 py-1.5 rounded-md bg-accent hover:bg-accent-light text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {submitting ? "Adding..." : "Add Goal"}
                 </button>

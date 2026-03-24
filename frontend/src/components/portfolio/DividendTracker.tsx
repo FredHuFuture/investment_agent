@@ -159,7 +159,7 @@ export default function DividendTracker({ ticker }: DividendTrackerProps) {
                     placeholder="0.50"
                     value={amountPerShare}
                     onChange={(e) => setAmountPerShare(e.target.value)}
-                    className="w-28 rounded-md bg-gray-800/60 border border-gray-700/50 px-2.5 py-1.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-blue-500/50"
+                    className="w-28 rounded-md bg-gray-800/60 border border-gray-700/50 px-2.5 py-1.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-accent/50"
                     required
                   />
                 </div>
@@ -172,7 +172,7 @@ export default function DividendTracker({ ticker }: DividendTrackerProps) {
                     type="date"
                     value={exDate}
                     onChange={(e) => setExDate(e.target.value)}
-                    className="w-36 rounded-md bg-gray-800/60 border border-gray-700/50 px-2.5 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500/50"
+                    className="w-36 rounded-md bg-gray-800/60 border border-gray-700/50 px-2.5 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-accent/50"
                     required
                   />
                 </div>
@@ -185,13 +185,13 @@ export default function DividendTracker({ ticker }: DividendTrackerProps) {
                     type="date"
                     value={payDate}
                     onChange={(e) => setPayDate(e.target.value)}
-                    className="w-36 rounded-md bg-gray-800/60 border border-gray-700/50 px-2.5 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500/50"
+                    className="w-36 rounded-md bg-gray-800/60 border border-gray-700/50 px-2.5 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-accent/50"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="px-4 py-1.5 rounded-md bg-accent hover:bg-accent-light text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {submitting ? "Recording..." : "Record"}
                 </button>

@@ -35,7 +35,7 @@ function TrendTooltip({ active, payload }: TrendTooltipProps) {
   return (
     <div className="bg-gray-950/95 border border-gray-700/60 rounded px-2.5 py-1.5 text-[11px] shadow-2xl backdrop-blur-sm">
       <div className="text-gray-500">{dateStr}</div>
-      <div className="text-blue-400 font-semibold font-mono mt-0.5">
+      <div className="text-accent-light font-semibold font-mono mt-0.5">
         {point.accuracy_pct.toFixed(1)}%
       </div>
       <div className="text-gray-500 text-[10px] mt-0.5">
@@ -93,7 +93,7 @@ export default function AccuracyTrendChart() {
                   tickFormatter={(v: number) => `${v}%`}
                   width={42}
                 />
-                <Tooltip content={<TrendTooltip />} cursor={{ stroke: "#6b7280", strokeWidth: 1, strokeDasharray: "2 2" }} />
+                <Tooltip content={<TrendTooltip />} cursor={{ stroke: "#736e66", strokeWidth: 1, strokeDasharray: "2 2" }} />
                 <ReferenceLine
                   y={50}
                   stroke="#4b5563"
@@ -108,12 +108,12 @@ export default function AccuracyTrendChart() {
                 <Line
                   type="monotone"
                   dataKey="accuracy_pct"
-                  stroke="#3b82f6"
+                  stroke="#32af78"
                   strokeWidth={2}
                   dot={false}
                   activeDot={{
                     r: 3,
-                    fill: "#3b82f6",
+                    fill: "#32af78",
                     stroke: "#111827",
                     strokeWidth: 2,
                   }}

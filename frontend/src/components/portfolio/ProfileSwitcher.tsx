@@ -148,7 +148,7 @@ export default function ProfileSwitcher({ onProfileChange }: ProfileSwitcherProp
                     w-full text-left px-4 py-2.5 flex items-center gap-3
                     transition-colors disabled:opacity-50
                     ${profile.is_default === 1
-                      ? "bg-blue-600/10 text-blue-400"
+                      ? "bg-accent/10 text-accent-light"
                       : "text-gray-300 hover:bg-gray-800"
                     }
                   `}
@@ -158,13 +158,13 @@ export default function ProfileSwitcher({ onProfileChange }: ProfileSwitcherProp
                     className={`
                       w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center
                       ${profile.is_default === 1
-                        ? "border-blue-500"
+                        ? "border-accent"
                         : "border-gray-600"
                       }
                     `}
                   >
                     {profile.is_default === 1 && (
-                      <span className="w-2 h-2 rounded-full bg-blue-500" />
+                      <span className="w-2 h-2 rounded-full bg-accent" />
                     )}
                   </span>
 

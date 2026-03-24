@@ -113,7 +113,7 @@ export default function AlertConfigPanel({
                 type="checkbox"
                 checked={alertOnSignalChange}
                 onChange={(e) => setAlertOnSignalChange(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-900 cursor-pointer"
+                className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-accent focus:ring-accent focus:ring-offset-gray-900 cursor-pointer"
               />
               <span className="text-sm text-gray-300">
                 Alert on signal change
@@ -150,7 +150,7 @@ export default function AlertConfigPanel({
                 type="checkbox"
                 checked={enabled}
                 onChange={(e) => setEnabled(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-900 cursor-pointer"
+                className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-accent focus:ring-accent focus:ring-offset-gray-900 cursor-pointer"
               />
               <span className="text-sm text-gray-300">Enabled</span>
             </label>

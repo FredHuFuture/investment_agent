@@ -15,7 +15,7 @@ export default function ClosedPositionsTable({ positions }: Props) {
       render: (r) => (
         <Link
           to={`/portfolio/${r.ticker}`}
-          className="font-mono font-semibold text-white hover:text-blue-400 transition-colors"
+          className="font-mono font-semibold text-white hover:text-accent-light transition-colors"
         >
           {r.ticker}
         </Link>

@@ -130,7 +130,7 @@ export default function NotificationConfigCard() {
                   type="checkbox"
                   checked={config.smtp_enabled}
                   onChange={(e) => update("smtp_enabled", e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-blue-500 focus:ring-blue-500 focus:ring-offset-gray-900"
+                  className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-accent focus:ring-accent focus:ring-offset-gray-900"
                 />
                 <span className="text-xs text-gray-300">Enable Email Notifications</span>
               </label>
@@ -160,7 +160,7 @@ export default function NotificationConfigCard() {
                   type="checkbox"
                   checked={config.telegram_enabled}
                   onChange={(e) => update("telegram_enabled", e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-blue-500 focus:ring-blue-500 focus:ring-offset-gray-900"
+                  className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-accent focus:ring-accent focus:ring-offset-gray-900"
                 />
                 <span className="text-xs text-gray-300">Enable Telegram Notifications</span>
               </label>
@@ -184,7 +184,7 @@ export default function NotificationConfigCard() {
                     onChange={(e) =>
                       update(key, e.target.checked as NotificationConfig[typeof key])
                     }
-                    className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-blue-500 focus:ring-blue-500 focus:ring-offset-gray-900"
+                    className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-accent focus:ring-accent focus:ring-offset-gray-900"
                   />
                   <span className="text-xs text-gray-300">{label}</span>
                 </label>

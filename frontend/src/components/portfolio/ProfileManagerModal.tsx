@@ -196,7 +196,7 @@ export default function ProfileManagerModal({
                           type="text"
                           value={editName}
                           onChange={(e) => setEditName(e.target.value)}
-                          className="flex-1 px-2 py-1 rounded bg-gray-800 border border-gray-600 text-sm text-white focus:outline-none focus:border-blue-500"
+                          className="flex-1 px-2 py-1 rounded bg-gray-800 border border-gray-600 text-sm text-white focus:outline-none focus:border-accent"
                           disabled={saving}
                         />
                         <Button
@@ -228,7 +228,7 @@ export default function ProfileManagerModal({
                               {profile.name}
                             </span>
                             {profile.is_default === 1 && (
-                              <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider bg-blue-600/20 text-blue-400 px-1.5 py-0.5 rounded">
+                              <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider bg-accent/20 text-accent-light px-1.5 py-0.5 rounded">
                                 Active
                               </span>
                             )}
@@ -299,7 +299,7 @@ export default function ProfileManagerModal({
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     placeholder="e.g. Growth Portfolio"
-                    className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                    className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-accent"
                     required
                     disabled={creating}
                   />
@@ -314,7 +314,7 @@ export default function ProfileManagerModal({
                     value={newDescription}
                     onChange={(e) => setNewDescription(e.target.value)}
                     placeholder="Optional description"
-                    className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                    className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-accent"
                     disabled={creating}
                   />
                 </div>
@@ -329,7 +329,7 @@ export default function ProfileManagerModal({
                     step="1000"
                     value={newCash}
                     onChange={(e) => setNewCash(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                    className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-accent"
                     disabled={creating}
                   />
                 </div>

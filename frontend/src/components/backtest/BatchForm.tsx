@@ -36,7 +36,7 @@ export default function BatchForm({ onSubmit, loading }: Props) {
   }
 
   const inputCls =
-    "bg-gray-800 border border-gray-700 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500";
+    "bg-gray-800 border border-gray-700 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-accent";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -69,7 +69,7 @@ export default function BatchForm({ onSubmit, loading }: Props) {
       <button
         type="submit"
         disabled={loading}
-        className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded-md text-sm font-medium"
+        className="px-4 py-1.5 bg-accent hover:bg-accent-light disabled:opacity-50 rounded-md text-sm font-medium"
       >
         {loading ? "Running batch..." : "Run Batch Backtest"}
       </button>

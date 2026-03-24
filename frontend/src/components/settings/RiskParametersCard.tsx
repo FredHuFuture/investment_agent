@@ -77,7 +77,7 @@ export default function RiskParametersCard() {
               step={1}
               value={params.maxDrawdown}
               onChange={(e) => update("maxDrawdown", Number(e.target.value))}
-              className="w-full h-1.5 bg-gray-700 rounded-full appearance-none cursor-pointer accent-blue-500"
+              className="w-full h-1.5 bg-gray-700 rounded-full appearance-none cursor-pointer accent-accent"
             />
             <div className="flex justify-between mt-0.5">
               <span className="text-[10px] text-gray-600">5%</span>
@@ -100,7 +100,7 @@ export default function RiskParametersCard() {
               step={1}
               value={params.maxConcentration}
               onChange={(e) => update("maxConcentration", Number(e.target.value))}
-              className="w-full h-1.5 bg-gray-700 rounded-full appearance-none cursor-pointer accent-blue-500"
+              className="w-full h-1.5 bg-gray-700 rounded-full appearance-none cursor-pointer accent-accent"
             />
             <div className="flex justify-between mt-0.5">
               <span className="text-[10px] text-gray-600">5%</span>
@@ -125,7 +125,7 @@ export default function RiskParametersCard() {
               onChange={(e) =>
                 update("correlationThreshold", Number(e.target.value) / 100)
               }
-              className="w-full h-1.5 bg-gray-700 rounded-full appearance-none cursor-pointer accent-blue-500"
+              className="w-full h-1.5 bg-gray-700 rounded-full appearance-none cursor-pointer accent-accent"
             />
             <div className="flex justify-between mt-0.5">
               <span className="text-[10px] text-gray-600">0.30</span>

@@ -3,7 +3,7 @@ import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 
 const AGENT_COLORS: Record<string, string> = {
-  TechnicalAgent: "#3B82F6",
+  TechnicalAgent: "#32af78",
   FundamentalAgent: "#10B981",
   MacroAgent: "#F59E0B",
   CryptoAgent: "#8B5CF6",
@@ -92,7 +92,7 @@ export default function WeightAdjuster({ assetType, onApply, loading }: Props) {
                 key={a}
                 style={{
                   width: `${((weights[a] ?? 0) / Math.max(total, 0.01)) * 100}%`,
-                  backgroundColor: AGENT_COLORS[a] ?? "#6b7280",
+                  backgroundColor: AGENT_COLORS[a] ?? "#736e66",
                 }}
                 className="transition-all duration-150 first:rounded-l-full last:rounded-r-full"
               />
@@ -104,7 +104,7 @@ export default function WeightAdjuster({ assetType, onApply, loading }: Props) {
             <div key={a} className="flex items-center gap-3">
               <span
                 className="w-2 h-2 rounded-full shrink-0"
-                style={{ backgroundColor: AGENT_COLORS[a] ?? "#6b7280" }}
+                style={{ backgroundColor: AGENT_COLORS[a] ?? "#736e66" }}
               />
               <span className="text-xs text-gray-400 w-28 truncate">{a}</span>
               <input
@@ -113,7 +113,7 @@ export default function WeightAdjuster({ assetType, onApply, loading }: Props) {
                 max={100}
                 value={Math.round((weights[a] ?? 0) * 100)}
                 onChange={(e) => handleSlider(a, parseInt(e.target.value) / 100)}
-                className="flex-1 h-1 accent-blue-500 cursor-pointer"
+                className="flex-1 h-1 accent-accent cursor-pointer"
               />
               <span className="text-xs font-mono text-gray-400 w-10 text-right tabular-nums">
                 {Math.round((weights[a] ?? 0) * 100)}%

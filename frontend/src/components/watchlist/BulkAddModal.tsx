@@ -169,7 +169,7 @@ export default function BulkAddModal({
                 Tickers
               </label>
               <textarea
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-gray-100 placeholder:text-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none font-mono text-sm"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-gray-100 placeholder:text-gray-500 focus:ring-2 focus:ring-accent focus:border-accent outline-none font-mono text-sm"
                 rows={5}
                 value={rawText}
                 onChange={(e) => setRawText(e.target.value)}
@@ -185,7 +185,7 @@ export default function BulkAddModal({
                 <input
                   type="number"
                   step="0.01"
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-100 placeholder:text-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-100 placeholder:text-gray-500 focus:ring-2 focus:ring-accent focus:border-accent outline-none text-sm"
                   value={targetPrice}
                   onChange={(e) => setTargetPrice(e.target.value)}
                   placeholder="e.g. 150.00"
@@ -197,7 +197,7 @@ export default function BulkAddModal({
                 </label>
                 <input
                   type="text"
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-100 placeholder:text-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-100 placeholder:text-gray-500 focus:ring-2 focus:ring-accent focus:border-accent outline-none text-sm"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Why you're watching..."
@@ -228,7 +228,7 @@ export default function BulkAddModal({
               </p>
               <button
                 onClick={toggleAll}
-                className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                className="text-xs text-accent-light hover:text-accent transition-colors"
               >
                 {parsed.every((p) => p.checked) ? "Deselect All" : "Select All"}
               </button>
@@ -244,7 +244,7 @@ export default function BulkAddModal({
                     type="checkbox"
                     checked={item.checked}
                     onChange={() => toggleTicker(i)}
-                    className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-900 cursor-pointer"
+                    className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-accent focus:ring-accent focus:ring-offset-gray-900 cursor-pointer"
                   />
                   <span className="font-mono text-sm text-white font-medium">
                     {item.ticker}

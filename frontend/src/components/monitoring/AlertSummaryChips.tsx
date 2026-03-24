@@ -5,7 +5,7 @@ const severityConfig: Record<string, { bg: string; text: string; label: string }
   HIGH: { bg: "bg-orange-500/20", text: "text-orange-400", label: "High" },
   WARNING: { bg: "bg-yellow-500/20", text: "text-yellow-400", label: "Warning" },
   LOW: { bg: "bg-gray-500/20", text: "text-gray-400", label: "Low" },
-  INFO: { bg: "bg-blue-500/20", text: "text-blue-400", label: "Info" },
+  INFO: { bg: "bg-accent/20", text: "text-accent-light", label: "Info" },
 };
 
 const severityOrder = ["CRITICAL", "HIGH", "WARNING", "LOW", "INFO"];

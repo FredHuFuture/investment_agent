@@ -69,7 +69,7 @@ export default function BacktestForm({ onSubmit, loading, presetValues, presetKe
   }
 
   const inputCls =
-    "bg-gray-800/50 border border-gray-700/50 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/50";
+    "bg-gray-800/50 border border-gray-700/50 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-accent/50 focus:border-accent/50";
 
   const labelCls = "block text-xs text-gray-500 mb-1.5";
 
@@ -156,7 +156,7 @@ export default function BacktestForm({ onSubmit, loading, presetValues, presetKe
         <button
           type="submit"
           disabled={loading}
-          className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg px-5 py-2 text-sm font-medium transition-colors duration-150"
+          className="bg-accent hover:bg-accent-light disabled:opacity-50 text-white rounded-lg px-5 py-2 text-sm font-medium transition-colors duration-150"
         >
           {loading ? "Running..." : "Run Backtest"}
         </button>

@@ -67,7 +67,7 @@ function EquityTooltip({ active, payload, label }: EquityTTProps) {
   return (
     <div className="bg-gray-950/95 border border-gray-700/60 rounded px-2.5 py-1.5 text-[11px] shadow-2xl backdrop-blur-sm">
       <div className="text-gray-500">{date}</div>
-      <div className="text-blue-400 font-semibold font-mono mt-0.5">
+      <div className="text-accent-light font-semibold font-mono mt-0.5">
         {formatCurrency(point.equity)}
       </div>
       {point.drawdownPct !== undefined && point.drawdownPct < 0 && (
@@ -262,9 +262,9 @@ export default function EquityCurveChart({
             >
               <defs>
                 <linearGradient id="eqGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#60a5fa" stopOpacity={0.15} />
-                  <stop offset="50%" stopColor="#60a5fa" stopOpacity={0.06} />
-                  <stop offset="100%" stopColor="#60a5fa" stopOpacity={0} />
+                  <stop offset="0%" stopColor="#32af78" stopOpacity={0.15} />
+                  <stop offset="50%" stopColor="#32af78" stopOpacity={0.06} />
+                  <stop offset="100%" stopColor="#32af78" stopOpacity={0} />
                 </linearGradient>
               </defs>
 
@@ -296,12 +296,12 @@ export default function EquityCurveChart({
 
               <Tooltip
                 content={<EquityTooltip />}
-                cursor={{ stroke: "#6b7280", strokeWidth: 1, strokeDasharray: "2 2" }}
+                cursor={{ stroke: "#736e66", strokeWidth: 1, strokeDasharray: "2 2" }}
               />
 
               <ReferenceLine
                 y={initialCapital}
-                stroke="#374151"
+                stroke="#2a2720"
                 strokeDasharray="6 4"
               />
 
@@ -315,12 +315,12 @@ export default function EquityCurveChart({
               <Line
                 type="monotone"
                 dataKey="equity"
-                stroke="#60a5fa"
+                stroke="#32af78"
                 dot={false}
                 strokeWidth={1.5}
                 activeDot={{
                   r: 3,
-                  fill: "#60a5fa",
+                  fill: "#32af78",
                   stroke: "#111827",
                   strokeWidth: 2,
                 }}
@@ -338,7 +338,7 @@ export default function EquityCurveChart({
         {/* Equity legend */}
         <div className="mt-2 flex items-center gap-5 px-1">
           <span className="flex items-center gap-1.5 text-[10px] text-gray-500">
-            <span className="inline-block w-3 h-0.5 bg-blue-400 rounded" />
+            <span className="inline-block w-3 h-0.5 bg-accent-light rounded" />
             Equity
           </span>
           {totalBuySell > 0 && (
@@ -438,7 +438,7 @@ export default function EquityCurveChart({
 
                 <Tooltip
                   content={<PriceTooltip />}
-                  cursor={{ stroke: "#6b7280", strokeWidth: 1, strokeDasharray: "2 2" }}
+                  cursor={{ stroke: "#736e66", strokeWidth: 1, strokeDasharray: "2 2" }}
                 />
 
                 <Area

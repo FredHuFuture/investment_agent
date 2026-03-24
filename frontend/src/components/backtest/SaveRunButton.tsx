@@ -60,7 +60,7 @@ export default function SaveRunButton({ result, ticker, params, onSaved }: Props
             if (e.key === "Enter") handleSave();
             if (e.key === "Escape") setShowInput(false);
           }}
-          className="bg-gray-800/50 border border-gray-700/50 rounded-lg px-3 py-1.5 text-sm text-gray-100 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500/50 w-48"
+          className="bg-gray-800/50 border border-gray-700/50 rounded-lg px-3 py-1.5 text-sm text-gray-100 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-accent/50 w-48"
           autoFocus
         />
         <Button size="sm" onClick={handleSave}>

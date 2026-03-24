@@ -136,7 +136,7 @@ export default function AlertRulesPanel() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Rule name"
                 required
-                className="w-full rounded-lg bg-gray-800 border border-gray-700 text-gray-200 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg bg-gray-800 border border-gray-700 text-gray-200 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
             <div>
@@ -144,7 +144,7 @@ export default function AlertRulesPanel() {
               <select
                 value={metric}
                 onChange={(e) => setMetric(e.target.value)}
-                className="w-full rounded-lg bg-gray-800 border border-gray-700 text-gray-200 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg bg-gray-800 border border-gray-700 text-gray-200 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
               >
                 {METRICS.map((m) => (
                   <option key={m} value={m}>
@@ -162,7 +162,7 @@ export default function AlertRulesPanel() {
                 onChange={(e) =>
                   setCondition(e.target.value as "gt" | "lt" | "eq")
                 }
-                className="w-full rounded-lg bg-gray-800 border border-gray-700 text-gray-200 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg bg-gray-800 border border-gray-700 text-gray-200 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
               >
                 {CONDITIONS.map((c) => (
                   <option key={c.value} value={c.value}>
@@ -182,7 +182,7 @@ export default function AlertRulesPanel() {
                 onChange={(e) => setThreshold(e.target.value)}
                 placeholder="0"
                 required
-                className="w-full rounded-lg bg-gray-800 border border-gray-700 text-gray-200 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg bg-gray-800 border border-gray-700 text-gray-200 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
             <div className="sm:col-span-2 lg:col-span-1">
@@ -192,7 +192,7 @@ export default function AlertRulesPanel() {
               <select
                 value={severity}
                 onChange={(e) => setSeverity(e.target.value)}
-                className="w-full rounded-lg bg-gray-800 border border-gray-700 text-gray-200 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg bg-gray-800 border border-gray-700 text-gray-200 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
               >
                 {SEVERITIES.map((s) => (
                   <option key={s} value={s}>
@@ -275,7 +275,7 @@ export default function AlertRulesPanel() {
                       <button
                         onClick={() => handleToggle(rule)}
                         className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                          rule.enabled ? "bg-blue-600" : "bg-gray-700"
+                          rule.enabled ? "bg-accent" : "bg-gray-700"
                         }`}
                         title={rule.enabled ? "Disable rule" : "Enable rule"}
                       >

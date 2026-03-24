@@ -5,7 +5,7 @@ import type { AgentSignal } from "../../api/types";
 
 // Agent color palette
 const AGENT_COLORS: Record<string, string> = {
-  TechnicalAgent: "#3B82F6",
+  TechnicalAgent: "#32af78",
   FundamentalAgent: "#10B981",
   MacroAgent: "#F59E0B",
   CryptoAgent: "#8B5CF6",
@@ -13,7 +13,7 @@ const AGENT_COLORS: Record<string, string> = {
 const FALLBACK_COLORS = ["#06B6D4", "#EC4899", "#EF4444", "#6366F1"];
 
 function getAgentColor(name: string, idx: number): string {
-  return AGENT_COLORS[name] ?? FALLBACK_COLORS[idx % FALLBACK_COLORS.length] ?? "#6b7280";
+  return AGENT_COLORS[name] ?? FALLBACK_COLORS[idx % FALLBACK_COLORS.length] ?? "#736e66";
 }
 
 // ---------------------------------------------------------------------------
@@ -55,7 +55,7 @@ function AgentDonut({ agents }: { agents: AgentSignal[] }) {
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="shrink-0 -rotate-90">
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#1f2937" strokeWidth={strokeW} />
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#161410" strokeWidth={strokeW} />
       {segments}
     </svg>
   );

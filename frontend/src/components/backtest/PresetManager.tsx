@@ -61,7 +61,7 @@ export default function PresetManager({ onLoad, getCurrentParams }: Props) {
     <div className="flex flex-wrap items-center gap-2">
       {/* Dropdown */}
       <select
-        className="bg-gray-800/50 border border-gray-700/50 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/50"
+        className="bg-gray-800/50 border border-gray-700/50 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-1 focus:ring-accent/50 focus:border-accent/50"
         value={selected}
         onChange={(e) => setSelected(e.target.value)}
       >
@@ -78,7 +78,7 @@ export default function PresetManager({ onLoad, getCurrentParams }: Props) {
         type="button"
         disabled={!selected}
         onClick={handleLoad}
-        className="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150"
+        className="bg-accent hover:bg-accent-light disabled:opacity-40 text-white rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150"
       >
         Load
       </button>
@@ -99,7 +99,7 @@ export default function PresetManager({ onLoad, getCurrentParams }: Props) {
         <div className="flex items-center gap-1.5">
           <input
             autoFocus
-            className="bg-gray-800/50 border border-gray-700/50 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500/50 w-40"
+            className="bg-gray-800/50 border border-gray-700/50 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-accent/50 w-40"
             placeholder="Preset name"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}

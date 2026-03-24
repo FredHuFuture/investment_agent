@@ -11,7 +11,7 @@ function pct(value: number): string {
 }
 
 function barColor(key: string): string {
-  if (key === "stock_pct") return "bg-blue-500";
+  if (key === "stock_pct") return "bg-accent";
   if (key === "crypto_pct") return "bg-orange-500";
   return "bg-gray-500"; // cash_pct
 }
@@ -89,7 +89,7 @@ function SectorExposure({
           </div>
           <div className="h-2 rounded-full bg-gray-800 overflow-hidden">
             <div
-              className="h-full rounded-full bg-blue-500/70 transition-all"
+              className="h-full rounded-full bg-accent/70 transition-all"
               style={{ width: `${(currentPct * scale).toFixed(1)}%` }}
             />
           </div>
@@ -159,7 +159,7 @@ export default function PortfolioImpactPanel({
     <div className="rounded-xl bg-gray-900/50 backdrop-blur border border-gray-800/50 p-6">
       <h3 className="text-sm font-semibold text-gray-300 mb-4 flex items-center gap-2">
         <svg
-          className="w-4 h-4 text-blue-400"
+          className="w-4 h-4 text-accent-light"
           fill="none"
           viewBox="0 0 24 24"
           strokeWidth={1.5}

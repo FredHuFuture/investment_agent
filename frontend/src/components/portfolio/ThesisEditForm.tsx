@@ -82,7 +82,7 @@ export default function ThesisEditForm({
         </label>
         <textarea
           id="thesis-text"
-          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-gray-100 placeholder:text-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors duration-150"
+          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-gray-100 placeholder:text-gray-500 focus:ring-2 focus:ring-accent focus:border-accent outline-none transition-colors duration-150"
           rows={3}
           value={thesisText}
           onChange={(e) => setThesisText(e.target.value)}

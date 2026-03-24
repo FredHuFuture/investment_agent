@@ -102,13 +102,13 @@ export default function NotificationPreferences() {
           Set the following environment variables to enable notifications:
         </p>
         <div className="rounded-lg bg-gray-950/60 border border-gray-800/40 p-3 font-mono text-xs text-gray-400 space-y-1">
-          <div><span className="text-blue-400">SMTP_HOST</span>=smtp.example.com</div>
-          <div><span className="text-blue-400">SMTP_PORT</span>=587</div>
-          <div><span className="text-blue-400">SMTP_USER</span>=alerts@example.com</div>
-          <div><span className="text-blue-400">SMTP_PASS</span>=your-password</div>
-          <div><span className="text-blue-400">ALERT_EMAIL_TO</span>=you@example.com</div>
-          <div className="mt-2"><span className="text-blue-400">TELEGRAM_BOT_TOKEN</span>=123456:ABC-DEF...</div>
-          <div><span className="text-blue-400">TELEGRAM_CHAT_ID</span>=your-chat-id</div>
+          <div><span className="text-accent-light">SMTP_HOST</span>=smtp.example.com</div>
+          <div><span className="text-accent-light">SMTP_PORT</span>=587</div>
+          <div><span className="text-accent-light">SMTP_USER</span>=alerts@example.com</div>
+          <div><span className="text-accent-light">SMTP_PASS</span>=your-password</div>
+          <div><span className="text-accent-light">ALERT_EMAIL_TO</span>=you@example.com</div>
+          <div className="mt-2"><span className="text-accent-light">TELEGRAM_BOT_TOKEN</span>=123456:ABC-DEF...</div>
+          <div><span className="text-accent-light">TELEGRAM_CHAT_ID</span>=your-chat-id</div>
         </div>
       </div>
     </div>

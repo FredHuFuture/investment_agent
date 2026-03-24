@@ -162,7 +162,7 @@ export default function KeyMetricsPanel({ tickerInfo, agentSignals }: Props) {
       {/* Multi-column metrics grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
         {/* ── Valuation ── */}
-        <MetricSection title="Valuation" color="bg-blue-400">
+        <MetricSection title="Valuation" color="bg-accent-light">
           <Stat label="P/E (TTM)" value={fmt(d.pe_ratio ?? fund.pe_trailing)} />
           <Stat label="Forward P/E" value={fmt(d.forward_pe ?? fund.pe_forward)} />
           <Stat label="PEG Ratio" value={fmt(d.pegRatio ?? fund.peg_ratio)} />

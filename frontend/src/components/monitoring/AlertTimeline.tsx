@@ -21,7 +21,7 @@ const SEVERITY_COLORS: Record<string, string> = {
   WARNING: "#facc15",  // yellow-400
   MEDIUM: "#facc15",   // yellow-400
   LOW: "#94a3b8",      // gray-400
-  INFO: "#60a5fa",     // blue-400
+  INFO: "#32af78",     // accent
 };
 
 /** All possible severity keys to render as stacked bars. */
@@ -67,34 +67,34 @@ export default function AlertTimeline() {
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#2a2720" />
               <XAxis
                 dataKey="date"
-                tick={{ fill: "#9ca3af", fontSize: 11 }}
+                tick={{ fill: "#918b82", fontSize: 11 }}
                 tickFormatter={(v: string) => v.slice(5)} // "MM-DD"
               />
               <YAxis
                 allowDecimals={false}
-                tick={{ fill: "#9ca3af", fontSize: 11 }}
+                tick={{ fill: "#918b82", fontSize: 11 }}
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "#1f2937",
-                  border: "1px solid #374151",
+                  backgroundColor: "#161410",
+                  border: "1px solid #2a2720",
                   borderRadius: 8,
                   fontSize: 12,
                 }}
                 labelStyle={{ color: "#d1d5db" }}
               />
               <Legend
-                wrapperStyle={{ fontSize: 11, color: "#9ca3af" }}
+                wrapperStyle={{ fontSize: 11, color: "#918b82" }}
               />
               {activeSeverities.map((key) => (
                 <Bar
                   key={key}
                   dataKey={key}
                   stackId="severity"
-                  fill={SEVERITY_COLORS[key] ?? "#6b7280"}
+                  fill={SEVERITY_COLORS[key] ?? "#736e66"}
                   name={key}
                 />
               ))}

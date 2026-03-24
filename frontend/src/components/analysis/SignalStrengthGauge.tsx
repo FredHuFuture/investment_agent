@@ -13,7 +13,7 @@ function signalArcColor(signal: string): string {
     case "SELL":
       return "#f87171"; // red-400
     default:
-      return "#9ca3af"; // gray-400
+      return "#918b82"; // gray-400
   }
 }
 
@@ -143,7 +143,7 @@ export default function SignalStrengthGauge({
           <path
             d={bgArc}
             fill="none"
-            stroke="#1f2937"
+            stroke="#161410"
             strokeWidth={strokeWidth}
             strokeLinecap="round"
           />

@@ -167,7 +167,7 @@ export default function BacktestHistory({ onCompare, refreshKey }: Props) {
                     <tr
                       key={run.id}
                       className={`border-b border-gray-800/30 hover:bg-gray-800/30 transition-colors ${
-                        isSelected ? "bg-blue-900/20" : ""
+                        isSelected ? "bg-accent/10" : ""
                       }`}
                     >
                       <td className="pl-4 pr-2 py-3">
@@ -175,7 +175,7 @@ export default function BacktestHistory({ onCompare, refreshKey }: Props) {
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => toggleSelect(run.id)}
-                          className="rounded border-gray-600 bg-gray-800 text-blue-500 focus:ring-blue-500 focus:ring-offset-0"
+                          className="rounded border-gray-600 bg-gray-800 text-accent focus:ring-accent focus:ring-offset-0"
                           aria-label={`Select ${run.label || run.ticker}`}
                         />
                       </td>
