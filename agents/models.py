@@ -40,6 +40,7 @@ class AgentOutput:
     metrics: dict[str, Any] = field(default_factory=dict)
     timestamp: str = ""
     warnings: list[str] = field(default_factory=list)
+    data_completeness: float = 1.0
 
     def __post_init__(self) -> None:
         if not self.timestamp:

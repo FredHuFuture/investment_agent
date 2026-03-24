@@ -13,6 +13,7 @@ from data_providers.factory import get_provider
 from data_providers.fred_provider import FredProvider
 from data_providers.yfinance_provider import YFinanceProvider
 from engine.aggregator import AggregatedSignal, SignalAggregator
+from engine.dynamic_threshold import compute_dynamic_thresholds
 from engine.sector import get_sector_modifier
 from portfolio.models import Portfolio
 
@@ -250,7 +251,17 @@ class AnalysisPipeline:
                 sell_threshold=self._adaptive_weights.sell_threshold,
             )
         else:
-            aggregator = SignalAggregator()
+            # Dynamic thresholds: scale BUY/SELL thresholds by current VIX
+            vix_current: float | None = None
+            try:
+                vix_provider = YFinanceProvider()
+                vix_df = await vix_provider.get_price_history("^VIX", period="5d", interval="1d")
+                if vix_df is not None and not vix_df.empty:
+                    vix_current = float(vix_df["Close"].iloc[-1])
+            except Exception:
+                pass  # fall back to default thresholds
+            buy_t, sell_t = compute_dynamic_thresholds(vix_current)
+            aggregator = SignalAggregator(buy_threshold=buy_t, sell_threshold=sell_t)
 
         signal = await self._run_pipeline(
             ticker=ticker,

@@ -1,0 +1,15 @@
+# Crypto adoption constants used by CryptoAgent factor 6 (Network Adoption).
+# Edit this file to update adoption data without changing code.
+# Values here override the hardcoded defaults in agents/crypto.py.
+
+btc:
+  age_years: 16
+  etf_access: true
+  regulatory: FAVORABLE
+  bear_survivals: 5
+
+eth:
+  age_years: 10
+  etf_access: true
+  regulatory: NEUTRAL
+  bear_survivals: 4

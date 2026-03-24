@@ -113,8 +113,18 @@ class SignalAggregator:
         # Re-normalize weights to only agents present in outputs, so that
         # running fewer agents (e.g. single TechnicalAgent) still produces
         # raw_score in the full [-1, 1] range at 100% confidence.
+        # Also scale each agent's weight by its data_completeness to
+        # downweight agents that had missing/incomplete data.
         present = {o.agent_name for o in agent_outputs}
-        used_raw = {k: v for k, v in raw_weights.items() if k in present and v > 0}
+        completeness_map = {
+            o.agent_name: getattr(o, "data_completeness", 1.0)
+            for o in agent_outputs
+        }
+        used_raw = {
+            k: v * completeness_map.get(k, 1.0)
+            for k, v in raw_weights.items()
+            if k in present and v > 0
+        }
         total_raw = sum(used_raw.values())
         weights = {k: v / total_raw for k, v in used_raw.items()} if total_raw > 0 else raw_weights
 
@@ -135,6 +145,7 @@ class SignalAggregator:
             agent_contributions[output.agent_name] = {
                 "signal": output.signal.value,
                 "confidence": output.confidence,
+                "data_completeness": completeness_map.get(output.agent_name, 1.0),
                 "weighted_contribution": round(signal_value * agent_weight * confidence_factor, 4),
             }
 
@@ -161,14 +172,17 @@ class SignalAggregator:
             confidence = 50.0 + (abs(raw_score) - bt) * (40.0 / (1.0 - bt)) if bt < 1.0 else 70.0
         confidence = max(30.0, min(90.0, confidence))
 
-        # --- Consensus analysis ---
+        # --- Consensus analysis (confidence-weighted) ---
         signals = [o.signal for o in agent_outputs]
         buy_count = signals.count(Signal.BUY)
         sell_count = signals.count(Signal.SELL)
         hold_count = signals.count(Signal.HOLD)
-        total = len(signals)
-        max_count = max(buy_count, sell_count, hold_count)
-        consensus_score = max_count / total if total > 0 else 0.0
+        # Weight each agent's vote by its confidence for more accurate consensus
+        buy_conf = sum(o.confidence for o in agent_outputs if o.signal == Signal.BUY)
+        sell_conf = sum(o.confidence for o in agent_outputs if o.signal == Signal.SELL)
+        hold_conf = sum(o.confidence for o in agent_outputs if o.signal == Signal.HOLD)
+        total_conf = buy_conf + sell_conf + hold_conf
+        consensus_score = max(buy_conf, sell_conf, hold_conf) / total_conf if total_conf > 0 else 0.0
 
         if consensus_score < 0.5:
             confidence *= 0.8
@@ -197,7 +211,8 @@ class SignalAggregator:
             agent_parts.append(f"{short_name}={output.signal.value}({output.confidence:.0f})")
         agents_str = ", ".join(agent_parts)
 
-        agree_count = max_count
+        total = len(signals)
+        agree_count = max(buy_count, sell_count, hold_count)
         if consensus_score >= 1.0:
             consensus_str = f"{agree_count}/{total} agents agree (strong consensus)"
         elif consensus_score >= 0.5:

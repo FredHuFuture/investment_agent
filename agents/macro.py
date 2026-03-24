@@ -80,9 +80,18 @@ class MacroAgent(BaseAgent):
             "yield_curve_spread": macro_data.get("yield_curve_spread"),
             "m2_yoy_growth": macro_data.get("m2_yoy_growth"),
             "fed_funds_trend": macro_data.get("fed_funds_trend"),
+            "dxy_current": macro_data.get("dxy_current"),
+            "dxy_sma_20": macro_data.get("dxy_sma_20"),
+            "tlt_current": macro_data.get("tlt_current"),
+            "tlt_trend": macro_data.get("tlt_trend"),
         }
 
         reasoning = _build_reasoning(regime, net_score, macro_data)
+
+        # Data completeness: 6 expected sources (4 core + 2 supplementary)
+        _sources = ["vix_current", "fed_funds_rate", "yield_curve_spread",
+                     "m2_yoy_growth", "dxy_current", "tlt_current"]
+        data_completeness = sum(1 for k in _sources if macro_data.get(k) is not None) / len(_sources)
 
         self._logger.info(
             "Completed %s: %s @ %.0f%% confidence", agent_input.ticker, signal.value, confidence
@@ -95,6 +104,7 @@ class MacroAgent(BaseAgent):
             reasoning=reasoning,
             metrics=metrics,
             warnings=warnings,
+            data_completeness=data_completeness,
         )
 
     async def _fetch_macro_data(self, warnings: list[str]) -> dict[str, Any]:
@@ -176,6 +186,43 @@ class MacroAgent(BaseAgent):
             warnings.append(f"M2 unavailable: {exc}")
             data["m2_yoy_growth"] = None
 
+        # DXY (US Dollar Index) — strong dollar signals risk-off
+        try:
+            dxy_df = await self._vix_provider.get_price_history("DX-Y.NYB", period="3mo", interval="1d")
+            if dxy_df is not None and not dxy_df.empty:
+                dxy_close = dxy_df["Close"]
+                data["dxy_current"] = float(dxy_close.iloc[-1])
+                if len(dxy_close) >= 20:
+                    data["dxy_sma_20"] = float(dxy_close.rolling(20).mean().iloc[-1])
+                else:
+                    data["dxy_sma_20"] = None
+            else:
+                data["dxy_current"] = None
+                data["dxy_sma_20"] = None
+        except Exception as exc:
+            warnings.append(f"DXY unavailable: {exc}")
+            data["dxy_current"] = None
+            data["dxy_sma_20"] = None
+
+        # TLT (20+ Year Treasury Bond ETF) — proxy for bond market sentiment
+        try:
+            tlt_df = await self._vix_provider.get_price_history("TLT", period="3mo", interval="1d")
+            if tlt_df is not None and not tlt_df.empty:
+                tlt_close = tlt_df["Close"]
+                data["tlt_current"] = float(tlt_close.iloc[-1])
+                if len(tlt_close) >= 20:
+                    tlt_sma = float(tlt_close.rolling(20).mean().iloc[-1])
+                    data["tlt_trend"] = "rising" if tlt_close.iloc[-1] > tlt_sma else "falling"
+                else:
+                    data["tlt_trend"] = None
+            else:
+                data["tlt_current"] = None
+                data["tlt_trend"] = None
+        except Exception as exc:
+            warnings.append(f"Bond market data unavailable: {exc}")
+            data["tlt_current"] = None
+            data["tlt_trend"] = None
+
         return data
 
     def _classify_regime(self, macro_data: dict[str, Any]) -> tuple[Regime, float, float, float]:
@@ -246,6 +293,23 @@ class MacroAgent(BaseAgent):
                 risk_off += 5
             else:
                 risk_off += 20
+
+        # DXY: strong dollar = risk-off for equities and crypto
+        dxy = macro_data.get("dxy_current")
+        dxy_sma = macro_data.get("dxy_sma_20")
+        if dxy is not None and dxy_sma is not None and dxy_sma > 0:
+            dxy_ratio = dxy / dxy_sma
+            if dxy_ratio > 1.02:
+                risk_off += 10   # dollar strengthening
+            elif dxy_ratio < 0.98:
+                risk_on += 5     # dollar weakening
+
+        # TLT: bonds rallying = flight to safety = risk-off
+        tlt_trend = macro_data.get("tlt_trend")
+        if tlt_trend == "rising":
+            risk_off += 10
+        elif tlt_trend == "falling":
+            risk_on += 5
 
         net_score = risk_on - risk_off
         if net_score >= 15:

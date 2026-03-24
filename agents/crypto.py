@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import math
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -22,11 +23,29 @@ HALVING_DATES = [
 
 HALVING_CYCLE_MONTHS = 48  # ~4 years between halvings
 
-# Static adoption constants (Phase 1)
-CRYPTO_ADOPTION: dict[str, dict[str, Any]] = {
+# Static adoption constants — used as fallback if config file missing
+_DEFAULT_ADOPTION: dict[str, dict[str, Any]] = {
     "btc": {"age_years": 16, "etf_access": True, "regulatory": "FAVORABLE", "bear_survivals": 5},
     "eth": {"age_years": 10, "etf_access": True, "regulatory": "NEUTRAL", "bear_survivals": 4},
 }
+
+
+def _load_adoption_config() -> dict[str, dict[str, Any]]:
+    """Load crypto adoption data from YAML config, falling back to defaults."""
+    config_path = Path(__file__).resolve().parent.parent / "config" / "crypto_adoption.yaml"
+    if config_path.exists():
+        try:
+            import yaml
+            with open(config_path) as f:
+                data = yaml.safe_load(f)
+            if isinstance(data, dict):
+                return data
+        except Exception:
+            pass
+    return _DEFAULT_ADOPTION
+
+
+CRYPTO_ADOPTION: dict[str, dict[str, Any]] = _load_adoption_config()
 
 # Factor weights — v2: network_adoption reduced from 10% to 5% because it uses
 # hardcoded static constants (age, ETF status) that act as a fixed bias rather
@@ -157,6 +176,10 @@ class CryptoAgent(BaseAgent):
         metrics.update(f6_metrics)
         metrics.update(f7_metrics)
 
+        # Data completeness: 7 factors; count those with non-trivial data
+        _factor_available = sum(1 for s in [f1, f2, f3, f4, f5, f6, f7] if s != 0.0)
+        data_completeness = max(0.3, _factor_available / 7)
+
         self._logger.info(
             "Completed %s: %s @ %.0f%% confidence", ticker, signal.value, confidence
         )
@@ -168,6 +191,7 @@ class CryptoAgent(BaseAgent):
             reasoning=reasoning,
             metrics=metrics,
             warnings=warnings,
+            data_completeness=data_completeness,
         )
 
     # ------------------------------------------------------------------

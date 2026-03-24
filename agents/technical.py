@@ -254,6 +254,21 @@ class TechnicalAgent(BaseAgent):
         confidence = self._clamp_confidence(confidence)
         confidence = max(30.0, min(95.0, confidence))
 
+        # Multi-timeframe confirmation: boost/penalize confidence based on
+        # agreement between daily composite direction and weekly trend.
+        if weekly_trend_confirms is not None:
+            daily_bullish = composite >= 0
+            if daily_bullish == weekly_trend_confirms:
+                confidence = min(95.0, confidence + 10)
+            else:
+                confidence = max(30.0, confidence - 15)
+                warnings.append("Daily and weekly timeframes disagree — confidence reduced.")
+
+        # Data completeness: 8 expected indicators
+        _indicators = [sma20_last, sma50_last, sma200_last, rsi_last,
+                        macd_line, bb_upper, atr_last, volume_ratio]
+        data_completeness = sum(1 for v in _indicators if v is not None) / len(_indicators)
+
         reasoning = _build_reasoning(
             trend_score=trend_score,
             momentum_score=momentum_score,
@@ -304,6 +319,7 @@ class TechnicalAgent(BaseAgent):
             reasoning=reasoning,
             metrics=metrics,
             warnings=warnings,
+            data_completeness=data_completeness,
         )
 
 

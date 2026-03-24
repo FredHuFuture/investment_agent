@@ -82,7 +82,17 @@ class FundamentalAgent(BaseAgent):
                 metrics={**self._empty_metrics(), **metrics},
                 warnings=warnings,
             )
-        value_score = self._compute_value_score(metrics)
+        # Dynamic sector P/E median (async, cached 24h, fallback to static)
+        sector_pe_median: float | None = None
+        try:
+            from data_providers.sector_pe_cache import get_sector_pe_median
+            sector_pe_median = await get_sector_pe_median(
+                metrics.get("sector"), provider=self._provider,
+            )
+        except Exception:
+            pass  # use static fallback inside _score_pe_trailing
+
+        value_score = self._compute_value_score(metrics, sector_pe_median=sector_pe_median)
         quality_score = self._compute_quality_score(metrics)
         growth_score = self._compute_growth_score(metrics)
 
@@ -96,6 +106,7 @@ class FundamentalAgent(BaseAgent):
             "profit_margin", "revenue_growth", "debt_equity", "fcf_yield",
         ]
         missing_count = sum(1 for k in core_keys if metrics.get(k) is None)
+        data_completeness = (len(core_keys) - missing_count) / len(core_keys)
         if missing_count >= 4:
             confidence *= 0.75
             warnings.append(f"{missing_count}/8 core metrics missing — confidence reduced.")
@@ -127,6 +138,7 @@ class FundamentalAgent(BaseAgent):
             reasoning=reasoning,
             metrics=metrics,
             warnings=warnings,
+            data_completeness=data_completeness,
         )
 
     def _extract_metrics(self, key_stats: dict, financials: dict) -> dict[str, Any]:
@@ -226,9 +238,14 @@ class FundamentalAgent(BaseAgent):
             "sector": sector,
         }
 
-    def _compute_value_score(self, metrics: dict[str, Any]) -> float:
+    def _compute_value_score(
+        self, metrics: dict[str, Any], sector_pe_median: float | None = None,
+    ) -> float:
         score = 0.0
-        score += _score_pe_trailing(metrics.get("pe_trailing"), metrics.get("sector"))
+        score += _score_pe_trailing(
+            metrics.get("pe_trailing"), metrics.get("sector"),
+            sector_pe_median=sector_pe_median,
+        )
         score += _score_linear(
             metrics.get("pe_forward"), 12, 25, 15, -15, higher_is_better=False
         )
@@ -444,7 +461,11 @@ def _score_linear(
     )
 
 
-def _score_pe_trailing(value: float | None, sector: str | None = None) -> float:
+def _score_pe_trailing(
+    value: float | None,
+    sector: str | None = None,
+    sector_pe_median: float | None = None,
+) -> float:
     """Score P/E relative to sector median (if available) or absolute thresholds.
 
     Sector-relative scoring prevents penalising high-P/E growth sectors
@@ -453,7 +474,7 @@ def _score_pe_trailing(value: float | None, sector: str | None = None) -> float:
     """
     if value is None:
         return 0.0
-    median = SECTOR_PE_MEDIANS.get((sector or "").lower())
+    median = sector_pe_median or SECTOR_PE_MEDIANS.get((sector or "").lower())
     if median is not None and median > 0:
         ratio = value / median
         if ratio < 0.75:

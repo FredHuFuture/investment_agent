@@ -247,6 +247,11 @@ class WeightAdapter:
             n = len(agent_accuracy)
             learned = {name: round(1.0 / n, 4) for name in agent_accuracy}
 
+        # Anti-overfitting: mean-revert toward defaults, enforce floor/ceiling,
+        # and rate-limit changes to prevent chasing recent hot streaks.
+        defaults = SignalAggregator.DEFAULT_WEIGHTS.get(asset_type, {})
+        learned = self._apply_weight_constraints(learned, defaults)
+
         return AdaptiveWeights(
             weights={asset_type: learned},
             source="production",
@@ -277,6 +282,52 @@ class WeightAdapter:
         for outcome in outcomes:
             ewma = alpha * float(outcome) + (1 - alpha) * ewma
         return ewma
+
+    # ----------------------------------------------------------------
+    # Anti-overfitting constraints
+    # ----------------------------------------------------------------
+
+    # Prevents any single agent from dominating or being suppressed
+    WEIGHT_FLOOR = 0.05
+    WEIGHT_CEILING = 0.60
+    # Maximum weight change per adaptation cycle
+    MAX_WEIGHT_DELTA = 0.10
+    # Blend factor pulling learned weights back toward defaults
+    MEAN_REVERSION_ALPHA = 0.3
+
+    def _apply_weight_constraints(
+        self,
+        learned: dict[str, float],
+        defaults: dict[str, float],
+    ) -> dict[str, float]:
+        """Apply floor/ceiling, rate-limiting, and mean-reversion to learned weights."""
+        constrained: dict[str, float] = {}
+        for name, w in learned.items():
+            # 1. Mean-reversion toward default
+            default_w = defaults.get(name, 1.0 / max(len(learned), 1))
+            w = (1 - self.MEAN_REVERSION_ALPHA) * w + self.MEAN_REVERSION_ALPHA * default_w
+            # 2. Rate-limit change from default
+            delta = w - default_w
+            if abs(delta) > self.MAX_WEIGHT_DELTA:
+                w = default_w + self.MAX_WEIGHT_DELTA * (1 if delta > 0 else -1)
+            # 3. Floor/ceiling
+            w = max(self.WEIGHT_FLOOR, min(self.WEIGHT_CEILING, w))
+            constrained[name] = w
+        # Re-normalize to sum=1.0, then re-apply floor/ceiling to handle
+        # edge cases where normalization pushes values outside bounds.
+        for _ in range(3):  # iterate to converge
+            total = sum(constrained.values())
+            if total > 0:
+                constrained = {k: v / total for k, v in constrained.items()}
+            constrained = {
+                k: max(self.WEIGHT_FLOOR, min(self.WEIGHT_CEILING, v))
+                for k, v in constrained.items()
+            }
+        # Final normalization
+        total = sum(constrained.values())
+        if total > 0:
+            constrained = {k: round(v / total, 4) for k, v in constrained.items()}
+        return constrained
 
     # ----------------------------------------------------------------
     # Threshold Optimization
