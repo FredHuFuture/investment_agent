@@ -171,7 +171,7 @@ export default function BacktestPage() {
             onClick={() => setMode(m)}
             className={`capitalize rounded-b-none border-b-2 ${
               mode === m
-                ? "border-blue-500"
+                ? "border-accent"
                 : "border-transparent"
             }`}
           >

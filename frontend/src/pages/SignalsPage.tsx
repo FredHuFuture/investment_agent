@@ -174,7 +174,7 @@ export default function SignalsPage() {
             onClick={() => setTab(t)}
             className={`rounded-b-none border-b-2 whitespace-nowrap ${
               tab === t
-                ? "border-blue-500"
+                ? "border-accent"
                 : "border-transparent"
             }`}
           >

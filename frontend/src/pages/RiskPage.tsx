@@ -528,22 +528,22 @@ export default function RiskPage() {
                 </defs>
                 <XAxis
                   dataKey="date"
-                  tick={{ fill: "#6b7280", fontSize: 11 }}
+                  tick={{ fill: "#736e66", fontSize: 11 }}
                   tickFormatter={(v) => {
                     const d = new Date(v);
                     return `${d.getMonth() + 1}/${d.getDate()}`;
                   }}
                 />
                 <YAxis
-                  tick={{ fill: "#6b7280", fontSize: 11 }}
+                  tick={{ fill: "#736e66", fontSize: 11 }}
                   tickFormatter={(v) => `${v.toFixed(1)}%`}
                   domain={["auto", 0]}
                 />
                 <ReferenceLine y={0} stroke="#4b5563" strokeDasharray="3 3" />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "#111827",
-                    border: "1px solid #374151",
+                    backgroundColor: "#161410",
+                    border: "1px solid #2a2720",
                     borderRadius: 8,
                     fontSize: 12,
                   }}

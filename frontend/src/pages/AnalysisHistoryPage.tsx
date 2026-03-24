@@ -33,7 +33,7 @@ function signalBadge(signal: string) {
 function regimeBadge(regime: string | null) {
   if (!regime) return null;
   return (
-    <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-blue-500/15 text-blue-400 border border-blue-500/30">
+    <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-accent/15 text-accent-light border border-accent/30">
       {regime}
     </span>
   );
@@ -92,7 +92,7 @@ export default function AnalysisHistoryPage() {
             id="ticker-filter"
             value={tickerFilter}
             onChange={(e) => setTickerFilter(e.target.value)}
-            className="w-36 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors duration-150"
+            className="w-36 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-gray-100 focus:ring-2 focus:ring-accent focus:border-accent outline-none transition-colors duration-150"
           >
             <option value="">All Tickers</option>
             {(tickers.data ?? []).map((t) => (
@@ -252,7 +252,7 @@ export default function AnalysisHistoryPage() {
                     {/* Re-analyze link */}
                     <Link
                       to={`/analyze?ticker=${entry.ticker}`}
-                      className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                      className="text-sm text-accent-light hover:text-accent transition-colors"
                     >
                       Re-analyze &rarr;
                     </Link>

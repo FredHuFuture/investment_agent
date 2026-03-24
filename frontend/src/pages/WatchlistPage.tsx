@@ -558,7 +558,7 @@ function WatchlistRow({
               checked={isSelected}
               disabled={!isSelected && maxSelected}
               onChange={onToggleCompare}
-              className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-900 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-accent focus:ring-accent focus:ring-offset-gray-900 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             />
           </td>
         )}

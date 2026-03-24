@@ -430,7 +430,7 @@ export default function PortfolioPage() {
                         <button
                           key={sectorName}
                           onClick={() => setDrillDownSector(sectorName)}
-                          className="text-xs text-blue-400 hover:text-blue-300 underline underline-offset-2 cursor-pointer transition-colors"
+                          className="text-xs text-accent-light hover:text-accent underline underline-offset-2 cursor-pointer transition-colors"
                         >
                           {sectorName} details
                         </button>

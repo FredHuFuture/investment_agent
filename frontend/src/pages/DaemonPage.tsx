@@ -62,7 +62,7 @@ function StatusDot({ status }: { status: string }) {
     status === "success"
       ? "bg-green-400"
       : status === "running"
-        ? "bg-blue-400 animate-pulse"
+        ? "bg-accent-light animate-pulse"
         : status === "error" || status === "failed"
           ? "bg-red-400"
           : "bg-gray-600";
@@ -74,7 +74,7 @@ function StatusLabel({ status }: { status: string }) {
     status === "success"
       ? "text-green-400"
       : status === "running"
-        ? "text-blue-400"
+        ? "text-accent-light"
         : status === "error" || status === "failed"
           ? "text-red-400"
           : "text-gray-500";
@@ -214,7 +214,7 @@ export default function DaemonPage() {
               {job.result_json && (
                 <button
                   type="button"
-                  className="mt-2 text-xs text-blue-400 hover:text-blue-300 transition-colors text-left"
+                  className="mt-2 text-xs text-accent-light hover:text-accent transition-colors text-left"
                   onClick={() =>
                     setExpandedJob(
                       expandedJob === job.name ? null : job.name,

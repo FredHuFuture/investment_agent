@@ -11,7 +11,7 @@ import { usePageTitle } from "../hooks/usePageTitle";
 // ---------------------------------------------------------------------------
 const STOCK_PALETTE: Record<string, string> = {
   FundamentalAgent: "#10B981",
-  TechnicalAgent: "#3B82F6",
+  TechnicalAgent: "#32af78",
   MacroAgent: "#F59E0B",
 };
 
@@ -261,7 +261,7 @@ export default function WeightsPage() {
           <Card padding="lg">
             <CardBody className="p-0">
               <div className="flex items-center gap-2 mb-5">
-                <div className="w-1 h-5 rounded-full bg-blue-500" />
+                <div className="w-1 h-5 rounded-full bg-accent" />
                 <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
                   Stock Agents
                 </h2>

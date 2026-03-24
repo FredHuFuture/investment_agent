@@ -217,29 +217,29 @@ export default function PerformancePage() {
               <AreaChart data={history}>
                 <defs>
                   <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#32af78" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#32af78" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#161410" />
                 <XAxis
                   dataKey="date"
-                  tick={{ fill: "#6b7280", fontSize: 11 }}
+                  tick={{ fill: "#736e66", fontSize: 11 }}
                   tickFormatter={(v) => {
                     const d = new Date(v);
                     return `${d.getMonth() + 1}/${d.getDate()}`;
                   }}
                 />
                 <YAxis
-                  tick={{ fill: "#6b7280", fontSize: 11 }}
+                  tick={{ fill: "#736e66", fontSize: 11 }}
                   tickFormatter={(v) =>
                     `$${(v / 1000).toFixed(0)}k`
                   }
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "#111827",
-                    border: "1px solid #374151",
+                    backgroundColor: "#161410",
+                    border: "1px solid #2a2720",
                     borderRadius: 8,
                     fontSize: 12,
                   }}
@@ -249,7 +249,7 @@ export default function PerformancePage() {
                 <Area
                   type="monotone"
                   dataKey="total_value"
-                  stroke="#3b82f6"
+                  stroke="#32af78"
                   fill="url(#colorValue)"
                   strokeWidth={2}
                   name="Total Value"
@@ -287,7 +287,7 @@ export default function PerformancePage() {
               <ComposedChart data={benchmarkApi.data.series} margin={{ top: 5, right: 10, bottom: 0, left: 10 }}>
                 <XAxis
                   dataKey="date"
-                  tick={{ fontSize: 10, fill: "#6b7280" }}
+                  tick={{ fontSize: 10, fill: "#736e66" }}
                   axisLine={false}
                   tickLine={false}
                   tickFormatter={(v: string) => {
@@ -297,22 +297,22 @@ export default function PerformancePage() {
                   interval="preserveStartEnd"
                 />
                 <YAxis
-                  tick={{ fontSize: 10, fill: "#6b7280" }}
+                  tick={{ fontSize: 10, fill: "#736e66" }}
                   axisLine={false}
                   tickLine={false}
                   domain={["auto", "auto"]}
                 />
                 <Tooltip
-                  contentStyle={{ background: "#1f2937", border: "1px solid #374151", borderRadius: 8, fontSize: 12 }}
-                  labelStyle={{ color: "#9ca3af" }}
+                  contentStyle={{ background: "#161410", border: "1px solid #2a2720", borderRadius: 8, fontSize: 12 }}
+                  labelStyle={{ color: "#918b82" }}
                   formatter={(v: number, name: string) => [
                     v.toFixed(1),
                     name === "portfolio_indexed" ? "Portfolio" : benchmarkApi.data!.benchmark_ticker,
                   ]}
                 />
-                <ReferenceLine y={100} stroke="#374151" strokeDasharray="3 3" />
-                <Line type="monotone" dataKey="portfolio_indexed" stroke="#3b82f6" strokeWidth={2} dot={false} name="portfolio_indexed" />
-                <Line type="monotone" dataKey="benchmark_indexed" stroke="#6b7280" strokeWidth={1.5} strokeDasharray="5 5" dot={false} name="benchmark_indexed" />
+                <ReferenceLine y={100} stroke="#2a2720" strokeDasharray="3 3" />
+                <Line type="monotone" dataKey="portfolio_indexed" stroke="#32af78" strokeWidth={2} dot={false} name="portfolio_indexed" />
+                <Line type="monotone" dataKey="benchmark_indexed" stroke="#736e66" strokeWidth={1.5} strokeDasharray="5 5" dot={false} name="benchmark_indexed" />
               </ComposedChart>
             </ResponsiveContainer>
           </CardBody>
@@ -338,23 +338,23 @@ export default function PerformancePage() {
                     <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#161410" />
                 <XAxis
                   dataKey="date"
-                  tick={{ fill: "#6b7280", fontSize: 11 }}
+                  tick={{ fill: "#736e66", fontSize: 11 }}
                   tickFormatter={(v) => {
                     const d = new Date(v);
                     return `${d.getMonth() + 1}/${d.getDate()}`;
                   }}
                 />
                 <YAxis
-                  tick={{ fill: "#6b7280", fontSize: 11 }}
+                  tick={{ fill: "#736e66", fontSize: 11 }}
                   tickFormatter={(v) => formatCurrency(v)}
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "#111827",
-                    border: "1px solid #374151",
+                    backgroundColor: "#161410",
+                    border: "1px solid #2a2720",
                     borderRadius: 8,
                     fontSize: 12,
                   }}
@@ -430,13 +430,13 @@ export default function PerformancePage() {
             ) : (
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={monthly}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#161410" />
                   <XAxis
                     dataKey="month"
-                    tick={{ fill: "#6b7280", fontSize: 11 }}
+                    tick={{ fill: "#736e66", fontSize: 11 }}
                   />
                   <YAxis
-                    tick={{ fill: "#6b7280", fontSize: 11 }}
+                    tick={{ fill: "#736e66", fontSize: 11 }}
                     tickFormatter={
                       monthlyMode === "dollar"
                         ? (v) => `$${v.toLocaleString()}`
@@ -445,8 +445,8 @@ export default function PerformancePage() {
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: "#111827",
-                      border: "1px solid #374151",
+                      backgroundColor: "#161410",
+                      border: "1px solid #2a2720",
                       borderRadius: 8,
                       fontSize: 12,
                     }}

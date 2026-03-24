@@ -412,23 +412,23 @@ export default function JournalPage() {
                 ) : (
                   <ResponsiveContainer width="100%" height={280}>
                     <BarChart data={distributionData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#161410" />
                       <XAxis
                         dataKey="bin"
-                        tick={{ fill: "#6b7280", fontSize: 10 }}
+                        tick={{ fill: "#736e66", fontSize: 10 }}
                         interval={0}
                         angle={-30}
                         textAnchor="end"
                         height={50}
                       />
                       <YAxis
-                        tick={{ fill: "#6b7280", fontSize: 11 }}
+                        tick={{ fill: "#736e66", fontSize: 11 }}
                         allowDecimals={false}
                       />
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: "#111827",
-                          border: "1px solid #374151",
+                          backgroundColor: "#161410",
+                          border: "1px solid #2a2720",
                           borderRadius: 8,
                           fontSize: 12,
                         }}
@@ -463,23 +463,23 @@ export default function JournalPage() {
                           <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#161410" />
                       <XAxis
                         dataKey="date"
-                        tick={{ fill: "#6b7280", fontSize: 11 }}
+                        tick={{ fill: "#736e66", fontSize: 11 }}
                         tickFormatter={(v: string) => {
                           const d = new Date(v);
                           return `${d.getMonth() + 1}/${d.getDate()}`;
                         }}
                       />
                       <YAxis
-                        tick={{ fill: "#6b7280", fontSize: 11 }}
+                        tick={{ fill: "#736e66", fontSize: 11 }}
                         tickFormatter={(v: number) => formatCurrency(v)}
                       />
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: "#111827",
-                          border: "1px solid #374151",
+                          backgroundColor: "#161410",
+                          border: "1px solid #2a2720",
                           borderRadius: 8,
                           fontSize: 12,
                         }}

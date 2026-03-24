@@ -107,7 +107,7 @@ const severityStyles: Record<string, string> = {
   critical: "bg-red-500/15 text-red-400 border-red-500/30",
   high: "bg-orange-500/15 text-orange-400 border-orange-500/30",
   medium: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
-  low: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+  low: "bg-accent/15 text-accent-light border-accent/30",
   info: "bg-gray-500/15 text-gray-400 border-gray-500/30",
 };
 
@@ -924,7 +924,7 @@ function PriceChart({
             <Tooltip
               content={<PriceTooltip />}
               cursor={{
-                stroke: "#6b7280",
+                stroke: "#736e66",
                 strokeWidth: 1,
                 strokeDasharray: "2 2",
               }}
@@ -933,12 +933,12 @@ function PriceChart({
             {/* Entry price reference */}
             <ReferenceLine
               y={entryPrice}
-              stroke="#60a5fa"
+              stroke="#32af78"
               strokeDasharray="6 4"
               label={{
                 value: `Entry $${entryPrice.toFixed(0)}`,
                 position: "left",
-                fill: "#60a5fa",
+                fill: "#32af78",
                 fontSize: 10,
               }}
             />
@@ -982,7 +982,7 @@ function PriceChart({
               activeDot={{
                 r: 3,
                 fill: lineColor,
-                stroke: "#111827",
+                stroke: "#161410",
                 strokeWidth: 2,
               }}
               isAnimationActive={false}
@@ -1001,7 +1001,7 @@ function PriceChart({
           Close Price
         </span>
         <span className="flex items-center gap-1.5 text-[10px] text-gray-500">
-          <span className="inline-block w-3 h-0.5 border-t border-dashed border-blue-400" />
+          <span className="inline-block w-3 h-0.5 border-t border-dashed border-accent-light" />
           Entry
         </span>
         {targetPrice != null && (
@@ -1080,9 +1080,9 @@ function PnlPerformanceBar({
             }`}
             style={{ left: `${fillLeft}%`, width: `${fillWidth}%` }}
           />
-          {/* Entry marker (blue line) */}
+          {/* Entry marker (accent line) */}
           <div
-            className="absolute top-0 bottom-0 w-0.5 bg-blue-400"
+            className="absolute top-0 bottom-0 w-0.5 bg-accent-light"
             style={{ left: `${entryPct}%` }}
           />
           {/* Current price dot */}
@@ -1104,7 +1104,7 @@ function PnlPerformanceBar({
             </span>
           )}
           <span
-            className="absolute text-[10px] text-blue-400 font-mono"
+            className="absolute text-[10px] text-accent-light font-mono"
             style={{ left: `${entryPct}%`, transform: "translateX(-50%)" }}
           >
             Entry {formatCurrency(entryPrice)}
