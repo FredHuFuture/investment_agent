@@ -22,8 +22,8 @@ Requirements for this milestone (competitive parity + moat hardening). Each maps
 ### Signal Quality (SIG) — Phase 2: Signal Quality Upgrade
 
 - [x] **SIG-01**: Portfolio-level CVaR / Expected Shortfall via QuantStats — `engine/analytics.py.compute_risk_metrics()`
-- [ ] **SIG-02**: Brier score for per-agent confidence calibration, stored alongside hit-rate tracking — `tracking/tracker.py`
-- [ ] **SIG-03**: Rolling Information Coefficient (IC) and IC-IR per agent, consumable by the weight adapter — `tracking/tracker.py` + `engine/weight_adapter.py`
+- [x] **SIG-02**: Brier score for per-agent confidence calibration, stored alongside hit-rate tracking — `tracking/tracker.py`
+- [x] **SIG-03**: Rolling Information Coefficient (IC) and IC-IR per agent, consumable by the weight adapter — `tracking/tracker.py` + `engine/weight_adapter.py`
 - [x] **SIG-04**: Transaction costs in the backtester (`cost_per_trade` parameter, realistic default; applied in P&L) — `backtesting/engine.py`
 - [x] **SIG-05**: Walk-forward backtesting scaffold (training window → out-of-sample validation, rolling) — `backtesting/walk_forward.py` (new)
 - [x] **SIG-06**: Portfolio-level VaR using position covariance matrix (not just per-ticker MC) — `engine/analytics.py`
@@ -114,8 +114,8 @@ Which phases cover which requirements. Filled by the roadmapper.
 | FOUND-06 | Phase 1 | Complete |
 | FOUND-07 | Phase 1 | Complete |
 | SIG-01 | Phase 2 | Complete |
-| SIG-02 | Phase 2 | Pending |
-| SIG-03 | Phase 2 | Pending |
+| SIG-02 | Phase 2 | Complete |
+| SIG-03 | Phase 2 | Complete |
 | SIG-04 | Phase 2 | Complete |
 | SIG-05 | Phase 2 | Complete |
 | SIG-06 | Phase 2 | Complete |

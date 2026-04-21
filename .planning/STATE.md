@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 02-02-PLAN.md (SIG-04 transaction costs + SIG-05 walk-forward + signal corpus)
-last_updated: "2026-04-21T20:02:55.805Z"
+status: verifying
+stopped_at: Completed 02-03-PLAN.md (SIG-02 Brier + SIG-03 IC/IC-IR + calibration endpoint)
+last_updated: "2026-04-21T20:39:21.839Z"
 last_activity: 2026-04-21
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 6
-  completed_plans: 5
-  percent: 83
+  completed_plans: 6
+  percent: 100
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-21)
 
 Phase: 2 (Signal Quality Upgrade) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-21
 
 Progress: [░░░░░░░░░░] 0%
@@ -57,6 +57,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01 P03 | 1135 | 3 tasks | 8 files |
 | Phase 02 P01 | 1320 | 3 tasks | 5 files |
 | Phase 02-signal-quality-upgrade P02 | 2400 | 3 tasks | 9 files |
+| Phase 02-signal-quality-upgrade P03 | 2400 | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,9 @@ Recent decisions affecting current work:
 - [Phase 02-signal-quality-upgrade]: Dual-constructor Backtester: isinstance(BacktestConfig) gate detects config vs provider, enabling Backtester(provider).run(cfg) pattern for walk_forward and signal_corpus
 - [Phase 02-signal-quality-upgrade]: purge_days defaults: generate_walk_forward_windows=1 (Sharpe-only); run_walk_forward=5 (IC-feeding 5-day forward return horizon for SIG-03 per 02-RESEARCH.md Q4)
 - [Phase 02-signal-quality-upgrade]: rebuild_signal_corpus not cron-registered: corpus rebuild expensive (~1 min/ticker); on-demand only via direct import or future CLI/API endpoint
+- [Phase 02-signal-quality-upgrade]: asyncio_mode=auto: seeding helpers are async def coroutines awaited directly — no asyncio.run() wrappers in tests
+- [Phase 02-signal-quality-upgrade]: IC test tolerance ±0.08 for N=100: SE of Pearson r is 1/sqrt(N)=0.10 at N=100; ±0.05 is too tight
+- [Phase 02-signal-quality-upgrade]: Weight sum tolerance 1e-3 for 4dp-rounded weights: round(v/total,4) accumulates rounding error
 
 ### Pending Todos
 
@@ -97,6 +101,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T20:02:55.802Z
-Stopped at: Completed 02-02-PLAN.md (SIG-04 transaction costs + SIG-05 walk-forward + signal corpus)
+Last session: 2026-04-21T20:39:21.837Z
+Stopped at: Completed 02-03-PLAN.md (SIG-02 Brier + SIG-03 IC/IC-IR + calibration endpoint)
 Resume file: None

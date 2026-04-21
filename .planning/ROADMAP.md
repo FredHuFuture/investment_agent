@@ -12,7 +12,7 @@ This milestone hardens an already-working brownfield system against the liabilit
 
 - [x] **Phase 1: Foundation Hardening** - Fix the hardest-failing codebase liabilities before any new capability is layered on top
  (completed 2026-04-21)
-- [ ] **Phase 2: Signal Quality Upgrade** - Deepen the thesis/drift moat with calibrated, measurable signal quality and rigorous backtesting
+- [x] **Phase 2: Signal Quality Upgrade** - Deepen the thesis/drift moat with calibrated, measurable signal quality and rigorous backtesting (completed 2026-04-21)
 - [ ] **Phase 3: Data Coverage Expansion** - Add free-tier providers and operator-observability so new data flows through a trusted pipeline
 - [ ] **Phase 4: Portfolio UI + Analytics Uplift** - Close the UI gap vs. Ghostfolio and Portfolio Performance with accurate performance math and legible dashboards
 
@@ -45,7 +45,7 @@ This milestone hardens an already-working brownfield system against the liabilit
 **Plans**: 3 plans
   - [x] 02-01-PLAN.md — SIG-01 (QuantStats CVaR) + SIG-06 (portfolio VaR historical simulation)
   - [x] 02-02-PLAN.md — SIG-04 (transaction costs) + SIG-05 (walk-forward scaffold + backtest_signal_history)
-  - [ ] 02-03-PLAN.md — SIG-02 (Brier) + SIG-03 (IC/IC-IR + weight-adapter feedback; depends on 02-02)
+  - [x] 02-03-PLAN.md — SIG-02 (Brier) + SIG-03 (IC/IC-IR + weight-adapter feedback; depends on 02-02)
 **Research completed**: .planning/phases/02-signal-quality-upgrade/02-RESEARCH.md (2026-04-21) — 30/10/1 walk-forward windows validated against 959 cached AAPL bars; signal_history depth confirmed insufficient for live calibration.
 
 ### Phase 3: Data Coverage Expansion
@@ -82,6 +82,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation Hardening | 3/3 | Complete    | 2026-04-21 |
-| 2. Signal Quality Upgrade | 2/3 | In Progress|  |
+| 2. Signal Quality Upgrade | 3/3 | Complete   | 2026-04-21 |
 | 3. Data Coverage Expansion | 0/TBD | Not started | - |
 | 4. Portfolio UI + Analytics Uplift | 0/TBD | Not started | - |
