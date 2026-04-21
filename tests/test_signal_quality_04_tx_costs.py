@@ -9,7 +9,6 @@ _DFProvider is defined inline in this file — NOT imported from test_013_backte
 """
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 
 import pandas as pd
@@ -125,8 +124,10 @@ def test_default_costs_per_asset_type() -> None:
     assert abs(COST_PER_TRADE_CRYPTO - 0.0025) < 1e-9
 
 
-def test_cost_reduces_total_return() -> None:
+async def test_cost_reduces_total_return() -> None:
     """SIG-04: backtest with cost_per_trade=0.001 has strictly lower total_return than cost=0.0."""
+    # WR-04 fix: converted from sync def + asyncio.run() to async def for
+    # pytest-asyncio asyncio_mode=auto compatibility.
     df = _make_price_df(n_cycles=6)  # ~240 bars with guaranteed multiple round-trips
     end_date = df.index[-1].strftime("%Y-%m-%d")
     cfg_no_cost = BacktestConfig(
@@ -150,12 +151,8 @@ def test_cost_reduces_total_return() -> None:
         take_profit_pct=None,
     )
     # Build two independent providers (each call consumes the DataFrame once)
-    result_no_cost = asyncio.run(
-        Backtester(_DFProvider(df)).run(cfg_no_cost)
-    )
-    result_with_cost = asyncio.run(
-        Backtester(_DFProvider(df)).run(cfg_with_cost)
-    )
+    result_no_cost = await Backtester(_DFProvider(df)).run(cfg_no_cost)
+    result_with_cost = await Backtester(_DFProvider(df)).run(cfg_with_cost)
 
     # Precondition guard (BLOCKER 5 fix): if synthetic series somehow produced
     # zero trades despite being designed to, skip with a clear message instead
@@ -184,8 +181,9 @@ def test_cost_reduces_total_return() -> None:
     assert "effective_cost_per_trade" in result_with_cost.metrics
 
 
-def test_cost_applied_at_entry_and_exit_double() -> None:
+async def test_cost_applied_at_entry_and_exit_double() -> None:
     """AP-06 guard: total_costs_paid > single-side cost floor (exit cost also applied)."""
+    # WR-04 fix: converted from sync def + asyncio.run() to async def.
     df = _make_price_df(n_cycles=3)  # ~120 bars with at least 1 round-trip
     end_date = df.index[-1].strftime("%Y-%m-%d")
     cfg = BacktestConfig(
@@ -199,7 +197,7 @@ def test_cost_applied_at_entry_and_exit_double() -> None:
         stop_loss_pct=None,
         take_profit_pct=None,
     )
-    result = asyncio.run(Backtester(_DFProvider(df)).run(cfg))
+    result = await Backtester(_DFProvider(df)).run(cfg)
     if result.metrics["n_trades"] == 0:
         pytest.skip(
             "Synthetic series produced no trades — AP-06 guard cannot be tested"

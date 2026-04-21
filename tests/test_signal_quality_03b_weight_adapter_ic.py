@@ -292,21 +292,18 @@ async def test_ic_weights_preserve_asset_type_structure(tmp_path: Path) -> None:
 # Task 3 — HTTP end-to-end test for GET /analytics/calibration
 # ---------------------------------------------------------------------------
 
-def test_calibration_endpoint_http_end_to_end(tmp_path: Path) -> None:
+async def test_calibration_endpoint_http_end_to_end(tmp_path: Path) -> None:
     """Seed corpus, override db_path, call endpoint, assert JSON contract."""
-    import asyncio
-
+    # WR-04 fix: converted from sync def + asyncio.run() to async def so it
+    # is compatible with pytest-asyncio asyncio_mode=auto (no running-loop conflict).
     db_file = tmp_path / "cal.db"
 
-    async def _setup() -> None:
-        await _seed_multi_agent_corpus(
-            db_file,
-            [("TechnicalAgent", 0.15), ("MacroAgent", 0.10)],
-            n=120,
-            seed=42,
-        )
-
-    asyncio.run(_setup())
+    await _seed_multi_agent_corpus(
+        db_file,
+        [("TechnicalAgent", 0.15), ("MacroAgent", 0.10)],
+        n=120,
+        seed=42,
+    )
 
     from api.app import create_app
     from api.deps import get_db_path

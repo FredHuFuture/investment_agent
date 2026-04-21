@@ -135,18 +135,14 @@ async def test_portfolio_var_equals_var_95_for_portfolio_returns(tmp_path: Path)
 # Test D: FastAPI TestClient end-to-end HTTP test
 # ---------------------------------------------------------------------------
 
-def test_risk_endpoint_http_via_fastapi_testclient(tmp_path: Path) -> None:
+async def test_risk_endpoint_http_via_fastapi_testclient(tmp_path: Path) -> None:
     """GET /analytics/risk via FastAPI TestClient returns cvar_95/99/var_95/portfolio_var in JSON."""
-    import asyncio
-
-    async def _prepare() -> Path:
-        db_file = tmp_path / "risk_http.db"
-        await init_db(db_file)
-        returns = [-0.01, 0.015, -0.02, 0.005, -0.005, 0.01, -0.015] * 20  # 140 obs
-        await _seed_snapshots_from_returns(db_file, returns, start_value=100_000.0)
-        return db_file
-
-    db_file = asyncio.run(_prepare())
+    # WR-04 fix: converted from sync def + asyncio.run() to async def for
+    # pytest-asyncio asyncio_mode=auto compatibility.
+    db_file = tmp_path / "risk_http.db"
+    await init_db(db_file)
+    returns = [-0.01, 0.015, -0.02, 0.005, -0.005, 0.01, -0.015] * 20  # 140 obs
+    await _seed_snapshots_from_returns(db_file, returns, start_value=100_000.0)
 
     from api.app import create_app
     from api.deps import get_db_path
@@ -181,19 +177,14 @@ def test_risk_endpoint_http_via_fastapi_testclient(tmp_path: Path) -> None:
 # Test E: insufficient data returns null fields but 200 response
 # ---------------------------------------------------------------------------
 
-def test_risk_endpoint_insufficient_data_returns_nulls(tmp_path: Path) -> None:
+async def test_risk_endpoint_insufficient_data_returns_nulls(tmp_path: Path) -> None:
     """GET /analytics/risk with <10 snapshots returns 200 with null cvar/var fields."""
-    import asyncio
-
-    async def _prepare() -> Path:
-        db_file = tmp_path / "risk_small.db"
-        await init_db(db_file)
-        # Only 5 data points -> 4 returns < 10 threshold
-        returns = [-0.01, 0.02, -0.005, 0.015]
-        await _seed_snapshots_from_returns(db_file, returns, start_value=100_000.0)
-        return db_file
-
-    db_file = asyncio.run(_prepare())
+    # WR-04 fix: converted from sync def + asyncio.run() to async def.
+    db_file = tmp_path / "risk_small.db"
+    await init_db(db_file)
+    # Only 5 data points -> 4 returns < 10 threshold
+    returns = [-0.01, 0.02, -0.005, 0.015]
+    await _seed_snapshots_from_returns(db_file, returns, start_value=100_000.0)
 
     from api.app import create_app
     from api.deps import get_db_path
