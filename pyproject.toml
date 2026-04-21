@@ -20,6 +20,7 @@ classifiers = [
 dependencies = [
     "aiosqlite>=0.19",
     "arch>=6.0",
+    "quantstats>=0.0.81",
     "yfinance>=0.2",
     "fredapi>=0.5",
     "pandas>=2.0",

@@ -2,10 +2,28 @@
 from __future__ import annotations
 
 import math
+import sys
+import types
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import aiosqlite
+import pandas as pd
+
+# --- Headless-safe quantstats import (AP-07 / T-02-01-01) ---
+# quantstats/__init__.py does `from . import stats, utils, plots, reports` at module load.
+# quantstats/plots.py immediately imports matplotlib/seaborn (register_matplotlib_converters
+# + _plotting/wrappers). On a headless API/daemon server this pollutes sys.modules with
+# hundreds of matplotlib sub-modules unnecessarily.
+# Fix: pre-stub quantstats.plots and quantstats.reports in sys.modules BEFORE the first
+# import of the quantstats package so __init__.py's `from . import plots` is a no-op.
+# The stubs stay permanently (they are never used by our code; the full modules are only
+# needed when the caller explicitly does `import quantstats.plots` for charting).
+for _qs_plot_mod in ("quantstats.plots", "quantstats.reports", "quantstats._plotting"):
+    if _qs_plot_mod not in sys.modules:
+        sys.modules[_qs_plot_mod] = types.ModuleType(_qs_plot_mod)
+
+import quantstats.stats as qs_stats  # safe after stubs; grep: import quantstats.stats
 
 
 class PortfolioAnalytics:
@@ -513,14 +531,35 @@ class PortfolioAnalytics:
         last_value = values[-1]
         current_dd = ((last_value - running_peak) / running_peak) if running_peak > 0 else 0.0
 
-        # --- VaR and CVaR at 95% confidence (parametric / Gaussian) ---
-        # VaR_95 = -(mean - 1.645 * std)  expressed as a positive percentage
-        Z_95 = 1.6449  # one-tailed 95% z-score
-        var_95 = -(mean_ret - Z_95 * daily_vol)
-        # CVaR_95 (expected shortfall): for normal distribution = mean - std * phi(z) / (1 - 0.95)
-        # phi(1.6449) ≈ 0.10313
-        PHI_Z95 = 0.10313
-        cvar_95 = -(mean_ret - daily_vol * PHI_Z95 / 0.05)
+        # --- VaR / CVaR via QuantStats historical simulation (SIG-01, SIG-06) ---
+        # Historical simulation: no distributional assumption, captures fat tails.
+        # QuantStats returns negative floats (losses); we negate to match existing
+        # positive-loss sign convention used by var_95/cvar_95 consumers.
+        # Tier 1 of SIG-06 (portfolio_var): historical-simulation VaR on the
+        # portfolio return series. This is cross-position correlation aware
+        # because the series is realized portfolio returns, which embed all
+        # pairwise position correlations naturally (per amended ROADMAP SC-1).
+        if len(daily_returns) >= 10:
+            _returns_series = pd.Series(daily_returns)  # uses module-level pd
+            cvar_95_raw = float(qs_stats.cvar(_returns_series, confidence=0.95))
+            cvar_99_raw = float(qs_stats.cvar(_returns_series, confidence=0.99))
+            var_95_raw = float(qs_stats.value_at_risk(_returns_series, confidence=0.95))
+            var_99_raw = float(qs_stats.value_at_risk(_returns_series, confidence=0.99))
+            portfolio_var_raw = var_95_raw
+            # Flip sign: QuantStats losses are negative, we surface positive percentages.
+            cvar_95 = -cvar_95_raw
+            cvar_99 = -cvar_99_raw
+            var_95 = -var_95_raw
+            var_99 = -var_99_raw
+            portfolio_var = -portfolio_var_raw
+            risk_source = "historical_simulation"
+        else:
+            cvar_95 = None
+            cvar_99 = None
+            var_95 = None
+            var_99 = None
+            portfolio_var = None
+            risk_source = "insufficient_data"
 
         # --- Best/worst single day ---
         best_day = max(daily_returns)
@@ -541,8 +580,12 @@ class PortfolioAnalytics:
             "sortino_ratio": _pct4(sortino),
             "max_drawdown_pct": _pct4(max_dd * 100),
             "current_drawdown_pct": _pct4(current_dd * 100),
-            "var_95": _pct4(var_95 * 100),
-            "cvar_95": _pct4(cvar_95 * 100),
+            "var_95": _pct4(var_95 * 100) if var_95 is not None else None,
+            "var_99": _pct4(var_99 * 100) if var_99 is not None else None,
+            "cvar_95": _pct4(cvar_95 * 100) if cvar_95 is not None else None,
+            "cvar_99": _pct4(cvar_99 * 100) if cvar_99 is not None else None,
+            "portfolio_var": _pct4(portfolio_var * 100) if portfolio_var is not None else None,
+            "portfolio_var_method": risk_source,
             "best_day_pct": _pct4(best_day * 100),
             "worst_day_pct": _pct4(worst_day * 100),
             "positive_days": positive_days,
