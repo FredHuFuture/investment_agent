@@ -10,7 +10,8 @@ This milestone hardens an already-working brownfield system against the liabilit
 - Integer phases (1, 2, 3, 4): Planned milestone work
 - Decimal phases: Inserted via `/gsd-insert-phase` if urgent work surfaces mid-milestone
 
-- [x] **Phase 1: Foundation Hardening** - Fix the hardest-failing codebase liabilities before any new capability is layered on top (completed 2026-04-21)
+- [x] **Phase 1: Foundation Hardening** - Fix the hardest-failing codebase liabilities before any new capability is layered on top
+ (completed 2026-04-21)
 - [ ] **Phase 2: Signal Quality Upgrade** - Deepen the thesis/drift moat with calibrated, measurable signal quality and rigorous backtesting
 - [ ] **Phase 3: Data Coverage Expansion** - Add free-tier providers and operator-observability so new data flows through a trusted pipeline
 - [ ] **Phase 4: Portfolio UI + Analytics Uplift** - Close the UI gap vs. Ghostfolio and Portfolio Performance with accurate performance math and legible dashboards
@@ -41,8 +42,11 @@ This milestone hardens an already-working brownfield system against the liabilit
   2. `GET /api/v1/analytics/calibration` returns per-agent Brier score and rolling Information Coefficient (IC) — agents with negative IC show reduced weight in the next weight-adapter cycle, verifiable by comparing `WeightsPage` before and after a Brier/IC refresh.
   3. Running a backtest with a non-zero `cost_per_trade` produces a P&L that is strictly lower than the same run with `cost_per_trade=0` — verifiable by running both and diffing the `total_return` field.
   4. The walk-forward backtest scaffold produces per-window out-of-sample Sharpe ratios consumable by `BacktestPage.tsx`, rather than a single in-sample result — verifiable by inspecting the `BacktestResult` JSON for a `walk_forward_windows` array.
-**Plans**: TBD
-**Research flag**: Walk-forward window sizing and IC significance threshold need validation against actual `signal_history` table depth before planning. Run `/gsd-research-phase` before planning Phase 2.
+**Plans**: 3 plans
+  - [ ] 02-01-PLAN.md — SIG-01 (QuantStats CVaR) + SIG-06 (portfolio VaR historical simulation)
+  - [ ] 02-02-PLAN.md — SIG-04 (transaction costs) + SIG-05 (walk-forward scaffold + backtest_signal_history)
+  - [ ] 02-03-PLAN.md — SIG-02 (Brier) + SIG-03 (IC/IC-IR + weight-adapter feedback; depends on 02-02)
+**Research completed**: .planning/phases/02-signal-quality-upgrade/02-RESEARCH.md (2026-04-21) — 30/10/1 walk-forward windows validated against 959 cached AAPL bars; signal_history depth confirmed insufficient for live calibration.
 
 ### Phase 3: Data Coverage Expansion
 **Goal**: Three new free-tier data sources feed the existing pipeline through the Phase 1 cache infrastructure, and the operator has structured observability into daemon health.
