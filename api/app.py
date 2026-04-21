@@ -115,6 +115,10 @@ def create_app(db_path: str = str(DEFAULT_DB_PATH)) -> FastAPI:
     from api.routes.risk import router as risk_router
     app.include_router(risk_router, prefix="/risk", tags=["risk"])
 
+    # Calibration router: GET /analytics/calibration (SIG-02, SIG-03 — Plan 02-03)
+    from api.routes.calibration import router as calibration_router
+    app.include_router(calibration_router, prefix="/analytics", tags=["calibration"])
+
     # System info (Sprint 33)
     from api.routes.system import router as system_router
     app.include_router(system_router, prefix="/system", tags=["system"])
