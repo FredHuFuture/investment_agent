@@ -23,17 +23,20 @@ An "investment journal that fights back" — a personal investing system that tr
 - ✓ SQLite + aiosqlite connection pooling — existing (`db/`)
 - ✓ 15-page React/TS dashboard ("Modern Craft" design system), export hub, alert rules engine, portfolio health score, journal insights — existing (Sprint 38 work, `frontend/`)
 - ✓ 889 passing tests across backend + frontend — existing
+- ✓ yfinance batch download + Parquet OHLCV cache (Windows-safe atomic writes + stampede-resistant) — Phase 1 (FOUND-01, FOUND-02)
+- ✓ Auto-selected Monte Carlo block size via `arch.optimal_block_length()` — Phase 1 (FOUND-03)
+- ✓ `backtest_mode` flag on `AgentInput` prevents look-ahead bias via restated fundamentals — Phase 1 (FOUND-04)
+- ✓ Agent-weight renormalization proven by 12-case parametrized test across stock/btc/eth — Phase 1 (FOUND-05)
+- ✓ SQLite WAL mode + covering indexes + 90-day signal_history pruning — Phase 1 (FOUND-06)
+- ✓ `job_run_log` four-state machine + atomic daemon transactions + startup reconciliation — Phase 1 (FOUND-07)
 
 ### Active
 
-<!-- Current milestone: competitive benchmarking. Building toward these. -->
+<!-- Next milestone work: Phase 2 Signal Quality Upgrade. -->
 
-- [ ] Survey the OSS investment-agent / trading-bot / portfolio-analysis ecosystem (top 10–20 active projects by stars, recency, domain fit)
-- [ ] Produce a side-by-side comparison across four dimensions: agent design & signal quality, data coverage & integrations, portfolio/thesis + UI, architecture & deploy story
-- [ ] Identify concrete gaps (capabilities competitors have that we don't) and categorize as: must-borrow, nice-to-borrow, not-worth-borrowing
-- [ ] Identify integration opportunities (OSS libraries/tools worth depending on vs. reimplementing)
-- [ ] Ship scoped improvements for the top-ranked must-borrow gaps
-- [ ] Address residual risks from the recent model-accuracy fixes (hardcoded thresholds, static sector tables, block-size tuning — see `.planning/codebase/CONCERNS.md`)
+- [ ] Phase 2: Signal Quality Upgrade (SIG-01..06) — CVaR / Brier / IC-ICIR / transaction costs / walk-forward / portfolio VaR
+- [ ] Phase 3: Data Coverage Expansion (DATA-01..05) — Finnhub / FinBERT / SEC EDGAR / structured logs + health endpoint / daemon PID + localhost bind
+- [ ] Phase 4: Portfolio UI + Analytics Uplift (UI-01..07) — TTWROR+IRR / benchmark overlay / named rules panel / target-weight viz / calendar heatmap / PositionStatus FSM / opt-in Bull-Bear synthesis
 
 ### Out of Scope
 
@@ -80,9 +83,10 @@ Brownfield project with substantial momentum; the user wants to ground the next 
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Run a full OSS competitive scan before committing roadmap phases | User wants borrowable ideas + integrations identified, not guessed at | — Pending (research phase) |
+| Run a full OSS competitive scan before committing roadmap phases | User wants borrowable ideas + integrations identified, not guessed at | ✓ Good — surfaced 25 borrowable items across 30+ projects |
 | Stay solo-operator, no SaaS or mobile this milestone | Focus on product depth over distribution surface | — Pending |
 | Keep six-agent skeleton; add but don't replace | The skeleton is working and validated | — Pending |
+| Ship Phase 1 infrastructure-first (yfinance batch, WAL, atomic daemon, arch, backtest_mode) before Phase 2 signal-quality work | Research flagged yfinance lock + look-ahead bias + hardcoded MC block size as hardest-failing liabilities that Phase 2 metrics would trust without fixing first | ✓ Good — Phase 1 verified passing (5/5 criteria, 143 tests, 0 regressions) |
 
 ## Evolution
 
@@ -102,4 +106,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-21 after brownfield initialization (/gsd-new-project)*
+*Last updated: 2026-04-21 after Phase 1 (Foundation Hardening) completion*
