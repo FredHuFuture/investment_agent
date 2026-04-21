@@ -227,9 +227,24 @@ class MonitoringDaemon:
             job_name: "daily" | "weekly"
 
         Used by CLI `run-once` subcommand.
+
+        WR-01 fix: reconcile_aborted_jobs is called here (mirroring start())
+        so that stale 'running' rows from a previous crashed run are cleaned up
+        before this job inserts its own 'running' row.  min_age_seconds=300
+        (5 min) avoids falsely aborting another run_once invocation that is
+        still in flight — the old value of 5s was too short for jobs that can
+        legitimately run for several minutes.
         """
         self._logger = self._setup_logging()
         await init_db(self._config.db_path)
+        aborted_count = await reconcile_aborted_jobs(
+            self._config.db_path, min_age_seconds=300
+        )
+        if aborted_count > 0 and self._logger:
+            self._logger.warning(
+                "run_once: reconciled %d stale 'running' job(s) to 'aborted'",
+                aborted_count,
+            )
 
         if job_name == "daily":
             return await run_daily_check(self._config.db_path, self._logger)
