@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -68,14 +69,37 @@ class ParquetOHLCVCache:
         return df
 
     def write(self, key: tuple[str, str, str], df: pd.DataFrame) -> None:
-        """Persist a DataFrame to disk. Raises on empty DataFrame."""
+        """Persist a DataFrame to disk. Raises on empty DataFrame.
+
+        On Windows, os.replace() raises ERROR_SHARING_VIOLATION (WinError 32)
+        when the target file is open by a concurrent reader (e.g. pd.read_parquet
+        in another async task). Fall back to a delete-then-rename sequence with
+        up to 3 retries so stranded .parquet.tmp files are not leaked.
+        """
         if df is None or df.empty:
             raise ValueError("cannot cache empty DataFrame")
         self._cache_dir.mkdir(parents=True, exist_ok=True)
         path = self._path_for(key)
         tmp = path.with_suffix(".parquet.tmp")
         df.to_parquet(tmp, engine="pyarrow", compression="snappy")
-        os.replace(tmp, path)  # atomic on POSIX & Windows for same FS
+        if sys.platform == "win32":
+            # MoveFileEx raises when the target is open by another reader;
+            # retry up to 3 times with explicit delete + rename.
+            for attempt in range(3):
+                try:
+                    if path.exists():
+                        path.unlink()
+                    tmp.rename(path)
+                    break
+                except OSError:
+                    if attempt == 2:
+                        logger.warning(
+                            "ParquetOHLCVCache: replace failed for %s after 3 attempts",
+                            path,
+                        )
+                        tmp.unlink(missing_ok=True)
+        else:
+            os.replace(tmp, path)  # atomic on POSIX for same FS
 
     def invalidate(self, key: tuple[str, str, str]) -> bool:
         """Delete one cache entry. Returns True if a file was removed."""
@@ -86,16 +110,21 @@ class ParquetOHLCVCache:
         return False
 
     def clear_all(self) -> int:
-        """Delete every .parquet file in the cache directory. Returns file count removed."""
+        """Delete every .parquet and .parquet.tmp file in the cache directory.
+
+        Also removes stranded .parquet.tmp files that may have been left by a
+        failed Windows write() retry (see CR-01 fix). Returns file count removed.
+        """
         if not self._cache_dir.exists():
             return 0
         count = 0
-        for p in self._cache_dir.glob("*.parquet"):
-            try:
-                p.unlink()
-                count += 1
-            except Exception as exc:
-                logger.warning("ParquetOHLCVCache: failed to unlink %s: %s", p, exc)
+        for pattern in ("*.parquet", "*.parquet.tmp"):
+            for p in self._cache_dir.glob(pattern):
+                try:
+                    p.unlink()
+                    count += 1
+                except Exception as exc:
+                    logger.warning("ParquetOHLCVCache: failed to unlink %s: %s", p, exc)
         return count
 
     def stats(self) -> dict[str, Any]:

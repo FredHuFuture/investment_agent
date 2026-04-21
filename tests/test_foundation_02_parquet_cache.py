@@ -352,3 +352,47 @@ def test_parquet_cache_only_used_for_price_history(tmp_path: Path) -> None:
     assert len(parquet_files) == 0, (
         f"Parquet must not be written for get_current_price; found {parquet_files}"
     )
+
+
+# ===========================================================================
+# CR-01 regression tests: Windows-safe write and clear_all tmp cleanup
+# ===========================================================================
+
+def test_clear_all_removes_stranded_tmp_files(tmp_path: Path) -> None:
+    """CR-01: clear_all() also removes stranded .parquet.tmp files."""
+    cache = ParquetOHLCVCache(cache_dir=tmp_path)
+    # Write a valid parquet file first
+    cache.write(KEY, _make_ohlcv())
+    # Simulate stranded tmp files left by a failed Windows write (use distinct
+    # ticker names so write() above does not consume them via rename)
+    (tmp_path / "TSLA_1y_1d.parquet.tmp").write_bytes(b"stale tmp")
+    (tmp_path / "MSFT_1y_1d.parquet.tmp").write_bytes(b"stale tmp 2")
+
+    count = cache.clear_all()
+    # 1 real parquet + 2 tmp = 3 total
+    assert count == 3, f"Expected 3 files removed, got {count}"
+    remaining = list(tmp_path.iterdir())
+    assert len(remaining) == 0, f"Expected empty dir; found {remaining}"
+
+
+def test_write_windows_path_cleans_tmp_on_all_retries_exhausted(tmp_path: Path) -> None:
+    """CR-01: On Windows retry path, if all 3 attempts fail the .tmp file is removed."""
+    import sys
+    from unittest.mock import patch
+
+    cache = ParquetOHLCVCache(cache_dir=tmp_path)
+    df = _make_ohlcv()
+    tmp_path.mkdir(parents=True, exist_ok=True)
+
+    # Simulate Windows platform with rename always failing
+    with patch.object(sys, "platform", "win32"):
+        # Patch Path.rename to always raise OSError
+        with patch("pathlib.Path.rename", side_effect=OSError("sharing violation")):
+            # Should not raise; should log warning and clean up tmp
+            cache.write(KEY, df)
+
+    # After all retries exhausted, the .parquet.tmp file should be cleaned up
+    tmp_files = list(tmp_path.glob("*.parquet.tmp"))
+    assert len(tmp_files) == 0, (
+        f"Stranded .parquet.tmp should be cleaned up after retry exhaustion; found {tmp_files}"
+    )
