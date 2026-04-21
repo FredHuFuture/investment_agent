@@ -924,6 +924,11 @@ async def prune_signal_history(
     """Delete signal_history rows older than retention_days.
 
     Returns {"deleted_rows": int, "retained_rows": int}.
+
+    WR-02 fix: uses the two-connection pattern (log_conn separate from job
+    conn) so a ROLLBACK or write conflict on the DELETE transaction cannot
+    also erase the job_run_log row — matching the isolation design used by
+    the other five daemon jobs.
     """
     if logger is None:
         logger = logging.getLogger("investment_daemon")
@@ -932,11 +937,19 @@ async def prune_signal_history(
     t0 = time.monotonic()
     row_id: int | None = None
 
+    # Open a dedicated log connection to record job start.  This connection
+    # is closed immediately so its commit cannot be rolled back by a failure
+    # in the job body below.
+    try:
+        async with aiosqlite.connect(db_path) as log_conn:
+            row_id = await _begin_job_run_log(log_conn, "prune_signal_history", started_at)
+    except Exception as log_exc:
+        if logger:
+            logger.warning("_begin_job_run_log failed (non-fatal): %s", log_exc)
+
     try:
         async with aiosqlite.connect(db_path) as conn:
             await conn.execute("PRAGMA foreign_keys=ON;")
-            row_id = await _begin_job_run_log(conn, "prune_signal_history", started_at)
-
             cursor = await conn.execute(
                 """
                 DELETE FROM signal_history
@@ -953,10 +966,13 @@ async def prune_signal_history(
 
             await conn.commit()
 
-            duration_ms = int((time.monotonic() - t0) * 1000)
-            await _end_job_run_log(
-                conn, row_id, "success", duration_ms=duration_ms
-            )
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        if row_id is not None:
+            try:
+                async with aiosqlite.connect(db_path) as log_conn:
+                    await _end_job_run_log(log_conn, row_id, "success", duration_ms=duration_ms)
+            except Exception:
+                pass
 
         logger.info(
             "prune_signal_history: deleted %d rows, %d retained",
@@ -970,9 +986,9 @@ async def prune_signal_history(
         logger.error("prune_signal_history failed: %s", exc, exc_info=True)
         if row_id is not None:
             try:
-                async with aiosqlite.connect(db_path) as conn:
+                async with aiosqlite.connect(db_path) as log_conn:
                     await _end_job_run_log(
-                        conn,
+                        log_conn,
                         row_id,
                         "error",
                         error_message=str(exc),
