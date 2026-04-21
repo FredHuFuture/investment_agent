@@ -1,0 +1,64 @@
+# Project State
+
+## Project Reference
+
+See: .planning/PROJECT.md (updated 2026-04-21)
+
+**Core value:** Drawdown protection via thesis-aware, regime-aware multi-agent signals — catching when a held position no longer matches the reason it was bought.
+**Current focus:** Phase 1 — Foundation Hardening (ready to plan)
+
+## Current Position
+
+Phase: 1 of 4 (Foundation Hardening)
+Plan: 0 of TBD in current phase
+Status: Ready to plan
+Last activity: 2026-04-21 — Roadmap created from competitive benchmarking research (30+ OSS projects)
+
+Progress: [░░░░░░░░░░] 0%
+
+## Performance Metrics
+
+**Velocity:**
+- Total plans completed: 0
+- Average duration: —
+- Total execution time: —
+
+**By Phase:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| - | - | - | - |
+
+**Recent Trend:**
+- Last 5 plans: —
+- Trend: —
+
+*Updated after each plan completion*
+
+## Accumulated Context
+
+### Decisions
+
+Decisions are logged in PROJECT.md Key Decisions table.
+Recent decisions affecting current work:
+
+- Roadmap: 4-phase coarse structure validated against SUMMARY.md dependency chain. No deviation from research recommendation.
+- Roadmap: Phase 2 and Phase 4 flagged for `/gsd-research-phase` before planning (walk-forward window sizing; chart library decision).
+- Roadmap: DATA-04 and DATA-05 (structured logs, PID file, localhost binding) placed in Phase 3 rather than Phase 1 — they are observability/hardening features but depend on the Phase 1 `job_run_log` table being in place first (DATA-04 reads from it).
+
+### Pending Todos
+
+None yet.
+
+### Blockers/Concerns
+
+- Phase 2 planning requires checking `signal_history` table row count and date range before designing walk-forward window sizes (qlib default: 252-day train + 63-day validation; may need adjustment if history is < 2 years).
+- Finnhub free-tier commercial-use terms should be reviewed before shipping DATA-01 in Phase 3.
+- FinBERT first-run download (~400 MB) needs a UX decision (progress indicator or prefetch step) before DATA-02 ships.
+- Chart library decision (TradingView Lightweight Charts vs. Recharts) must be resolved before Phase 4 planning.
+
+## Session Continuity
+
+Last session: 2026-04-21
+Stopped at: Roadmap written, STATE.md initialized, REQUIREMENTS.md traceability table updated.
+Resume file: None
