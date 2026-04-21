@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 01-02-PLAN.md (WAL + indexes + atomic daemon jobs)
-last_updated: "2026-04-21T09:45:01.732Z"
+status: verifying
+stopped_at: "Completed 01-03-PLAN.md (signal math corrections: arch block-size, backtest_mode, renorm tests)"
+last_updated: "2026-04-21T10:08:13.506Z"
 last_activity: 2026-04-21
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
-  percent: 67
+  completed_plans: 3
+  percent: 100
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-21)
 
 Phase: 1 (Foundation Hardening) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-21
 
 Progress: [░░░░░░░░░░] 0%
@@ -54,6 +54,7 @@ Progress: [░░░░░░░░░░] 0%
 *Updated after each plan completion*
 | Phase 01 P01 | 502 | 3 tasks | 6 files |
 | Phase 01 P02 | 1620 | 3 tasks | 5 files |
+| Phase 01 P03 | 1135 | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -71,6 +72,9 @@ Recent decisions affecting current work:
 - [Phase 01]: Two-connection log-vs-transaction pattern: log_conn for job_run_log INSERT/UPDATE committed independently; main job on separate conn with BEGIN/COMMIT/ROLLBACK so a job ROLLBACK cannot erase the audit row (SC-3 compliance)
 - [Phase 01]: daemon_runs table preserved for backwards compat; job_run_log is additive audit with 'running'/'aborted' states that daemon_runs cannot express
 - [Phase 01]: Phase 3 DATA-04 followup: job_run_log error_message writes raw str(exc) — scrubbing deferred to DATA-04 structured logs plan
+- [Phase 01]: arch imported locally inside _auto_select_block_size (not at module top) — defensive against future arch absence without breaking Monte Carlo imports
+- [Phase 01]: data_completeness=0.0 in backtest_mode HOLD return ensures aggregator weight renormalization fully excludes FundamentalAgent contribution
+- [Phase 01]: backtest_mode=True threaded into Backtester.run() as the single source of truth — agents cannot accidentally use restated data in historical loops
 
 ### Pending Todos
 
@@ -85,6 +89,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T09:45:01.729Z
-Stopped at: Completed 01-02-PLAN.md (WAL + indexes + atomic daemon jobs)
+Last session: 2026-04-21T10:08:13.503Z
+Stopped at: Completed 01-03-PLAN.md (signal math corrections: arch block-size, backtest_mode, renorm tests)
 Resume file: None

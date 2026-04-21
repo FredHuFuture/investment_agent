@@ -10,7 +10,7 @@ This milestone hardens an already-working brownfield system against the liabilit
 - Integer phases (1, 2, 3, 4): Planned milestone work
 - Decimal phases: Inserted via `/gsd-insert-phase` if urgent work surfaces mid-milestone
 
-- [ ] **Phase 1: Foundation Hardening** - Fix the hardest-failing codebase liabilities before any new capability is layered on top
+- [x] **Phase 1: Foundation Hardening** - Fix the hardest-failing codebase liabilities before any new capability is layered on top (completed 2026-04-21)
 - [ ] **Phase 2: Signal Quality Upgrade** - Deepen the thesis/drift moat with calibrated, measurable signal quality and rigorous backtesting
 - [ ] **Phase 3: Data Coverage Expansion** - Add free-tier providers and operator-observability so new data flows through a trusted pipeline
 - [ ] **Phase 4: Portfolio UI + Analytics Uplift** - Close the UI gap vs. Ghostfolio and Portfolio Performance with accurate performance math and legible dashboards
@@ -77,7 +77,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation Hardening | 2/3 | In Progress|  |
+| 1. Foundation Hardening | 3/3 | Complete   | 2026-04-21 |
 | 2. Signal Quality Upgrade | 0/TBD | Not started | - |
 | 3. Data Coverage Expansion | 0/TBD | Not started | - |
 | 4. Portfolio UI + Analytics Uplift | 0/TBD | Not started | - |

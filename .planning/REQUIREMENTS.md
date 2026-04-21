@@ -13,9 +13,9 @@ Requirements for this milestone (competitive parity + moat hardening). Each maps
 
 - [x] **FOUND-01**: Replace `_yfinance_lock` serial download with `yfinance.download([list], group_by="ticker")` batch mode to eliminate the 2-call/sec global bottleneck — `data_providers/yfinance_provider.py`
 - [x] **FOUND-02**: Add local Parquet OHLCV cache layer with TTL and explicit invalidation — `data_providers/cache.py` (new), integrated into providers
-- [ ] **FOUND-03**: Replace hardcoded Monte Carlo `block_size=5` with `arch.bootstrap.optimal_block_length()` (Patton-Politis-White) — `engine/monte_carlo.py`
-- [ ] **FOUND-04**: Add `backtest_mode=True` flag that suppresses restated-fundamentals calls so `FundamentalAgent` cannot silently introduce look-ahead bias — `agents/fundamental.py` + `backtesting/engine.py`
-- [ ] **FOUND-05**: Agent-weight renormalization guard — when an agent is disabled or returns nothing, remaining weights re-sum to 1.0 — `engine/aggregator.py`
+- [x] **FOUND-03**: Replace hardcoded Monte Carlo `block_size=5` with `arch.bootstrap.optimal_block_length()` (Patton-Politis-White) — `engine/monte_carlo.py`
+- [x] **FOUND-04**: Add `backtest_mode=True` flag that suppresses restated-fundamentals calls so `FundamentalAgent` cannot silently introduce look-ahead bias — `agents/fundamental.py` + `backtesting/engine.py`
+- [x] **FOUND-05**: Agent-weight renormalization guard — when an agent is disabled or returns nothing, remaining weights re-sum to 1.0 — `engine/aggregator.py`
 - [x] **FOUND-06**: SQLite WAL mode + covering indexes on hot query paths + 90-day `signal_history` pruning job — `db/database.py` + `daemon/jobs.py`
 - [x] **FOUND-07**: `job_run_log` table + atomic transaction boundaries around daemon job writes (no silent partial commits) — `db/database.py` + `daemon/jobs.py` + `daemon/scheduler.py`
 
@@ -108,9 +108,9 @@ Which phases cover which requirements. Filled by the roadmapper.
 |-------------|-------|--------|
 | FOUND-01 | Phase 1 | Complete |
 | FOUND-02 | Phase 1 | Complete |
-| FOUND-03 | Phase 1 | Pending |
-| FOUND-04 | Phase 1 | Pending |
-| FOUND-05 | Phase 1 | Pending |
+| FOUND-03 | Phase 1 | Complete |
+| FOUND-04 | Phase 1 | Complete |
+| FOUND-05 | Phase 1 | Complete |
 | FOUND-06 | Phase 1 | Complete |
 | FOUND-07 | Phase 1 | Complete |
 | SIG-01 | Phase 2 | Pending |
