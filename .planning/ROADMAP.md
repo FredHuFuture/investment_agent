@@ -38,7 +38,7 @@ This milestone hardens an already-working brownfield system against the liabilit
 **Depends on**: Phase 1
 **Requirements**: SIG-01, SIG-02, SIG-03, SIG-04, SIG-05, SIG-06
 **Success Criteria** (what must be TRUE):
-  1. `GET /api/v1/analytics/risk` returns a `cvar_95` field (CVaR/Expected Shortfall via QuantStats) and a `portfolio_var` field computed from the position covariance matrix — both verifiable by calling the endpoint and inspecting the JSON response.
+  1. `GET /api/v1/analytics/risk` returns a `cvar_95` field (CVaR/Expected Shortfall via QuantStats) and a `portfolio_var` field computed with cross-position correlation awareness (historical simulation on portfolio returns) — both verifiable by calling the endpoint and inspecting the JSON response.
   2. `GET /api/v1/analytics/calibration` returns per-agent Brier score and rolling Information Coefficient (IC) — agents with negative IC show reduced weight in the next weight-adapter cycle, verifiable by comparing `WeightsPage` before and after a Brier/IC refresh.
   3. Running a backtest with a non-zero `cost_per_trade` produces a P&L that is strictly lower than the same run with `cost_per_trade=0` — verifiable by running both and diffing the `total_return` field.
   4. The walk-forward backtest scaffold produces per-window out-of-sample Sharpe ratios consumable by `BacktestPage.tsx`, rather than a single in-sample result — verifiable by inspecting the `BacktestResult` JSON for a `walk_forward_windows` array.
