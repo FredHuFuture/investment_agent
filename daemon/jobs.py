@@ -45,6 +45,16 @@ async def run_daily_check(
     started_at = datetime.now(timezone.utc).isoformat()
     t0 = time.monotonic()
 
+    # FOUND-07: Write start-of-run log row on its own connection so it is
+    # committed independently of the job transaction. A ROLLBACK on the job
+    # body will NOT erase this row.
+    row_id: int | None = None
+    try:
+        async with aiosqlite.connect(db_path) as log_conn:
+            row_id = await _begin_job_run_log(log_conn, "daily_check", started_at)
+    except Exception as log_exc:
+        logger.warning("_begin_job_run_log failed (non-fatal): %s", log_exc)
+
     try:
         monitor = PortfolioMonitor(db_path)
         result = await monitor.run_check()
@@ -115,6 +125,13 @@ async def run_daily_check(
                 "warnings": n_warnings,
             }),
         )
+        # FOUND-07: Update job_run_log to 'success' on own connection.
+        if row_id is not None:
+            try:
+                async with aiosqlite.connect(db_path) as log_conn:
+                    await _end_job_run_log(log_conn, row_id, "success", duration_ms=duration_ms)
+            except Exception as log_exc:
+                logger.warning("_end_job_run_log (success) failed (non-fatal): %s", log_exc)
         return result
 
     except Exception as exc:
@@ -129,6 +146,16 @@ async def run_daily_check(
             duration_ms=duration_ms,
             error_message=err_msg,
         )
+        # FOUND-07: Update job_run_log to 'error' on own connection.
+        if row_id is not None:
+            try:
+                async with aiosqlite.connect(db_path) as log_conn:
+                    await _end_job_run_log(
+                        log_conn, row_id, "error",
+                        error_message=err_msg, duration_ms=duration_ms,
+                    )
+            except Exception as log_exc:
+                logger.warning("_end_job_run_log (error) failed (non-fatal): %s", log_exc)
         return {"error": err_msg, "checked_positions": 0, "alerts": [], "warnings": []}
 
 
@@ -159,6 +186,15 @@ async def run_weekly_revaluation(
     signals_saved = 0
     errors: list[dict] = []
 
+    # FOUND-07: Write start-of-run log row on its own connection.
+    row_id: int | None = None
+    try:
+        async with aiosqlite.connect(db_path) as log_conn:
+            row_id = await _begin_job_run_log(log_conn, "weekly_revaluation", started_at)
+    except Exception as log_exc:
+        if logger:
+            logger.warning("_begin_job_run_log failed (non-fatal): %s", log_exc)
+
     try:
         pm = PortfolioManager(db_path)
         portfolio = await pm.load_portfolio()
@@ -166,105 +202,110 @@ async def run_weekly_revaluation(
 
         async with aiosqlite.connect(db_path) as conn:
             await conn.execute("PRAGMA foreign_keys=ON;")
-            alert_store = AlertStore(conn)
-            signal_store = SignalStore(conn)
+            await conn.execute("BEGIN")
+            try:
+                alert_store = AlertStore(conn)
+                signal_store = SignalStore(conn)
 
-            for position in portfolio.positions:
-                try:
-                    # Run full re-analysis
-                    signal: AggregatedSignal = await pipeline.analyze_ticker(
-                        position.ticker, position.asset_type, portfolio
-                    )
-
-                    # Load original thesis for comparison
-                    original_signal: str | None = None
-                    original_confidence: float | None = None
-                    thesis_id = position.original_analysis_id
-
-                    if thesis_id is not None:
-                        thesis_row = await (
-                            await conn.execute(
-                                """
-                                SELECT expected_signal, expected_confidence
-                                FROM positions_thesis
-                                WHERE id = ?
-                                """,
-                                (thesis_id,),
-                            )
-                        ).fetchone()
-                        if thesis_row is not None:
-                            original_signal = str(thesis_row[0]) if thesis_row[0] else None
-                            original_confidence = float(thesis_row[1]) if thesis_row[1] else None
-
-                    # Compare signals if original thesis exists
-                    if original_signal and original_confidence is not None:
-                        comparison = compare_signals(
-                            original_signal=original_signal,
-                            original_confidence=original_confidence,
-                            current_signal=signal.final_signal.value,
-                            current_confidence=signal.final_confidence,
-                        )
-                        logger.info(
-                            "  %s: %s",
-                            position.ticker,
-                            comparison.summary,
+                for position in portfolio.positions:
+                    try:
+                        # Run full re-analysis
+                        signal: AggregatedSignal = await pipeline.analyze_ticker(
+                            position.ticker, position.asset_type, portfolio
                         )
 
-                        if comparison.direction_reversed:
-                            reversal_info = {
-                                "ticker": position.ticker,
-                                "original_signal": original_signal,
-                                "current_signal": signal.final_signal.value,
-                                "confidence": signal.final_confidence,
-                            }
-                            signal_reversals.append(reversal_info)
+                        # Load original thesis for comparison
+                        original_signal: str | None = None
+                        original_confidence: float | None = None
+                        thesis_id = position.original_analysis_id
 
-                            reversal_alert = Alert(
-                                ticker=position.ticker,
-                                alert_type="SIGNAL_REVERSAL",
-                                severity="HIGH",
-                                message=(
-                                    f"Signal reversed from {original_signal} to "
-                                    f"{signal.final_signal.value} "
-                                    f"(confidence: {signal.final_confidence:.0f})"
-                                ),
-                                recommended_action=(
-                                    f"Review position -- original thesis was {original_signal}, "
-                                    f"re-analysis now signals {signal.final_signal.value}."
-                                ),
-                                current_price=signal.ticker_info.get("current_price"),
+                        if thesis_id is not None:
+                            thesis_row = await (
+                                await conn.execute(
+                                    """
+                                    SELECT expected_signal, expected_confidence
+                                    FROM positions_thesis
+                                    WHERE id = ?
+                                    """,
+                                    (thesis_id,),
+                                )
+                            ).fetchone()
+                            if thesis_row is not None:
+                                original_signal = str(thesis_row[0]) if thesis_row[0] else None
+                                original_confidence = float(thesis_row[1]) if thesis_row[1] else None
+
+                        # Compare signals if original thesis exists
+                        if original_signal and original_confidence is not None:
+                            comparison = compare_signals(
+                                original_signal=original_signal,
+                                original_confidence=original_confidence,
+                                current_signal=signal.final_signal.value,
+                                current_confidence=signal.final_confidence,
                             )
-                            await alert_store.save_alert(reversal_alert)
-                            alerts_generated += 1
+                            logger.info(
+                                "  %s: %s",
+                                position.ticker,
+                                comparison.summary,
+                            )
 
-                    # Save the new signal to signal_history
-                    await signal_store.save_signal(signal, thesis_id=thesis_id)
-                    signals_saved += 1
-                    positions_analyzed += 1
+                            if comparison.direction_reversed:
+                                reversal_info = {
+                                    "ticker": position.ticker,
+                                    "original_signal": original_signal,
+                                    "current_signal": signal.final_signal.value,
+                                    "confidence": signal.final_confidence,
+                                }
+                                signal_reversals.append(reversal_info)
 
-                except Exception as exc:
-                    err_msg = str(exc)
-                    logger.error("  %s: analysis failed -- %s", position.ticker, err_msg, exc_info=True)
-                    errors.append({"ticker": position.ticker, "error": err_msg})
+                                reversal_alert = Alert(
+                                    ticker=position.ticker,
+                                    alert_type="SIGNAL_REVERSAL",
+                                    severity="HIGH",
+                                    message=(
+                                        f"Signal reversed from {original_signal} to "
+                                        f"{signal.final_signal.value} "
+                                        f"(confidence: {signal.final_confidence:.0f})"
+                                    ),
+                                    recommended_action=(
+                                        f"Review position -- original thesis was {original_signal}, "
+                                        f"re-analysis now signals {signal.final_signal.value}."
+                                    ),
+                                    current_price=signal.ticker_info.get("current_price"),
+                                )
+                                await alert_store.save_alert(reversal_alert)
+                                alerts_generated += 1
 
-            # Save portfolio snapshot with weekly trigger
-            now = datetime.now(timezone.utc).isoformat()
-            import json as _json
-            await conn.execute(
-                """
-                INSERT INTO portfolio_snapshots (
-                    timestamp, total_value, cash, positions_json, trigger_event
-                ) VALUES (?, ?, ?, ?, ?)
-                """,
-                (
-                    now,
-                    portfolio.total_value,
-                    portfolio.cash,
-                    _json.dumps([p.to_dict() for p in portfolio.positions]),
-                    "weekly_revaluation",
-                ),
-            )
-            await conn.commit()
+                        # Save the new signal to signal_history
+                        await signal_store.save_signal(signal, thesis_id=thesis_id)
+                        signals_saved += 1
+                        positions_analyzed += 1
+
+                    except Exception as exc:
+                        err_msg = str(exc)
+                        logger.error("  %s: analysis failed -- %s", position.ticker, err_msg, exc_info=True)
+                        errors.append({"ticker": position.ticker, "error": err_msg})
+
+                # Save portfolio snapshot with weekly trigger
+                now = datetime.now(timezone.utc).isoformat()
+                import json as _json
+                await conn.execute(
+                    """
+                    INSERT INTO portfolio_snapshots (
+                        timestamp, total_value, cash, positions_json, trigger_event
+                    ) VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        now,
+                        portfolio.total_value,
+                        portfolio.cash,
+                        _json.dumps([p.to_dict() for p in portfolio.positions]),
+                        "weekly_revaluation",
+                    ),
+                )
+                await conn.execute("COMMIT")
+            except Exception:
+                await conn.execute("ROLLBACK")
+                raise
 
         duration_ms = int((time.monotonic() - t0) * 1000)
         logger.info(
@@ -293,6 +334,13 @@ async def run_weekly_revaluation(
                 "errors": len(errors),
             }),
         )
+        # FOUND-07: Update job_run_log to 'success'.
+        if row_id is not None:
+            try:
+                async with aiosqlite.connect(db_path) as log_conn:
+                    await _end_job_run_log(log_conn, row_id, "success", duration_ms=duration_ms)
+            except Exception as log_exc:
+                logger.warning("_end_job_run_log (success) failed (non-fatal): %s", log_exc)
         return result
 
     except Exception as exc:
@@ -307,6 +355,16 @@ async def run_weekly_revaluation(
             duration_ms=duration_ms,
             error_message=err_msg,
         )
+        # FOUND-07: Update job_run_log to 'error'.
+        if row_id is not None:
+            try:
+                async with aiosqlite.connect(db_path) as log_conn:
+                    await _end_job_run_log(
+                        log_conn, row_id, "error",
+                        error_message=err_msg, duration_ms=duration_ms,
+                    )
+            except Exception as log_exc:
+                logger.warning("_end_job_run_log (error) failed (non-fatal): %s", log_exc)
         return {
             "error": err_msg,
             "positions_analyzed": positions_analyzed,
@@ -349,6 +407,14 @@ async def run_weekly_summary(
         )
         return {"status": "skipped", "reason": reason}
 
+    # FOUND-07: Write start-of-run log row on its own connection.
+    row_id: int | None = None
+    try:
+        async with aiosqlite.connect(db_path) as log_conn:
+            row_id = await _begin_job_run_log(log_conn, "weekly_summary", started_at)
+    except Exception as log_exc:
+        logger.warning("_begin_job_run_log failed (non-fatal): %s", log_exc)
+
     try:
         from agents.summary_agent import SummaryAgent, save_summary
 
@@ -377,6 +443,13 @@ async def run_weekly_summary(
                 "cost_usd": result.cost_usd,
             }),
         )
+        # FOUND-07: Update job_run_log to 'success'.
+        if row_id is not None:
+            try:
+                async with aiosqlite.connect(db_path) as log_conn:
+                    await _end_job_run_log(log_conn, row_id, "success", duration_ms=duration_ms)
+            except Exception as log_exc:
+                logger.warning("_end_job_run_log (success) failed (non-fatal): %s", log_exc)
         return {
             "status": "success",
             "positions_covered": result.positions_covered,
@@ -395,6 +468,16 @@ async def run_weekly_summary(
             duration_ms=duration_ms,
             error_message=err_msg,
         )
+        # FOUND-07: Update job_run_log to 'error'.
+        if row_id is not None:
+            try:
+                async with aiosqlite.connect(db_path) as log_conn:
+                    await _end_job_run_log(
+                        log_conn, row_id, "error",
+                        error_message=err_msg, duration_ms=duration_ms,
+                    )
+            except Exception as log_exc:
+                logger.warning("_end_job_run_log (error) failed (non-fatal): %s", log_exc)
         return {"status": "error", "error": err_msg}
 
 
@@ -424,6 +507,14 @@ async def run_catalyst_scan(
     started_at = datetime.now(timezone.utc).isoformat()
     t0 = time.monotonic()
 
+    # FOUND-07: Write start-of-run log row on its own connection.
+    row_id: int | None = None
+    try:
+        async with aiosqlite.connect(db_path) as log_conn:
+            row_id = await _begin_job_run_log(log_conn, "catalyst_scan", started_at)
+    except Exception as log_exc:
+        logger.warning("_begin_job_run_log failed (non-fatal): %s", log_exc)
+
     try:
         pm = PortfolioManager(db_path)
         positions = await pm.get_all_positions()
@@ -439,6 +530,16 @@ async def run_catalyst_scan(
                 duration_ms=int((time.monotonic() - t0) * 1000),
                 result_json=json.dumps({"reason": reason}),
             )
+            # FOUND-07: Mark as success (skipped is a clean exit).
+            if row_id is not None:
+                try:
+                    async with aiosqlite.connect(db_path) as log_conn:
+                        await _end_job_run_log(
+                            log_conn, row_id, "success",
+                            duration_ms=int((time.monotonic() - t0) * 1000),
+                        )
+                except Exception:
+                    pass
             return {"status": "skipped", "reason": reason}
 
         news_provider = WebNewsProvider()
@@ -528,6 +629,13 @@ async def run_catalyst_scan(
                 "errors": len(errors),
             }),
         )
+        # FOUND-07: Update job_run_log to 'success'.
+        if row_id is not None:
+            try:
+                async with aiosqlite.connect(db_path) as log_conn:
+                    await _end_job_run_log(log_conn, row_id, "success", duration_ms=duration_ms)
+            except Exception as log_exc:
+                logger.warning("_end_job_run_log (success) failed (non-fatal): %s", log_exc)
         return result
 
     except Exception as exc:
@@ -542,6 +650,16 @@ async def run_catalyst_scan(
             duration_ms=duration_ms,
             error_message=err_msg,
         )
+        # FOUND-07: Update job_run_log to 'error'.
+        if row_id is not None:
+            try:
+                async with aiosqlite.connect(db_path) as log_conn:
+                    await _end_job_run_log(
+                        log_conn, row_id, "error",
+                        error_message=err_msg, duration_ms=duration_ms,
+                    )
+            except Exception as log_exc:
+                logger.warning("_end_job_run_log (error) failed (non-fatal): %s", log_exc)
         return {"status": "error", "error": err_msg}
 
 
@@ -567,6 +685,14 @@ async def run_regime_detection(
     started_at = datetime.now(timezone.utc).isoformat()
     t0 = time.monotonic()
 
+    # FOUND-07: Write start-of-run log row on its own connection.
+    jrl_row_id: int | None = None
+    try:
+        async with aiosqlite.connect(db_path) as log_conn:
+            jrl_row_id = await _begin_job_run_log(log_conn, "regime_detection", started_at)
+    except Exception as log_exc:
+        logger.warning("_begin_job_run_log failed (non-fatal): %s", log_exc)
+
     try:
         detector = RegimeDetector()
         regime_result = detector.detect_regime()
@@ -582,7 +708,7 @@ async def run_regime_detection(
 
         # Save to regime_history
         store = RegimeHistoryStore(db_path)
-        row_id = await store.save_regime(regime, confidence, vix, yield_spread)
+        regime_history_row_id = await store.save_regime(regime, confidence, vix, yield_spread)
 
         duration_ms = int((time.monotonic() - t0) * 1000)
         logger.info(
@@ -670,16 +796,23 @@ async def run_regime_detection(
                 "confidence": confidence,
                 "regime_changed": regime_changed,
                 "previous_regime": previous_regime,
-                "row_id": row_id,
+                "row_id": regime_history_row_id,
             }),
         )
+        # FOUND-07: Update job_run_log to 'success'.
+        if jrl_row_id is not None:
+            try:
+                async with aiosqlite.connect(db_path) as log_conn:
+                    await _end_job_run_log(log_conn, jrl_row_id, "success", duration_ms=duration_ms)
+            except Exception as log_exc:
+                logger.warning("_end_job_run_log (success) failed (non-fatal): %s", log_exc)
         return {
             "regime": regime,
             "confidence": confidence,
             "description": description,
             "regime_changed": regime_changed,
             "previous_regime": previous_regime,
-            "row_id": row_id,
+            "row_id": regime_history_row_id,
         }
 
     except Exception as exc:
@@ -694,7 +827,160 @@ async def run_regime_detection(
             duration_ms=duration_ms,
             error_message=err_msg,
         )
+        # FOUND-07: Update job_run_log to 'error'.
+        if jrl_row_id is not None:
+            try:
+                async with aiosqlite.connect(db_path) as log_conn:
+                    await _end_job_run_log(
+                        log_conn, jrl_row_id, "error",
+                        error_message=err_msg, duration_ms=duration_ms,
+                    )
+            except Exception as log_exc:
+                logger.warning("_end_job_run_log (error) failed (non-fatal): %s", log_exc)
         return {"error": err_msg, "regime": None, "confidence": 0}
+
+
+# ---------------------------------------------------------------------------
+# FOUND-07: job_run_log helpers + reconciliation + pruning job
+# ---------------------------------------------------------------------------
+
+async def _begin_job_run_log(
+    conn: aiosqlite.Connection,
+    job_name: str,
+    started_at: str | None = None,
+) -> int:
+    """Insert a row with status='running' and return its id.
+
+    Caller MUST call _end_job_run_log on the same connection before returning.
+    This commits immediately so the row is visible even if the main
+    job transaction later rolls back.
+    """
+    if started_at is None:
+        started_at = datetime.now(timezone.utc).isoformat()
+    cursor = await conn.execute(
+        """
+        INSERT INTO job_run_log (job_name, started_at, status)
+        VALUES (?, ?, 'running')
+        """,
+        (job_name, started_at),
+    )
+    await conn.commit()
+    return int(cursor.lastrowid)
+
+
+async def _end_job_run_log(
+    conn: aiosqlite.Connection,
+    row_id: int,
+    status: str,
+    error_message: str | None = None,
+    duration_ms: int | None = None,
+) -> None:
+    """Finalize a job_run_log row. status must be 'success' or 'error'."""
+    if status not in ("success", "error"):
+        raise ValueError(f"invalid final status: {status!r}")
+    completed_at = datetime.now(timezone.utc).isoformat()
+    await conn.execute(
+        """
+        UPDATE job_run_log
+        SET status = ?, completed_at = ?,
+            error_message = ?, duration_ms = ?
+        WHERE id = ?
+        """,
+        (status, completed_at, error_message, duration_ms, row_id),
+    )
+    await conn.commit()
+
+
+async def reconcile_aborted_jobs(
+    db_path: str = str(DEFAULT_DB_PATH),
+    min_age_seconds: int = 5,
+) -> int:
+    """Mark stale 'running' rows as 'aborted'.
+
+    Called at daemon startup. A row is considered stale if status='running'
+    AND started_at is older than `min_age_seconds`. Returns count updated.
+    """
+    async with aiosqlite.connect(db_path) as conn:
+        cursor = await conn.execute(
+            """
+            UPDATE job_run_log
+            SET status = 'aborted',
+                completed_at = ?,
+                error_message = 'Daemon restarted with job in flight'
+            WHERE status = 'running'
+              AND (julianday('now') - julianday(started_at)) * 86400 > ?
+            """,
+            (datetime.now(timezone.utc).isoformat(), min_age_seconds),
+        )
+        await conn.commit()
+        return cursor.rowcount or 0
+
+
+async def prune_signal_history(
+    db_path: str = str(DEFAULT_DB_PATH),
+    retention_days: int = 90,
+    logger: logging.Logger | None = None,
+) -> dict[str, Any]:
+    """Delete signal_history rows older than retention_days.
+
+    Returns {"deleted_rows": int, "retained_rows": int}.
+    """
+    if logger is None:
+        logger = logging.getLogger("investment_daemon")
+
+    started_at = datetime.now(timezone.utc).isoformat()
+    t0 = time.monotonic()
+    row_id: int | None = None
+
+    try:
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("PRAGMA foreign_keys=ON;")
+            row_id = await _begin_job_run_log(conn, "prune_signal_history", started_at)
+
+            cursor = await conn.execute(
+                """
+                DELETE FROM signal_history
+                WHERE created_at < date('now', ? || ' days')
+                """,
+                (f"-{int(retention_days)}",),
+            )
+            deleted = cursor.rowcount or 0
+
+            retained_row = await (
+                await conn.execute("SELECT COUNT(*) FROM signal_history")
+            ).fetchone()
+            retained_count = int(retained_row[0]) if retained_row else 0
+
+            await conn.commit()
+
+            duration_ms = int((time.monotonic() - t0) * 1000)
+            await _end_job_run_log(
+                conn, row_id, "success", duration_ms=duration_ms
+            )
+
+        logger.info(
+            "prune_signal_history: deleted %d rows, %d retained",
+            deleted,
+            retained_count,
+        )
+        return {"deleted_rows": deleted, "retained_rows": retained_count}
+
+    except Exception as exc:
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        logger.error("prune_signal_history failed: %s", exc, exc_info=True)
+        if row_id is not None:
+            try:
+                async with aiosqlite.connect(db_path) as conn:
+                    await _end_job_run_log(
+                        conn,
+                        row_id,
+                        "error",
+                        error_message=str(exc),
+                        duration_ms=duration_ms,
+                    )
+            except Exception:
+                pass
+        return {"deleted_rows": 0, "retained_rows": 0, "error": str(exc)}
 
 
 # ---------------------------------------------------------------------------

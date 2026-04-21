@@ -11,7 +11,14 @@ from typing import Any
 import aiosqlite
 
 from daemon.config import DaemonConfig
-from daemon.jobs import run_catalyst_scan, run_daily_check, run_regime_detection, run_weekly_revaluation
+from daemon.jobs import (
+    run_catalyst_scan,
+    run_daily_check,
+    run_regime_detection,
+    run_weekly_revaluation,
+    reconcile_aborted_jobs,
+    prune_signal_history,
+)
 from db.database import DEFAULT_DB_PATH, init_db
 
 
@@ -115,6 +122,19 @@ class MonitoringDaemon:
                 name="Regime Detection",
             )
 
+        # FOUND-06: Weekly signal_history pruning (every Sunday at 03:00)
+        self._scheduler.add_job(
+            self._job_prune,
+            CronTrigger(
+                day_of_week="sun",
+                hour=3,
+                minute=0,
+                timezone=self._config.timezone,
+            ),
+            id="prune_signal_history",
+            name="Signal History Pruning",
+        )
+
     async def _job_daily(self) -> None:
         """Scheduler wrapper for run_daily_check."""
         await run_daily_check(self._config.db_path, self._logger)
@@ -126,6 +146,12 @@ class MonitoringDaemon:
     async def _job_regime(self) -> None:
         """Scheduler wrapper for run_regime_detection."""
         await run_regime_detection(self._config.db_path, self._logger)
+
+    async def _job_prune(self) -> None:
+        """Scheduler wrapper for prune_signal_history."""
+        await prune_signal_history(
+            self._config.db_path, retention_days=90, logger=self._logger
+        )
 
     async def start(self) -> None:
         """Start daemon (blocks until shutdown signal).
@@ -144,6 +170,14 @@ class MonitoringDaemon:
 
         await init_db(self._config.db_path)
         self._logger.info("Database initialized: %s", self._config.db_path)
+
+        # FOUND-07: Reconcile any stale 'running' job_run_log rows to 'aborted'
+        # before starting the scheduler. A row is stale if it is older than 5s.
+        aborted_count = await reconcile_aborted_jobs(self._config.db_path)
+        if aborted_count > 0:
+            self._logger.warning(
+                "Reconciled %d stale 'running' job(s) to 'aborted'", aborted_count
+            )
 
         self._setup_scheduler()
         self._scheduler.start()
@@ -206,6 +240,10 @@ class MonitoringDaemon:
         elif job_name == "watchlist":
             from daemon.watchlist_job import run_watchlist_scan
             return await run_watchlist_scan(self._config.db_path, self._logger)
+        elif job_name == "prune":
+            return await prune_signal_history(
+                self._config.db_path, retention_days=90, logger=self._logger
+            )
         else:
             raise ValueError(f"Unknown job: {job_name!r}")
 
