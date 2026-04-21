@@ -1043,13 +1043,16 @@ async def rebuild_signal_corpus(
     started_at = datetime.now(timezone.utc).isoformat()
     t0 = time.monotonic()
 
-    # --- Stage 1: begin job_run_log (two-connection pattern, FOUND-07) ---
-    log_conn = await aiosqlite.connect(db_path)
+    # --- Stage 1: begin job_run_log (two-connection pattern, FOUND-07 / WR-02 fix) ---
+    # Use async with so the begin-log connection is always closed after commit,
+    # matching the prune_signal_history pattern. Each _end_job_run_log call
+    # below also opens its own short-lived async with connection so no bare
+    # await aiosqlite.connect() handle is kept alive across the job body.
     jrl_row_id: int | None = None
     try:
-        jrl_row_id = await _begin_job_run_log(log_conn, "rebuild_signal_corpus", started_at)
+        async with aiosqlite.connect(db_path) as log_conn:
+            jrl_row_id = await _begin_job_run_log(log_conn, "rebuild_signal_corpus", started_at)
     except Exception as log_exc:
-        await log_conn.close()
         logger.warning("_begin_job_run_log failed for rebuild_signal_corpus: %s", log_exc)
         raise
 
@@ -1094,9 +1097,13 @@ async def rebuild_signal_corpus(
                 ticker, stats["rows_inserted"], run_id_for_corpus,
             )
 
-        # Success path
+        # Success path — fresh connection for end-log (WR-02: no long-lived handle)
         duration_ms = int((time.monotonic() - t0) * 1000)
-        await _end_job_run_log(log_conn, jrl_row_id, status="success", duration_ms=duration_ms)
+        try:
+            async with aiosqlite.connect(db_path) as log_conn:
+                await _end_job_run_log(log_conn, jrl_row_id, status="success", duration_ms=duration_ms)
+        except Exception:
+            pass
         logger.info(
             "rebuild_signal_corpus complete — %d total rows, %d tickers",
             total_rows, len(tickers),
@@ -1106,7 +1113,7 @@ async def rebuild_signal_corpus(
         # --- BLOCKER 3: rollback guard ---
         # Delete any partial rows this run may have inserted. Using a
         # separate aiosqlite.connect so we do not share transaction state
-        # with either log_conn or populate_signal_corpus's internal conn.
+        # with the log connection or populate_signal_corpus's internal conn.
         try:
             async with aiosqlite.connect(db_path) as cleanup_conn:
                 await cleanup_conn.execute(
@@ -1124,19 +1131,18 @@ async def rebuild_signal_corpus(
                 "rebuild_signal_corpus cleanup failed for run_id=%s: %s",
                 run_id_for_corpus, cleanup_exc,
             )
-        # End job_run_log as error AFTER cleanup
+        # End job_run_log as error AFTER cleanup — fresh connection (WR-02)
         duration_ms = int((time.monotonic() - t0) * 1000)
         err_msg = str(exc)[:500]
         try:
-            await _end_job_run_log(
-                log_conn, jrl_row_id, status="error",
-                error_message=err_msg, duration_ms=duration_ms,
-            )
+            async with aiosqlite.connect(db_path) as log_conn:
+                await _end_job_run_log(
+                    log_conn, jrl_row_id, status="error",
+                    error_message=err_msg, duration_ms=duration_ms,
+                )
         except Exception as log_end_exc:
             logger.warning("_end_job_run_log (error) failed: %s", log_end_exc)
         raise
-    finally:
-        await log_conn.close()
 
     return {
         "rows_inserted": total_rows,
