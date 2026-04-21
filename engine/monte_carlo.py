@@ -85,7 +85,7 @@ class MonteCarloSimulator:
                 exc,
                 fallback,
             )
-            return max(1, min(fallback, len(returns)))
+            return max(1, min(fallback, len(returns) - 1))
         return max(3, min(block, len(returns) - 1))
 
     # ------------------------------------------------------------------
