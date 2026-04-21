@@ -191,6 +191,14 @@ async def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
     await db_pool.init(path)
 
     async with db_pool.connection() as conn:
+        # FOUND-06: Enforce WAL + safe defaults on the canonical database connection.
+        # Individual connections in db_pool also set these, but this ensures
+        # the database file is in WAL mode even for callers that bypass the pool.
+        await conn.execute("PRAGMA journal_mode=WAL;")
+        await conn.execute("PRAGMA synchronous=NORMAL;")
+        await conn.execute("PRAGMA busy_timeout=5000;")
+        await conn.execute("PRAGMA foreign_keys=ON;")
+
         await conn.execute(
             """
             CREATE TABLE IF NOT EXISTS positions_thesis (
@@ -314,6 +322,14 @@ async def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
             """
         )
 
+        # FOUND-06: Covering index on portfolio_snapshots(timestamp) for analytics scans.
+        await conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_portfolio_snapshots_timestamp
+            ON portfolio_snapshots(timestamp);
+            """
+        )
+
         # Task 010: monitoring alerts
         await conn.execute(
             """
@@ -368,9 +384,15 @@ async def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
             );
             """
         )
+        # FOUND-06: Rename legacy idx_signal_history_ticker → idx_signal_history_ticker_created
+        # (DROP is a no-op if the old name never existed; covers both fresh installs
+        # and existing DBs that were initialized before this rename).
+        # Note: briefly holds a write lock during rebuild on large existing DBs, but
+        # init_db runs at startup before API traffic — this is acceptable.
+        await conn.execute("DROP INDEX IF EXISTS idx_signal_history_ticker;")
         await conn.execute(
             """
-            CREATE INDEX IF NOT EXISTS idx_signal_history_ticker
+            CREATE INDEX IF NOT EXISTS idx_signal_history_ticker_created
             ON signal_history(ticker, created_at);
             """
         )
@@ -402,6 +424,40 @@ async def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
             """
             CREATE INDEX IF NOT EXISTS idx_daemon_runs_job_time
             ON daemon_runs(job_name, created_at);
+            """
+        )
+
+        # FOUND-07: job_run_log — durable start/finish tracking with 'running' + 'aborted' states.
+        # daemon_runs records COMPLETED outcomes only. job_run_log records an explicit
+        # start-of-run row with status='running'; the row is updated to
+        # 'success'|'error' on completion, or 'aborted' by the startup reconciler
+        # if the daemon crashed mid-job.
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS job_run_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                job_name TEXT NOT NULL,
+                started_at TEXT NOT NULL,
+                completed_at TEXT,
+                status TEXT NOT NULL CHECK (
+                    status IN ('running', 'success', 'error', 'aborted')
+                ),
+                error_message TEXT,
+                duration_ms INTEGER,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            """
+        )
+        await conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_job_run_log_job_started
+            ON job_run_log(job_name, started_at);
+            """
+        )
+        await conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_job_run_log_status
+            ON job_run_log(status);
             """
         )
 
