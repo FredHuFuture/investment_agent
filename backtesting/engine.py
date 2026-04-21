@@ -72,7 +72,12 @@ async def cache_price_data(
             )
             return df
 
-    # Cache miss: fetch from yfinance
+    # Cache miss: fetch from yfinance.
+    # WR-03 fix: route through YFinanceProvider._limiter (shared class-level
+    # AsyncRateLimiter) so backtest downloads respect the 2-calls/s budget.
+    # The date-range overload of yf.download requires start/end params that
+    # get_price_history() doesn't expose, so we call yf.download directly but
+    # inside the provider's rate-limiter context and _yfinance_lock.
     provider = YFinanceProvider()
 
     def _download() -> pd.DataFrame:
@@ -87,7 +92,8 @@ async def cache_price_data(
                 auto_adjust=False,
             )
 
-    raw = await asyncio.to_thread(_download)
+    async with provider._limiter:
+        raw = await asyncio.to_thread(_download)
     if raw is None or raw.empty:
         raise ValueError(f"No price data for {ticker} ({fetch_start} to {end_date})")
 
