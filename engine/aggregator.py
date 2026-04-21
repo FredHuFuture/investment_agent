@@ -110,11 +110,13 @@ class SignalAggregator:
         raw_weights = self._weights.get(asset_type, self._weights["stock"])
         warnings: list[str] = []
 
-        # Re-normalize weights to only agents present in outputs, so that
-        # running fewer agents (e.g. single TechnicalAgent) still produces
-        # raw_score in the full [-1, 1] range at 100% confidence.
-        # Also scale each agent's weight by its data_completeness to
-        # downweight agents that had missing/incomplete data.
+        # --- Weight renormalization (FOUND-05) ---
+        # When fewer agents than expected are present (e.g., SentimentAgent offline),
+        # scale remaining weights so they sum to exactly 1.0. Each weight is also
+        # scaled by the agent's data_completeness before renormalization so agents
+        # with partial data contribute proportionally less. Invariant validated by
+        # tests/test_foundation_05_agent_renorm.py (parametrized across every
+        # single-agent-disabled scenario for stock/btc/eth).
         present = {o.agent_name for o in agent_outputs}
         completeness_map = {
             o.agent_name: getattr(o, "data_completeness", 1.0)
