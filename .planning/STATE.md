@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-01-PLAN.md (SIG-01 QuantStats CVaR + SIG-06 portfolio VaR)
-last_updated: "2026-04-21T19:30:21.613Z"
+stopped_at: Completed 02-02-PLAN.md (SIG-04 transaction costs + SIG-05 walk-forward + signal corpus)
+last_updated: "2026-04-21T20:02:55.805Z"
 last_activity: 2026-04-21
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 6
-  completed_plans: 4
-  percent: 67
+  completed_plans: 5
+  percent: 83
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-21)
 ## Current Position
 
 Phase: 2 (Signal Quality Upgrade) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-04-21
 
@@ -56,6 +56,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01 P02 | 1620 | 3 tasks | 5 files |
 | Phase 01 P03 | 1135 | 3 tasks | 8 files |
 | Phase 02 P01 | 1320 | 3 tasks | 5 files |
+| Phase 02-signal-quality-upgrade P02 | 2400 | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,9 @@ Recent decisions affecting current work:
 - [Phase 02]: Headless-safe quantstats import: pre-stub quantstats.plots/reports/._plotting in sys.modules before package init to prevent matplotlib/seaborn leak on API/daemon startup
 - [Phase 02]: Positive-loss sign convention: negate QuantStats negative floats * 100 to match existing var_95/cvar_95 consumers
 - [Phase 02]: Tier 1 portfolio_var = var_95 identity: both historical-sim VaR at 95% on portfolio return series — cross-position correlations naturally embedded in realized returns
+- [Phase 02-signal-quality-upgrade]: Dual-constructor Backtester: isinstance(BacktestConfig) gate detects config vs provider, enabling Backtester(provider).run(cfg) pattern for walk_forward and signal_corpus
+- [Phase 02-signal-quality-upgrade]: purge_days defaults: generate_walk_forward_windows=1 (Sharpe-only); run_walk_forward=5 (IC-feeding 5-day forward return horizon for SIG-03 per 02-RESEARCH.md Q4)
+- [Phase 02-signal-quality-upgrade]: rebuild_signal_corpus not cron-registered: corpus rebuild expensive (~1 min/ticker); on-demand only via direct import or future CLI/API endpoint
 
 ### Pending Todos
 
@@ -93,6 +97,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T19:30:21.611Z
-Stopped at: Completed 02-01-PLAN.md (SIG-01 QuantStats CVaR + SIG-06 portfolio VaR)
+Last session: 2026-04-21T20:02:55.802Z
+Stopped at: Completed 02-02-PLAN.md (SIG-04 transaction costs + SIG-05 walk-forward + signal corpus)
 Resume file: None

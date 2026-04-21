@@ -44,7 +44,7 @@ This milestone hardens an already-working brownfield system against the liabilit
   4. The walk-forward backtest scaffold produces per-window out-of-sample Sharpe ratios consumable by `BacktestPage.tsx`, rather than a single in-sample result — verifiable by inspecting the `BacktestResult` JSON for a `walk_forward_windows` array.
 **Plans**: 3 plans
   - [x] 02-01-PLAN.md — SIG-01 (QuantStats CVaR) + SIG-06 (portfolio VaR historical simulation)
-  - [ ] 02-02-PLAN.md — SIG-04 (transaction costs) + SIG-05 (walk-forward scaffold + backtest_signal_history)
+  - [x] 02-02-PLAN.md — SIG-04 (transaction costs) + SIG-05 (walk-forward scaffold + backtest_signal_history)
   - [ ] 02-03-PLAN.md — SIG-02 (Brier) + SIG-03 (IC/IC-IR + weight-adapter feedback; depends on 02-02)
 **Research completed**: .planning/phases/02-signal-quality-upgrade/02-RESEARCH.md (2026-04-21) — 30/10/1 walk-forward windows validated against 959 cached AAPL bars; signal_history depth confirmed insufficient for live calibration.
 
@@ -82,6 +82,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation Hardening | 3/3 | Complete    | 2026-04-21 |
-| 2. Signal Quality Upgrade | 1/3 | In Progress|  |
+| 2. Signal Quality Upgrade | 2/3 | In Progress|  |
 | 3. Data Coverage Expansion | 0/TBD | Not started | - |
 | 4. Portfolio UI + Analytics Uplift | 0/TBD | Not started | - |
