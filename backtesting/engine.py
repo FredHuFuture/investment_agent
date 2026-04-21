@@ -271,7 +271,11 @@ class Backtester:
 
                 # Run agents to get signal
                 provider = HistoricalDataProvider(full_data, date_str)
-                agent_input = AgentInput(ticker=cfg.ticker, asset_type=cfg.asset_type)
+                agent_input = AgentInput(
+                    ticker=cfg.ticker,
+                    asset_type=cfg.asset_type,
+                    backtest_mode=True,
+                )
 
                 agent_outputs: list[AgentOutput] = []
                 for agent_name in agent_names:

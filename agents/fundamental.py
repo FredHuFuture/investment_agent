@@ -42,6 +42,34 @@ class FundamentalAgent(BaseAgent):
 
     async def analyze(self, agent_input: AgentInput) -> AgentOutput:
         self._validate_asset_type(agent_input)
+
+        # FOUND-04: short-circuit in backtest_mode to prevent look-ahead bias.
+        # yfinance returns current/restated financials, not point-in-time data.
+        # Returning HOLD with data_completeness=0.0 ensures the aggregator
+        # excludes this agent's contribution entirely when renormalizing weights.
+        if agent_input.backtest_mode:
+            self._logger.info(
+                "Analyzing %s in backtest_mode: returning HOLD (no provider calls)",
+                agent_input.ticker,
+            )
+            return AgentOutput(
+                agent_name=self.name,
+                ticker=agent_input.ticker,
+                signal=Signal.HOLD,
+                confidence=30.0,
+                reasoning=(
+                    "FundamentalAgent is disabled in backtest_mode because yfinance "
+                    "returns current/restated financials, which would inject look-ahead "
+                    "bias into historical backtests. Defaulting to HOLD."
+                ),
+                metrics=self._empty_metrics(),
+                warnings=[
+                    "backtest_mode: skipping restated fundamentals to prevent "
+                    "look-ahead bias."
+                ],
+                data_completeness=0.0,
+            )
+
         self._logger.info("Analyzing %s", agent_input.ticker)
 
         warnings: list[str] = [NON_PIT_WARNING]

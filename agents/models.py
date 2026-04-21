@@ -28,6 +28,7 @@ class AgentInput:
     regime: Regime | None = None
     learned_weights: dict[str, Any] = field(default_factory=dict)
     approved_rules: list[str] = field(default_factory=list)
+    backtest_mode: bool = False
 
 
 @dataclass
