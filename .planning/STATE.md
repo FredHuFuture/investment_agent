@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Completed 01-03-PLAN.md (signal math corrections: arch block-size, backtest_mode, renorm tests)"
-last_updated: "2026-04-21T17:33:18.549Z"
-last_activity: 2026-04-21 -- Phase 2 planning complete
+stopped_at: Completed 02-01-PLAN.md (SIG-01 QuantStats CVaR + SIG-06 portfolio VaR)
+last_updated: "2026-04-21T19:30:21.613Z"
+last_activity: 2026-04-21
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 6
-  completed_plans: 3
-  percent: 50
+  completed_plans: 4
+  percent: 67
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-21)
 
 **Core value:** Drawdown protection via thesis-aware, regime-aware multi-agent signals — catching when a held position no longer matches the reason it was bought.
-**Current focus:** Phase 1 — Foundation Hardening
+**Current focus:** Phase 2 — Signal Quality Upgrade
 
 ## Current Position
 
-Phase: 2
-Plan: Not started
+Phase: 2 (Signal Quality Upgrade) — EXECUTING
+Plan: 2 of 3
 Status: Ready to execute
-Last activity: 2026-04-21 -- Phase 2 planning complete
+Last activity: 2026-04-21
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -55,6 +55,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01 P01 | 502 | 3 tasks | 6 files |
 | Phase 01 P02 | 1620 | 3 tasks | 5 files |
 | Phase 01 P03 | 1135 | 3 tasks | 8 files |
+| Phase 02 P01 | 1320 | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -75,6 +76,9 @@ Recent decisions affecting current work:
 - [Phase 01]: arch imported locally inside _auto_select_block_size (not at module top) — defensive against future arch absence without breaking Monte Carlo imports
 - [Phase 01]: data_completeness=0.0 in backtest_mode HOLD return ensures aggregator weight renormalization fully excludes FundamentalAgent contribution
 - [Phase 01]: backtest_mode=True threaded into Backtester.run() as the single source of truth — agents cannot accidentally use restated data in historical loops
+- [Phase 02]: Headless-safe quantstats import: pre-stub quantstats.plots/reports/._plotting in sys.modules before package init to prevent matplotlib/seaborn leak on API/daemon startup
+- [Phase 02]: Positive-loss sign convention: negate QuantStats negative floats * 100 to match existing var_95/cvar_95 consumers
+- [Phase 02]: Tier 1 portfolio_var = var_95 identity: both historical-sim VaR at 95% on portfolio return series — cross-position correlations naturally embedded in realized returns
 
 ### Pending Todos
 
@@ -89,6 +93,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T10:08:13.503Z
-Stopped at: Completed 01-03-PLAN.md (signal math corrections: arch block-size, backtest_mode, renorm tests)
+Last session: 2026-04-21T19:30:21.611Z
+Stopped at: Completed 02-01-PLAN.md (SIG-01 QuantStats CVaR + SIG-06 portfolio VaR)
 Resume file: None
