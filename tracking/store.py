@@ -351,6 +351,11 @@ class SignalStore:
                     "SELECT DISTINCT ticker FROM backtest_signal_history ORDER BY ticker"
                 )
             ).fetchall()
+        # WR-03 fix: tie the warning to actual ticker coverage.
+        # Warning is True when n_tickers <= 3 (single-ticker or very narrow
+        # corpus is a real survivorship-bias risk). Empty corpus (0 tickers)
+        # also triggers True — no data is not a clean bill of health (AP-04).
+        n_tickers = (meta_row["n_tickers"] or 0) if meta_row else 0
         return {
             "date_range": (
                 [meta_row["min_date"], meta_row["max_date"]]
@@ -360,7 +365,7 @@ class SignalStore:
             "total_observations": (meta_row["total"] or 0) if meta_row else 0,
             "tickers_covered": [t["ticker"] for t in tickers_rows],
             "n_agents": (meta_row["n_agents"] or 0) if meta_row else 0,
-            "survivorship_bias_warning": True,  # AP-04: documented limitation
+            "survivorship_bias_warning": n_tickers <= 3,  # AP-04: warn when < 4 tickers
         }
 
 
