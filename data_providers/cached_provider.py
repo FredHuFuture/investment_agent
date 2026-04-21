@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import logging
+
 import pandas as pd
 
 from data_providers.base import DataProvider
 from data_providers.cache import CACHE_MISS, TTLCache
+from data_providers.parquet_cache import ParquetOHLCVCache
 
 _DEFAULT_TTL: float = 300.0   # 5 minutes — market data
 _MACRO_TTL: float = 900.0     # 15 minutes — slowly-changing macro series
+
+logger = logging.getLogger(__name__)
 
 
 class CachedProvider(DataProvider):
@@ -18,15 +23,21 @@ class CachedProvider(DataProvider):
         provider = CachedProvider(raw)           # shares a new TTLCache
         # or inject a shared cache instance:
         provider = CachedProvider(raw, cache=shared_cache)
+        # with Parquet disk cache for OHLCV:
+        provider = CachedProvider(raw, parquet_cache=ParquetOHLCVCache())
     """
 
     def __init__(
         self,
         provider: DataProvider,
         cache: TTLCache | None = None,
+        parquet_cache: ParquetOHLCVCache | None = None,
+        parquet_ttl: float = 86400.0,  # 24h default — OHLCV stable intraday
     ) -> None:
         self._provider = provider
         self._cache = cache or TTLCache(default_ttl=_DEFAULT_TTL)
+        self._parquet_cache = parquet_cache
+        self._parquet_ttl = parquet_ttl
 
     # ------------------------------------------------------------------
     # Internal helper
@@ -52,11 +63,29 @@ class CachedProvider(DataProvider):
     async def get_price_history(
         self, ticker: str, period: str = "1y", interval: str = "1d"
     ) -> pd.DataFrame:
-        # Defensive copy: DataFrames are mutable; callers must not corrupt
-        # the cached object.
+        # Parquet read-through: only if enabled AND key is present within TTL
+        if self._parquet_cache is not None:
+            key = (ticker, period, interval)
+            cached = self._parquet_cache.read(key, ttl=self._parquet_ttl)
+            if cached is not None and not cached.empty:
+                # Prime in-memory TTLCache so sibling calls in same process hit RAM
+                await self._cache.set(
+                    "get_price_history", (ticker, period, interval), {}, cached.copy()
+                )
+                return cached.copy()
+
+        # Fall through to existing TTLCache + inner provider
         result: pd.DataFrame = await self._cached(
             "get_price_history", (ticker, period, interval), {}
         )
+
+        # Write-through to parquet on every upstream fetch
+        if self._parquet_cache is not None and result is not None and not result.empty:
+            try:
+                self._parquet_cache.write((ticker, period, interval), result)
+            except Exception as exc:
+                logger.warning("Parquet write failed for %s: %s", ticker, exc)
+
         return result.copy()
 
     async def get_current_price(self, ticker: str) -> float:
