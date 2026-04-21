@@ -6,6 +6,12 @@ from typing import Any
 
 from tracking.store import SignalStore
 
+# ---------------------------------------------------------------------------
+# Note on scipy: pearsonr is imported lazily inside compute_rolling_ic
+# to keep the module importable even if scipy is absent at test collection time.
+# (scipy IS installed per 02-RESEARCH.md; lazy import is a defensive pattern.)
+# ---------------------------------------------------------------------------
+
 
 class SignalTracker:
     """Compute signal accuracy and agent performance metrics."""
@@ -306,3 +312,123 @@ class SignalTracker:
             })
 
         return result
+
+    # -----------------------------------------------------------------------
+    # SIG-02: Brier Score  (Plan 02-03)
+    # -----------------------------------------------------------------------
+
+    async def compute_brier_score(
+        self,
+        agent_name: str,
+        horizon: str = "5d",
+        min_samples: int = 20,
+    ) -> float | None:
+        """One-vs-rest binary Brier score for directional signals only.
+
+        HOLD signals are excluded (AP-05).
+        Returns None when N < min_samples (AP-03).
+        Lower is better: 0.0 = perfect, 0.25 = random, 1.0 = perfectly wrong.
+
+        Confidence is stored as 0-100 in backtest_signal_history; divided by 100
+        here to normalise to [0, 1] probability space.
+        """
+        rows = await self._store.get_backtest_signals_by_agent(agent_name, horizon)
+        directional = [
+            r for r in rows
+            if r["signal"] in ("BUY", "SELL") and r["forward_return"] is not None
+        ]
+        if len(directional) < min_samples:
+            return None
+        squared_errors: list[float] = []
+        for r in directional:
+            prob = float(r["confidence"]) / 100.0  # normalise 0-100 → 0-1
+            if r["signal"] == "BUY":
+                outcome = 1.0 if r["forward_return"] > 0 else 0.0
+            else:  # SELL
+                outcome = 1.0 if r["forward_return"] < 0 else 0.0
+            squared_errors.append((prob - outcome) ** 2)
+        return round(sum(squared_errors) / len(squared_errors), 4)
+
+    # -----------------------------------------------------------------------
+    # SIG-03: Rolling IC + IC-IR  (Plan 02-03)
+    # -----------------------------------------------------------------------
+
+    async def compute_rolling_ic(
+        self,
+        agent_name: str,
+        horizon: str = "5d",
+        window: int = 60,
+        min_samples: int = 30,
+    ) -> tuple[float | None, list[float | None]]:
+        """Time-series Pearson IC + rolling IC series (SIG-03).
+
+        Returns (overall_ic, rolling_ics).
+        Both components are None / [] when total N < min_samples.
+
+        Uses raw_score (continuous), NOT the signal enum string (AP-02 guard).
+        NaN produced by pearsonr (degenerate/constant series) is treated as None
+        (T-02-03-08 threat mitigated via NaN-check trick: NaN != NaN).
+        """
+        rows = await self._store.get_backtest_signals_by_agent(agent_name, horizon)
+        scored = [
+            (r["raw_score"], r["forward_return"])
+            for r in rows
+            if r["raw_score"] is not None and r["forward_return"] is not None
+        ]
+        if len(scored) < min_samples:
+            return None, []
+
+        from scipy.stats import pearsonr  # noqa: PLC0415 — lazy import
+
+        scores_all = [s for s, _ in scored]
+        returns_all = [ret for _, ret in scored]
+
+        # Overall IC: single Pearson across full series
+        try:
+            raw_ic, _ = pearsonr(scores_all, returns_all)
+            overall_ic: float | None = (
+                float(raw_ic) if raw_ic == raw_ic else None  # NaN guard
+            )
+        except Exception:
+            overall_ic = None
+
+        # Rolling IC — 60-observation sliding window
+        rolling: list[float | None] = []
+        n = len(scored)
+        for i in range(n):
+            if i < window - 1:
+                rolling.append(None)
+                continue
+            s_win = scores_all[i - window + 1 : i + 1]
+            r_win = returns_all[i - window + 1 : i + 1]
+            if len(s_win) < min_samples:
+                rolling.append(None)
+                continue
+            try:
+                ic_val, _ = pearsonr(s_win, r_win)
+                rolling.append(
+                    float(ic_val) if ic_val == ic_val else None  # NaN guard
+                )
+            except Exception:
+                rolling.append(None)
+
+        rounded_ic = round(overall_ic, 4) if overall_ic is not None else None
+        return rounded_ic, rolling
+
+    @staticmethod
+    def compute_icir(rolling_ics: list[float | None]) -> float | None:
+        """IC-IR = mean(IC) / std(IC) over the supplied rolling IC series.
+
+        Returns None when:
+        - fewer than 5 valid IC values (insufficient history — AP-03)
+        - std(IC) == 0 (degenerate series — T-02-03-04 mitigation)
+        """
+        valid = [ic for ic in rolling_ics if ic is not None]
+        if len(valid) < 5:
+            return None
+        import statistics  # noqa: PLC0415 — stdlib, lazy for clarity
+        mean_ic = statistics.mean(valid)
+        std_ic = statistics.stdev(valid)
+        if std_ic == 0:
+            return None
+        return round(mean_ic / std_ic, 4)

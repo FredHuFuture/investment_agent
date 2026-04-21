@@ -10,6 +10,41 @@ import aiosqlite
 from engine.aggregator import AggregatedSignal
 
 
+# ---------------------------------------------------------------------------
+# Backtest corpus read helpers (SIG-02, SIG-03 — Plan 02-03)
+# ---------------------------------------------------------------------------
+
+
+async def _get_backtest_signals_by_agent(
+    db_path: Path,
+    agent_name: str,
+    horizon: str = "5d",
+) -> list[dict]:
+    """Read per-agent backtest signals with forward returns from backtest_signal_history.
+
+    Returns list of {ticker, signal_date, raw_score, signal, confidence,
+                      forward_return} dicts.
+    forward_return is from the requested horizon column.
+    Rows with NULL forward_return are excluded.
+    """
+    col = "forward_return_5d" if horizon == "5d" else "forward_return_21d"
+    async with aiosqlite.connect(db_path) as conn:
+        conn.row_factory = aiosqlite.Row
+        rows = await (
+            await conn.execute(
+                f"""
+                SELECT ticker, signal_date, raw_score, signal, confidence,
+                       {col} AS forward_return
+                FROM backtest_signal_history
+                WHERE agent_name = ? AND {col} IS NOT NULL
+                ORDER BY signal_date ASC
+                """,
+                (agent_name,),
+            )
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
 class SignalStore:
     """Persist and query signal history."""
 
@@ -261,6 +296,72 @@ class SignalStore:
             return [_row_to_dict(row) for row in rows]
 
         return await self._with_conn(_op)
+
+    # -----------------------------------------------------------------------
+    # Backtest corpus readers (SIG-02 / SIG-03 — Plan 02-03)
+    # -----------------------------------------------------------------------
+
+    async def get_backtest_signals_by_agent(
+        self,
+        agent_name: str,
+        horizon: str = "5d",
+    ) -> list[dict]:
+        """Read per-agent backtest signals with forward returns.
+
+        Returns list of {ticker, signal_date, raw_score, signal,
+                          confidence, forward_return} dicts.
+        forward_return is from the requested horizon column.
+        Rows with NULL forward_return are excluded.
+        """
+        if self._db_path is None:
+            # Fallback path: use module-level helper via a temp file path
+            # This branch is taken when store was constructed with a live connection.
+            raise RuntimeError(
+                "get_backtest_signals_by_agent requires a db_path-based SignalStore "
+                "(not a live aiosqlite.Connection). Construct SignalStore(str(db_path))."
+            )
+        return await _get_backtest_signals_by_agent(self._db_path, agent_name, horizon)
+
+    async def get_backtest_corpus_metadata(self) -> dict:
+        """Return corpus-level metadata for the calibration API.
+
+        Returns date_range, total_observations, tickers_covered,
+        n_agents, and survivorship_bias_warning.
+        """
+        if self._db_path is None:
+            raise RuntimeError(
+                "get_backtest_corpus_metadata requires a db_path-based SignalStore."
+            )
+        async with aiosqlite.connect(self._db_path) as conn:
+            conn.row_factory = aiosqlite.Row
+            meta_row = await (
+                await conn.execute(
+                    """
+                    SELECT MIN(signal_date) AS min_date,
+                           MAX(signal_date) AS max_date,
+                           COUNT(*) AS total,
+                           COUNT(DISTINCT ticker) AS n_tickers,
+                           COUNT(DISTINCT agent_name) AS n_agents
+                    FROM backtest_signal_history
+                    """
+                )
+            ).fetchone()
+            tickers_rows = await (
+                await conn.execute(
+                    "SELECT DISTINCT ticker FROM backtest_signal_history ORDER BY ticker"
+                )
+            ).fetchall()
+        return {
+            "date_range": (
+                [meta_row["min_date"], meta_row["max_date"]]
+                if meta_row and meta_row["min_date"]
+                else [None, None]
+            ),
+            "total_observations": (meta_row["total"] or 0) if meta_row else 0,
+            "tickers_covered": [t["ticker"] for t in tickers_rows],
+            "n_agents": (meta_row["n_agents"] or 0) if meta_row else 0,
+            "survivorship_bias_warning": True,  # AP-04: documented limitation
+        }
 
 
 async def _update_outcome(
