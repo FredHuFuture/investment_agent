@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 
 import pandas as pd
@@ -38,6 +39,11 @@ class CachedProvider(DataProvider):
         self._cache = cache or TTLCache(default_ttl=_DEFAULT_TTL)
         self._parquet_cache = parquet_cache
         self._parquet_ttl = parquet_ttl
+        # CR-02: per-key in-flight event registry for thundering-herd dedup.
+        # Maps cache key -> asyncio.Event that is set when the upstream fetch
+        # completes.  Concurrent callers wait on the event instead of all
+        # firing redundant yfinance downloads.
+        self._inflight: dict[tuple[str, str, str], asyncio.Event] = {}
 
     # ------------------------------------------------------------------
     # Internal helper
@@ -63,9 +69,10 @@ class CachedProvider(DataProvider):
     async def get_price_history(
         self, ticker: str, period: str = "1y", interval: str = "1d"
     ) -> pd.DataFrame:
+        key = (ticker, period, interval)
+
         # Parquet read-through: only if enabled AND key is present within TTL
         if self._parquet_cache is not None:
-            key = (ticker, period, interval)
             cached = self._parquet_cache.read(key, ttl=self._parquet_ttl)
             if cached is not None and not cached.empty:
                 # Prime in-memory TTLCache so sibling calls in same process hit RAM
@@ -74,19 +81,40 @@ class CachedProvider(DataProvider):
                 )
                 return cached.copy()
 
-        # Fall through to existing TTLCache + inner provider
-        result: pd.DataFrame = await self._cached(
-            "get_price_history", (ticker, period, interval), {}
-        )
+        # CR-02: thundering-herd deduplication.
+        # If another coroutine is already fetching the same key, wait for it to
+        # finish and then serve the result from the in-memory TTLCache rather
+        # than firing a redundant upstream call.
+        if key in self._inflight:
+            await self._inflight[key].wait()
+            # The in-flight fetch has now completed; retry the in-memory cache.
+            result = await self._cache.get("get_price_history", (ticker, period, interval), {})
+            if result is not CACHE_MISS:
+                return result.copy()
+            # Fallthrough: cache miss after wait (e.g. upstream fetch failed);
+            # let this caller attempt its own fetch below.
 
-        # Write-through to parquet on every upstream fetch
-        if self._parquet_cache is not None and result is not None and not result.empty:
-            try:
-                self._parquet_cache.write((ticker, period, interval), result)
-            except Exception as exc:
-                logger.warning("Parquet write failed for %s: %s", ticker, exc)
+        # Register as the in-flight owner for this key.
+        event = asyncio.Event()
+        self._inflight[key] = event
+        try:
+            # Fall through to existing TTLCache + inner provider
+            result = await self._cached(
+                "get_price_history", (ticker, period, interval), {}
+            )
 
-        return result.copy()
+            # Write-through to parquet on every upstream fetch
+            if self._parquet_cache is not None and result is not None and not result.empty:
+                try:
+                    self._parquet_cache.write((ticker, period, interval), result)
+                except Exception as exc:
+                    logger.warning("Parquet write failed for %s: %s", ticker, exc)
+
+            return result.copy()
+        finally:
+            # Always release waiters, even if the fetch raised.
+            del self._inflight[key]
+            event.set()
 
     async def get_current_price(self, ticker: str) -> float:
         return await self._cached("get_current_price", (ticker,), {})

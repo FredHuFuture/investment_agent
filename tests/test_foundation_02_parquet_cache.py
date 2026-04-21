@@ -396,3 +396,56 @@ def test_write_windows_path_cleans_tmp_on_all_retries_exhausted(tmp_path: Path) 
     assert len(tmp_files) == 0, (
         f"Stranded .parquet.tmp should be cleaned up after retry exhaustion; found {tmp_files}"
     )
+
+
+# ===========================================================================
+# CR-02 regression tests: thundering-herd deduplication in CachedProvider
+# ===========================================================================
+
+def test_concurrent_cache_misses_deduplicate_to_single_upstream_call(
+    tmp_path: Path,
+) -> None:
+    """CR-02: N concurrent get_price_history calls on cold cache → 1 upstream call."""
+    from data_providers.cached_provider import CachedProvider
+
+    df = _make_ohlcv()
+    inner = _CountingProvider(df)
+    provider = CachedProvider(inner, parquet_cache=None)
+
+    async def _run_concurrent() -> list[pd.DataFrame]:
+        # Fire 5 concurrent requests for the same key on a cold cache
+        results = await asyncio.gather(*[
+            provider.get_price_history("AAPL", "1y", "1d")
+            for _ in range(5)
+        ])
+        return list(results)
+
+    results = asyncio.run(_run_concurrent())
+
+    # All 5 callers must receive a valid DataFrame
+    assert len(results) == 5
+    for r in results:
+        assert isinstance(r, pd.DataFrame)
+        assert not r.empty
+
+    # Inner provider must have been called exactly once despite 5 concurrent misses
+    assert inner.price_calls == 1, (
+        f"Expected exactly 1 upstream call (thundering-herd dedup); "
+        f"got {inner.price_calls}"
+    )
+
+
+def test_inflight_registry_cleared_after_fetch(tmp_path: Path) -> None:
+    """CR-02: _inflight dict is empty after successful fetch (no resource leak)."""
+    from data_providers.cached_provider import CachedProvider
+
+    df = _make_ohlcv()
+    inner = _CountingProvider(df)
+    provider = CachedProvider(inner, parquet_cache=None)
+
+    asyncio.run(provider.get_price_history("AAPL", "1y", "1d"))
+
+    assert len(provider._inflight) == 0, (
+        f"_inflight registry must be empty after fetch completes; "
+        f"found keys: {list(provider._inflight)}"
+    )
