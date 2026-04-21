@@ -368,6 +368,14 @@ class SignalTracker:
         Uses raw_score (continuous), NOT the signal enum string (AP-02 guard).
         NaN produced by pearsonr (degenerate/constant series) is treated as None
         (T-02-03-08 threat mitigated via NaN-check trick: NaN != NaN).
+
+        Semantics of raw_score in backtest_signal_history (WR-01 fix):
+            raw_score is the *aggregated* bar-level score from the backtester
+            engine (stored at entry["raw_score"] in agent_signals_log, not
+            per-agent). IC therefore measures each agent's timing correlation
+            with the aggregate signal score for that bar, which is a defensible
+            measure of how well each agent aligns with the overall consensus
+            direction. It is NOT a per-agent proprietary score.
         """
         rows = await self._store.get_backtest_signals_by_agent(agent_name, horizon)
         scored = [

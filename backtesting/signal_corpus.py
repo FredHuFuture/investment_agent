@@ -119,6 +119,14 @@ async def populate_signal_corpus(
         signal_date = entry["date"]
         fr5 = _fwd_return(signal_date, 5)
         fr21 = _fwd_return(signal_date, 21)
+        # WR-01 fix: raw_score is the aggregated bar-level score stored at the
+        # top-level entry (engine.py line 358), NOT per-agent sub-dict.
+        # Per-agent sub-dicts only carry "agent", "signal", and "confidence".
+        # Using entry["raw_score"] means backtest_signal_history.raw_score holds
+        # the aggregated score for the bar, which is what compute_rolling_ic
+        # correlates with forward_return (IC measures agent-timing-correlation
+        # with the aggregate score — defensible as the aggregate IS the signal).
+        agg_raw_score = entry.get("raw_score", 0.0)
         for agent_sig in entry.get("agent_signals", []):
             rows_to_insert.append(
                 (
@@ -126,7 +134,7 @@ async def populate_signal_corpus(
                     asset_type,
                     signal_date,
                     agent_sig["agent"],
-                    agent_sig.get("raw_score"),
+                    agg_raw_score,
                     agent_sig["signal"],
                     agent_sig.get("confidence"),
                     fr5,

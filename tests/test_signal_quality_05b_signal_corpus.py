@@ -238,3 +238,47 @@ async def test_forward_return_5d_matches_row_offset(tmp_path: Path) -> None:
             f"Row-offset mismatch for {sig_date}: "
             f"stored={stored_fr5:.6f}, expected={expected_fr5:.6f}"
         )
+
+
+@pytest.mark.asyncio
+async def test_populate_signal_corpus_stores_raw_score_not_null(tmp_path: Path) -> None:
+    """WR-01 regression guard: raw_score must never be NULL after populate runs.
+
+    Before the WR-01 fix, populate_signal_corpus read agent_sig.get("raw_score")
+    from per-agent sub-dicts which do not have that key — every row was NULL.
+    After the fix it reads entry.get("raw_score", 0.0) (top-level aggregated score),
+    so raw_score is always a float (0.0 if the aggregator produced no score).
+    """
+    from backtesting.signal_corpus import populate_signal_corpus
+
+    db_file = tmp_path / "wr01.db"
+    await init_db(db_file)
+
+    df = _make_corpus_ohlcv(n=80)
+    provider = _CorpusProvider(df)
+
+    start_date = str(df.index[0].date())
+    end_date = str(df.index[-1].date())
+
+    stats = await populate_signal_corpus(
+        db_path=str(db_file),
+        ticker="TEST",
+        asset_type="stock",
+        provider=provider,
+        start_date=start_date,
+        end_date=end_date,
+    )
+
+    if stats["rows_inserted"] == 0:
+        pytest.skip("No agent signals generated — WR-01 guard cannot be verified")
+
+    async with aiosqlite.connect(db_file) as c:
+        null_count = (await (await c.execute(
+            "SELECT COUNT(*) FROM backtest_signal_history WHERE raw_score IS NULL"
+        )).fetchone())[0]
+
+    assert null_count == 0, (
+        f"WR-01 regression: {null_count} rows have raw_score IS NULL after "
+        f"populate_signal_corpus — top-level entry['raw_score'] must be used, "
+        f"not per-agent sub-dict which lacks that key."
+    )
