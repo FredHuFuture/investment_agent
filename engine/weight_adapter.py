@@ -427,6 +427,90 @@ class WeightAdapter:
         return (best_buy_threshold, best_sell_threshold)
 
     # ----------------------------------------------------------------
+    # IC-IR based weights (SIG-03 — Plan 02-03)
+    # ----------------------------------------------------------------
+
+    async def compute_ic_weights(
+        self,
+        tracker: "SignalTracker",  # forward ref avoids circular import
+        asset_types: list[str] | None = None,
+        agents: list[str] | None = None,
+        horizon: str = "5d",
+        window: int = 60,
+        scale_divisor: float = 2.0,
+    ) -> AdaptiveWeights | None:
+        """Compute per-agent weights from IC-IR (SIG-03).
+
+        Scaling rule: ``new_weight = base_weight * max(0, ic_ir / scale_divisor)``.
+
+        - Negative IC-IR → factor = 0 → agent removed from aggregation.
+        - None IC-IR (insufficient data) → factor = None → agent weight = 0.
+        - Returns None if NO agents have sufficient data → caller falls back to EWMA.
+        - Equal-weight fallback applied if all agents zero-weighted after scaling.
+
+        ``scale_divisor=2.0`` rescales typical IC-IR values (O(0.3–1.0)) into the
+        O(0.15–0.5) multiplier range. source="ic_ir" distinguishes from EWMA weights.
+        """
+        # Avoid importing SignalTracker at module level (circular import risk).
+        # The type annotation uses a string literal; runtime uses duck typing.
+
+        if asset_types is None:
+            asset_types = ["stock", "crypto"]
+        if agents is None:
+            agents = [
+                "TechnicalAgent", "FundamentalAgent", "MacroAgent",
+                "SentimentAgent", "CryptoAgent",
+            ]
+
+        weights: dict[str, dict[str, float]] = {at: {} for at in asset_types}
+        any_valid = False
+        total_sample_size = 0
+
+        for agent in agents:
+            _overall_ic, rolling = await tracker.compute_rolling_ic(
+                agent, horizon=horizon, window=window,
+            )
+            icir = tracker.compute_icir(rolling) if rolling else None
+            # max(0, ...) floors at 0: negative IC-IR → zero weight (T-02-03-05)
+            factor = max(0.0, icir / scale_divisor) if icir is not None else None
+            sample_size = sum(1 for ic in rolling if ic is not None) if rolling else 0
+            total_sample_size += sample_size
+
+            if factor is None:
+                # Insufficient data — weight stays 0; renormalization will handle
+                for at in asset_types:
+                    weights[at][agent] = 0.0
+                continue
+
+            any_valid = True
+            for at in asset_types:
+                weights[at][agent] = factor
+
+        if not any_valid:
+            # No agents had sufficient IC data → caller falls back to EWMA
+            return None
+
+        # Renormalize each asset_type's weights to sum to 1.0
+        for at in asset_types:
+            total = sum(weights[at].values())
+            if total <= 0:
+                # All agents are zero/negative → equal-weight fallback
+                n_agents = max(1, len(weights[at]))
+                equal = 1.0 / n_agents
+                weights[at] = {k: equal for k in weights[at]}
+            else:
+                weights[at] = {k: round(v / total, 4) for k, v in weights[at].items()}
+
+        from datetime import datetime, timezone
+        return AdaptiveWeights(
+            weights=weights,
+            source="ic_ir",  # new literal; source field is str, no change needed
+            computed_at=datetime.now(timezone.utc).isoformat(),
+            sample_size=total_sample_size,
+            staleness_days=0,
+        )
+
+    # ----------------------------------------------------------------
     # Persistence
     # ----------------------------------------------------------------
 
