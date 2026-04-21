@@ -29,12 +29,18 @@ An "investment journal that fights back" — a personal investing system that tr
 - ✓ Agent-weight renormalization proven by 12-case parametrized test across stock/btc/eth — Phase 1 (FOUND-05)
 - ✓ SQLite WAL mode + covering indexes + 90-day signal_history pruning — Phase 1 (FOUND-06)
 - ✓ `job_run_log` four-state machine + atomic daemon transactions + startup reconciliation — Phase 1 (FOUND-07)
+- ✓ QuantStats historical-simulation CVaR (95% + 99%) + portfolio-level VaR in `engine/analytics.py` (matplotlib-safe via sys.modules stub) — Phase 2 (SIG-01, SIG-06)
+- ✓ Brier score (one-vs-rest binary, HOLD excluded, N≥20) + rolling IC (time-series Pearson on `raw_score`, 5-day forward, N≥30) + IC-IR (60-obs rolling) in `tracking/tracker.py` — Phase 2 (SIG-02, SIG-03)
+- ✓ Negative-IC agents lose weight via `max(0, IC-IR/2.0)` scaling in `engine/weight_adapter.py` — Phase 2 (SIG-03)
+- ✓ `GET /api/v1/analytics/calibration` endpoint with stable `ic_5d` key + `ic_horizon` sibling + `preliminary_calibration` + `survivorship_bias_warning` flags — Phase 2 (SIG-03)
+- ✓ Backtester transaction costs (10 bps equities / 25 bps crypto, applied at entry AND exit) with `total_costs_paid` / `n_trades` / `cost_drag_pct` in `BacktestResult.metrics` — Phase 2 (SIG-04)
+- ✓ Walk-forward backtesting scaffold (30-day train / 10-day OOS, `purge_days=1` Sharpe-only / `purge_days=5` IC-feeding) in `backtesting/walk_forward.py` — Phase 2 (SIG-05)
+- ✓ `backtest_signal_history` corpus table + `populate_signal_corpus` + `rebuild_signal_corpus` daemon job (dynamic date derivation + DELETE rollback on error, honors FOUND-07) — Phase 2 (SIG-05)
 
 ### Active
 
-<!-- Next milestone work: Phase 2 Signal Quality Upgrade. -->
+<!-- Next milestone work: Phase 3 Data Coverage Expansion. -->
 
-- [ ] Phase 2: Signal Quality Upgrade (SIG-01..06) — CVaR / Brier / IC-ICIR / transaction costs / walk-forward / portfolio VaR
 - [ ] Phase 3: Data Coverage Expansion (DATA-01..05) — Finnhub / FinBERT / SEC EDGAR / structured logs + health endpoint / daemon PID + localhost bind
 - [ ] Phase 4: Portfolio UI + Analytics Uplift (UI-01..07) — TTWROR+IRR / benchmark overlay / named rules panel / target-weight viz / calendar heatmap / PositionStatus FSM / opt-in Bull-Bear synthesis
 
@@ -87,6 +93,9 @@ Brownfield project with substantial momentum; the user wants to ground the next 
 | Stay solo-operator, no SaaS or mobile this milestone | Focus on product depth over distribution surface | — Pending |
 | Keep six-agent skeleton; add but don't replace | The skeleton is working and validated | — Pending |
 | Ship Phase 1 infrastructure-first (yfinance batch, WAL, atomic daemon, arch, backtest_mode) before Phase 2 signal-quality work | Research flagged yfinance lock + look-ahead bias + hardcoded MC block size as hardest-failing liabilities that Phase 2 metrics would trust without fixing first | ✓ Good — Phase 1 verified passing (5/5 criteria, 143 tests, 0 regressions) |
+| Phase 2 ROADMAP SC-1 wording amended from "position covariance matrix" to "cross-position correlation awareness (historical simulation on portfolio returns)" | Tier 1 historical simulation IS correlation-aware (portfolio returns capture cross-position correlations naturally); Tier 2 covariance-matrix decomposition requires longer signal history than current 10-row `signal_history` supports — deferred to v2 | ✓ Good — Phase 2 verified passing (4/4 criteria, 70 regressions, 0 gaps) |
+| Phase 2 calibration uses backtester-generated corpus (`backtest_signal_history`) not live `signal_history` | Live `signal_history` has only 10 rows (single day); walk-forward + Brier + IC need 30+ observations per agent; backtester generates years of synthetic signals against cached prices | ✓ Good — corpus table + `populate_signal_corpus` shipped; Phase 3 will populate AAPL 2022-2025 corpus manually |
+| Phase 2 walk-forward windows: 30/10/5 (IC-feeding) vs 30/10/1 (Sharpe-only); labeled `preliminary_calibration: true` | Standard qlib windows (252/63) require 500+ days of signal history; current corpus supports shorter windows; flag plumbed to API so Phase 4 UI can surface caveat | — Revisit to 252/63 once live signal_history accumulates 2+ years |
 
 ## Evolution
 
@@ -106,4 +115,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-21 after Phase 1 (Foundation Hardening) completion*
+*Last updated: 2026-04-21 after Phase 2 (Signal Quality Upgrade) completion*
