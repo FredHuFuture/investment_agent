@@ -145,6 +145,82 @@ class YFinanceProvider(DataProvider):
         async with self._limiter:
             return await asyncio.to_thread(_fetch)
 
+    async def get_price_history_batch(
+        self,
+        tickers: list[str],
+        period: str = "1y",
+        interval: str = "1d",
+    ) -> dict[str, pd.DataFrame]:
+        """Batch OHLCV download for multiple tickers in a single yfinance.download() call.
+
+        Uses yfinance's built-in thread pool (threads=True) which is safe when called
+        with a list. This bypasses the per-ticker _yfinance_lock serialization.
+
+        Returns a dict keyed by ticker. A ticker with no data maps to an empty DataFrame
+        with the expected OHLCV columns (not a missing key, not a raise).
+        """
+        if not tickers:
+            raise ValueError("tickers must be non-empty")
+
+        def _download() -> pd.DataFrame:
+            # NOTE: no _yfinance_lock here. yf.download with list+threads=True is safe.
+            return yf.download(
+                tickers=tickers,
+                period=period,
+                interval=interval,
+                group_by="ticker",
+                progress=False,
+                auto_adjust=False,
+                threads=True,
+            )
+
+        async with self._limiter:
+            raw = await asyncio.to_thread(_download)
+
+        expected = ["Open", "High", "Low", "Close", "Volume"]
+
+        if raw is None or raw.empty:
+            # Yield empty frames for each requested ticker so callers don't KeyError
+            empty = pd.DataFrame(columns=expected)
+            return {t: empty.copy() for t in tickers}
+
+        result: dict[str, pd.DataFrame] = {}
+
+        if isinstance(raw.columns, pd.MultiIndex):
+            # group_by="ticker" yields MultiIndex (ticker, price_type)
+            for t in tickers:
+                if t in raw.columns.get_level_values(0):
+                    df = raw[t].copy()
+                elif t in raw.columns.get_level_values(1):
+                    df = raw.xs(t, level=1, axis=1).copy()
+                else:
+                    result[t] = pd.DataFrame(columns=expected)
+                    continue
+                df = df.rename(columns={c: str(c).title() for c in df.columns})
+                if "Adj Close" in df.columns:
+                    df = df.drop(columns=["Adj Close"])
+                # Ensure all expected columns exist; fill missing with NaN
+                for col in expected:
+                    if col not in df.columns:
+                        df[col] = pd.NA
+                result[t] = df[expected]
+        else:
+            # Single-ticker path (yfinance may flatten for len==1)
+            df = raw.rename(columns={c: str(c).title() for c in raw.columns})
+            if "Adj Close" in df.columns:
+                df = df.drop(columns=["Adj Close"])
+            for col in expected:
+                if col not in df.columns:
+                    df[col] = pd.NA
+            result[tickers[0]] = df[expected]
+            for t in tickers[1:]:
+                result[t] = pd.DataFrame(columns=expected)
+
+        # Drop rows where all OHLCV are NaN (yfinance pads missing dates across tickers)
+        for t in list(result.keys()):
+            result[t] = result[t].dropna(how="all")
+        return result
+
     def is_point_in_time(self) -> bool:
         return False
 
