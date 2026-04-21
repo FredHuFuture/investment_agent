@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-01-PLAN.md (batch download + parquet cache)
-last_updated: "2026-04-21T09:13:31.758Z"
+stopped_at: Completed 01-02-PLAN.md (WAL + indexes + atomic daemon jobs)
+last_updated: "2026-04-21T09:45:01.732Z"
 last_activity: 2026-04-21
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
-  percent: 33
+  completed_plans: 2
+  percent: 67
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-21)
 ## Current Position
 
 Phase: 1 (Foundation Hardening) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-04-21
 
@@ -53,6 +53,7 @@ Progress: [░░░░░░░░░░] 0%
 
 *Updated after each plan completion*
 | Phase 01 P01 | 502 | 3 tasks | 6 files |
+| Phase 01 P02 | 1620 | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -67,6 +68,9 @@ Recent decisions affecting current work:
 - [Phase 01]: _yfinance_lock preserved for Ticker.info paths; batch download bypasses lock safely via yf.download list+threads=True
 - [Phase 01]: ParquetOHLCVCache is synchronous (not async) — file I/O for OHLCV is fast and keeps the API simple
 - [Phase 01]: parquet_cache=None default ensures CachedProvider is 100% backward-compatible with all existing callers
+- [Phase 01]: Two-connection log-vs-transaction pattern: log_conn for job_run_log INSERT/UPDATE committed independently; main job on separate conn with BEGIN/COMMIT/ROLLBACK so a job ROLLBACK cannot erase the audit row (SC-3 compliance)
+- [Phase 01]: daemon_runs table preserved for backwards compat; job_run_log is additive audit with 'running'/'aborted' states that daemon_runs cannot express
+- [Phase 01]: Phase 3 DATA-04 followup: job_run_log error_message writes raw str(exc) — scrubbing deferred to DATA-04 structured logs plan
 
 ### Pending Todos
 
@@ -81,6 +85,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T09:13:31.755Z
-Stopped at: Completed 01-01-PLAN.md (batch download + parquet cache)
+Last session: 2026-04-21T09:45:01.729Z
+Stopped at: Completed 01-02-PLAN.md (WAL + indexes + atomic daemon jobs)
 Resume file: None

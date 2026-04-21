@@ -16,8 +16,8 @@ Requirements for this milestone (competitive parity + moat hardening). Each maps
 - [ ] **FOUND-03**: Replace hardcoded Monte Carlo `block_size=5` with `arch.bootstrap.optimal_block_length()` (Patton-Politis-White) — `engine/monte_carlo.py`
 - [ ] **FOUND-04**: Add `backtest_mode=True` flag that suppresses restated-fundamentals calls so `FundamentalAgent` cannot silently introduce look-ahead bias — `agents/fundamental.py` + `backtesting/engine.py`
 - [ ] **FOUND-05**: Agent-weight renormalization guard — when an agent is disabled or returns nothing, remaining weights re-sum to 1.0 — `engine/aggregator.py`
-- [ ] **FOUND-06**: SQLite WAL mode + covering indexes on hot query paths + 90-day `signal_history` pruning job — `db/database.py` + `daemon/jobs.py`
-- [ ] **FOUND-07**: `job_run_log` table + atomic transaction boundaries around daemon job writes (no silent partial commits) — `db/database.py` + `daemon/jobs.py` + `daemon/scheduler.py`
+- [x] **FOUND-06**: SQLite WAL mode + covering indexes on hot query paths + 90-day `signal_history` pruning job — `db/database.py` + `daemon/jobs.py`
+- [x] **FOUND-07**: `job_run_log` table + atomic transaction boundaries around daemon job writes (no silent partial commits) — `db/database.py` + `daemon/jobs.py` + `daemon/scheduler.py`
 
 ### Signal Quality (SIG) — Phase 2: Signal Quality Upgrade
 
@@ -111,8 +111,8 @@ Which phases cover which requirements. Filled by the roadmapper.
 | FOUND-03 | Phase 1 | Pending |
 | FOUND-04 | Phase 1 | Pending |
 | FOUND-05 | Phase 1 | Pending |
-| FOUND-06 | Phase 1 | Pending |
-| FOUND-07 | Phase 1 | Pending |
+| FOUND-06 | Phase 1 | Complete |
+| FOUND-07 | Phase 1 | Complete |
 | SIG-01 | Phase 2 | Pending |
 | SIG-02 | Phase 2 | Pending |
 | SIG-03 | Phase 2 | Pending |
