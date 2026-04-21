@@ -1000,6 +1000,152 @@ async def prune_signal_history(
 
 
 # ---------------------------------------------------------------------------
+# SIG-05: rebuild_signal_corpus — on-demand job (not cron-registered)
+# ---------------------------------------------------------------------------
+
+async def rebuild_signal_corpus(
+    db_path: str = str(DEFAULT_DB_PATH),
+    tickers: list[tuple[str, str]] | None = None,  # [(ticker, asset_type), ...]
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> dict[str, int]:
+    """On-demand job to rebuild backtest_signal_history (SIG-05).
+
+    Runs the backtester over each (ticker, asset_type) pair and populates
+    backtest_signal_history via backtesting.signal_corpus.populate_signal_corpus.
+    Uses two-connection pattern (Phase 1 FOUND-07 contract).
+
+    BLOCKER 2 fix: date range is derived per-ticker from
+        SELECT MIN(date), MAX(date) FROM price_history_cache WHERE ticker = ?
+    when start_date / end_date are not explicitly passed. Hardcoded dates are
+    intentionally avoided — the corpus always matches the actual cache extent.
+
+    BLOCKER 3 fix: each ticker's populate call receives the job_run_log row
+    id as its `run_id`. On any exception mid-insert, the wrapper issues
+        DELETE FROM backtest_signal_history WHERE backtest_run_id = ?
+    to remove partial rows BEFORE the job_run_log error row is written,
+    preserving FOUND-07 atomicity: either all of this run's rows survive or none do.
+
+    NOTE: DO NOT cron-register this in daemon/scheduler.py — corpus rebuilds are
+    expensive (~1 minute per ticker) and must be triggered on-demand (e.g., via
+    CLI wrapper or future API endpoint).
+    """
+    from backtesting.signal_corpus import populate_signal_corpus
+    from data_providers.factory import get_provider
+
+    logger = logging.getLogger("investment_daemon")
+
+    if tickers is None:
+        # Default: AAPL is the only ticker with cached history as of 2026-04-21
+        # (see 02-RESEARCH.md live findings)
+        tickers = [("AAPL", "stock")]
+
+    started_at = datetime.now(timezone.utc).isoformat()
+    t0 = time.monotonic()
+
+    # --- Stage 1: begin job_run_log (two-connection pattern, FOUND-07) ---
+    log_conn = await aiosqlite.connect(db_path)
+    jrl_row_id: int | None = None
+    try:
+        jrl_row_id = await _begin_job_run_log(log_conn, "rebuild_signal_corpus", started_at)
+    except Exception as log_exc:
+        await log_conn.close()
+        logger.warning("_begin_job_run_log failed for rebuild_signal_corpus: %s", log_exc)
+        raise
+
+    # Convert integer row id to string for the TEXT backtest_run_id column
+    run_id_for_corpus = str(jrl_row_id)
+
+    total_rows = 0
+    try:
+        for ticker, asset_type in tickers:
+            # --- BLOCKER 2: derive date range from price_history_cache if not supplied ---
+            eff_start = start_date
+            eff_end = end_date
+            if eff_start is None or eff_end is None:
+                async with aiosqlite.connect(db_path) as cache_conn:
+                    cursor = await cache_conn.execute(
+                        "SELECT MIN(date), MAX(date) FROM price_history_cache WHERE ticker = ?",
+                        (ticker,),
+                    )
+                    row = await cursor.fetchone()
+                    min_d, max_d = row if row else (None, None)
+                    if min_d is None:
+                        raise ValueError(
+                            f"No cached prices for {ticker} in price_history_cache — "
+                            f"cannot build corpus. Run the batch fetch job first."
+                        )
+                    eff_start = eff_start or min_d
+                    eff_end = eff_end or max_d
+
+            provider = get_provider(asset_type)
+            stats = await populate_signal_corpus(
+                db_path=db_path,
+                ticker=ticker,
+                asset_type=asset_type,
+                provider=provider,
+                start_date=eff_start,
+                end_date=eff_end,
+                run_id=run_id_for_corpus,   # BLOCKER 3: passthrough for rollback guard
+            )
+            total_rows += stats["rows_inserted"]
+            logger.info(
+                "rebuild_signal_corpus: %s inserted %d rows (run_id=%s)",
+                ticker, stats["rows_inserted"], run_id_for_corpus,
+            )
+
+        # Success path
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        await _end_job_run_log(log_conn, jrl_row_id, status="success", duration_ms=duration_ms)
+        logger.info(
+            "rebuild_signal_corpus complete — %d total rows, %d tickers",
+            total_rows, len(tickers),
+        )
+
+    except Exception as exc:
+        # --- BLOCKER 3: rollback guard ---
+        # Delete any partial rows this run may have inserted. Using a
+        # separate aiosqlite.connect so we do not share transaction state
+        # with either log_conn or populate_signal_corpus's internal conn.
+        try:
+            async with aiosqlite.connect(db_path) as cleanup_conn:
+                await cleanup_conn.execute(
+                    "DELETE FROM backtest_signal_history WHERE backtest_run_id = ?",
+                    (run_id_for_corpus,),
+                )
+                await cleanup_conn.commit()
+                logger.info(
+                    "rebuild_signal_corpus: rolled back partial rows for run_id=%s",
+                    run_id_for_corpus,
+                )
+        except Exception as cleanup_exc:
+            # If cleanup fails, log but preserve the original error
+            logger.error(
+                "rebuild_signal_corpus cleanup failed for run_id=%s: %s",
+                run_id_for_corpus, cleanup_exc,
+            )
+        # End job_run_log as error AFTER cleanup
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        err_msg = str(exc)[:500]
+        try:
+            await _end_job_run_log(
+                log_conn, jrl_row_id, status="error",
+                error_message=err_msg, duration_ms=duration_ms,
+            )
+        except Exception as log_end_exc:
+            logger.warning("_end_job_run_log (error) failed: %s", log_end_exc)
+        raise
+    finally:
+        await log_conn.close()
+
+    return {
+        "rows_inserted": total_rows,
+        "tickers_processed": len(tickers),
+        "run_id": run_id_for_corpus,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Internal helper
 # ---------------------------------------------------------------------------
 

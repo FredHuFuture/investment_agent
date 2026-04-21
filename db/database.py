@@ -461,6 +461,41 @@ async def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
             """
         )
 
+        # SIG-05: backtest_signal_history — stores per-bar per-agent signals from
+        # backtester runs, with computed forward returns for IC/Brier calibration
+        # (Plan 02-03 consumes this table). Schema matches 02-RESEARCH.md Q4 DDL.
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS backtest_signal_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ticker TEXT NOT NULL,
+                asset_type TEXT NOT NULL,
+                signal_date TEXT NOT NULL,
+                agent_name TEXT NOT NULL,
+                raw_score REAL,
+                signal TEXT NOT NULL,
+                confidence REAL,
+                forward_return_5d REAL,
+                forward_return_21d REAL,
+                source TEXT DEFAULT 'backtest',
+                backtest_run_id TEXT,
+                created_at TEXT DEFAULT (datetime('now'))
+            )
+            """
+        )
+        await conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_bsh_ticker_date
+            ON backtest_signal_history(ticker, signal_date)
+            """
+        )
+        await conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_bsh_agent_date
+            ON backtest_signal_history(agent_name, signal_date)
+            """
+        )
+
         # Task 013: price history cache for backtesting
         await conn.execute(
             """

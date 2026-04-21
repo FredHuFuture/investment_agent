@@ -452,6 +452,71 @@ class Backtester:
             agent_signals_log=signals_log,
         )
 
+    async def run_walk_forward(
+        self,
+        ticker: str,
+        asset_type: str,
+        start_date: str,
+        end_date: str,
+        *,
+        train_days: int = 30,
+        oos_days: int = 10,
+        step_days: int = 10,
+        purge_days: int = 1,
+        agents: list[str] | None = None,
+        cost_per_trade: float | None = None,
+    ) -> "BacktestResult":
+        """Run walk-forward backtest; returns a BacktestResult with walk_forward_windows populated.
+
+        Each entry in walk_forward_windows has keys:
+            window_idx, oos_start, oos_end, sharpe, total_return, n_trades, total_costs_paid
+
+        Phase 1 FOUND-04 contract is automatically honored: each OOS window delegates
+        to Backtester.run which sets backtest_mode=True on all AgentInput objects.
+        """
+        from datetime import date as _date
+        from backtesting.walk_forward import run_walk_forward as _rwf
+
+        # Determine provider for walk-forward sub-backtests
+        wf_provider = self._provider  # may be None for classic Backtester(config) usage
+
+        wf = await _rwf(
+            ticker=ticker,
+            asset_type=asset_type,
+            start=_date.fromisoformat(start_date),
+            end=_date.fromisoformat(end_date),
+            provider=wf_provider,
+            train_days=train_days,
+            oos_days=oos_days,
+            step_days=step_days,
+            purge_days=purge_days,
+            agents=agents,
+            cost_per_trade=cost_per_trade,
+        )
+        cfg = BacktestConfig(
+            ticker=ticker,
+            start_date=start_date,
+            end_date=end_date,
+            asset_type=asset_type,
+            agents=agents,
+            cost_per_trade=cost_per_trade,
+        )
+        avg_sharpe: float | None = None
+        sharpe_values = [m["sharpe"] for m in wf.per_window_metrics if m.get("sharpe") is not None]
+        if sharpe_values:
+            avg_sharpe = sum(sharpe_values) / len(sharpe_values)
+
+        return BacktestResult(
+            config=cfg,
+            walk_forward_windows=wf.per_window_metrics,
+            warnings=wf.warnings,
+            metrics={
+                "walk_forward_n_windows": len(wf.per_window_metrics),
+                "walk_forward_preliminary": wf.preliminary_calibration,
+                "walk_forward_avg_sharpe": avg_sharpe,
+            },
+        )
+
 
 def _close_trade(
     position: dict[str, Any],
