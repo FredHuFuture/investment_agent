@@ -27,7 +27,10 @@ This milestone hardens an already-working brownfield system against the liabilit
   3. Killing the daemon mid-job and restarting produces a `job_run_log` entry with `status='aborted'` for the interrupted job and no orphaned partial signal rows — verifiable by the crash-simulation test.
   4. Disabling any single agent (e.g., removing `ANTHROPIC_API_KEY`) causes the aggregator to renormalize remaining weights to sum to 1.0 and produces correctly-scaled confidence — verifiable via the parametrized unit test.
   5. The analytics page loads in under 1 second against a database containing 50,000 signal history rows, with no `database is locked` errors during a 24-hour soak — verifiable by timing query and reviewing logs.
-**Plans**: TBD
+**Plans**: 3 plans
+  - [ ] 01-PLAN-data-provider-caching.md — FOUND-01 (yfinance batch) + FOUND-02 (Parquet OHLCV cache)
+  - [ ] 02-PLAN-db-daemon-durability.md — FOUND-06 (WAL + indexes + 90-day prune) + FOUND-07 (job_run_log + atomic tx)
+  - [ ] 03-PLAN-signal-math-corrections.md — FOUND-03 (arch block-length) + FOUND-04 (backtest_mode) + FOUND-05 (agent renormalization test)
 
 ### Phase 2: Signal Quality Upgrade
 **Goal**: Every agent's predictive contribution is measurable, the backtester prices in transaction reality, and tail risk is visible at the portfolio level.
