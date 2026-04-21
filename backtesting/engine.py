@@ -12,7 +12,7 @@ from agents.models import AgentInput, AgentOutput, Signal
 from agents.technical import TechnicalAgent
 from backtesting.data_slicer import HistoricalDataProvider
 from backtesting.metrics import compute_metrics
-from backtesting.models import BacktestConfig, BacktestResult, SimulatedTrade
+from backtesting.models import BacktestConfig, BacktestResult, SimulatedTrade, default_cost_per_trade
 from db.database import DEFAULT_DB_PATH
 from engine.aggregator import AggregatedSignal, SignalAggregator
 
@@ -145,24 +145,47 @@ class Backtester:
 
     Supports TechnicalAgent only by default (PIT-safe).
     Other agents can be opted-in with disclaimer warnings.
+
+    Two calling conventions are supported:
+      Classic:  Backtester(config).run()
+      Provider: Backtester(provider).run(config)  — used by walk_forward + signal_corpus
     """
 
-    def __init__(self, config: BacktestConfig) -> None:
-        self._config = config
+    def __init__(self, config_or_provider: "BacktestConfig | Any") -> None:
+        # Detect whether caller passed a BacktestConfig or a DataProvider.
+        if isinstance(config_or_provider, BacktestConfig):
+            self._config: BacktestConfig | None = config_or_provider
+            self._provider: Any = None
+        else:
+            # Assume it's a DataProvider (duck-typed)
+            self._config = None
+            self._provider = config_or_provider
 
     async def run(
         self,
+        config: BacktestConfig | None = None,
         full_data: pd.DataFrame | None = None,
         db_path: str = str(DEFAULT_DB_PATH),
     ) -> BacktestResult:
         """Execute the backtest.
 
         Args:
+            config: BacktestConfig. Required when Backtester was constructed with a
+                    provider; ignored (uses self._config) when constructed with config.
             full_data: Pre-loaded OHLCV DataFrame (for testing/offline use).
                        If None, fetches from yfinance and caches.
             db_path: SQLite DB path for price cache.
         """
-        cfg = self._config
+        # Resolve config
+        if config is not None:
+            cfg = config
+        elif self._config is not None:
+            cfg = self._config
+        else:
+            raise ValueError(
+                "BacktestConfig must be provided either to Backtester.__init__ "
+                "or to Backtester.run(config=...)"
+            )
         warnings: list[str] = []
 
         # Resolve agent list
@@ -179,9 +202,13 @@ class Backtester:
 
         # 1. Fetch / use provided data
         if full_data is None:
-            full_data = await cache_price_data(
-                cfg.ticker, cfg.start_date, cfg.end_date, cfg.asset_type, db_path
-            )
+            if self._provider is not None:
+                # Provider-mode: fetch from injected DataProvider (used by walk_forward + signal_corpus)
+                full_data = await self._provider.get_price_history(cfg.ticker)
+            else:
+                full_data = await cache_price_data(
+                    cfg.ticker, cfg.start_date, cfg.end_date, cfg.asset_type, db_path
+                )
 
         # 2. Generate rebalance dates within [start_date, end_date]
         freq = _REBALANCE_FREQS.get(cfg.rebalance_frequency, "W-MON")
@@ -201,6 +228,15 @@ class Backtester:
                 metrics=compute_metrics([], [], cfg.initial_capital),
                 warnings=warnings,
             )
+
+        # Resolve effective transaction cost (SIG-04)
+        effective_cost = (
+            cfg.cost_per_trade
+            if cfg.cost_per_trade is not None
+            else default_cost_per_trade(cfg.asset_type)
+        )
+        total_costs_paid = 0.0
+        n_trades = 0
 
         # 3. Walk-forward loop
         cash = cfg.initial_capital
@@ -269,9 +305,16 @@ class Backtester:
                         exit_price = entry_price * (1 + cfg.take_profit_pct)
 
                     if exit_reason:
-                        trade = _close_trade(position, exit_price, date_str, exit_reason)
+                        exit_value = position["shares"] * exit_price
+                        exit_tx_cost = exit_value * effective_cost
+                        trade = _close_trade(
+                            position, exit_price, date_str, exit_reason,
+                            entry_tx_cost=position.get("entry_tx_cost", 0.0),
+                            exit_tx_cost=exit_tx_cost,
+                        )
                         trades.append(trade)
-                        cash += position["shares"] * exit_price
+                        cash += (exit_value - exit_tx_cost)
+                        total_costs_paid += exit_tx_cost
                         position = None
                         current_price = exit_price  # use exit price for equity calc this bar
 
@@ -330,21 +373,32 @@ class Backtester:
                     trade_value = cash * cfg.position_size_pct
                     shares = trade_value / current_price
                     cost = shares * current_price
-                    if cost <= cash:
+                    entry_tx_cost = cost * effective_cost  # SIG-04: 10 bps equity / 25 bps crypto
+                    if cost + entry_tx_cost <= cash:
                         position = {
                             "entry_date": date_str,
                             "entry_price": current_price,
                             "shares": shares,
                             "signal": final_signal.value,
                             "confidence": confidence,
+                            "entry_tx_cost": entry_tx_cost,   # stored for round-trip accounting
                         }
-                        cash -= cost
+                        cash -= (cost + entry_tx_cost)
+                        total_costs_paid += entry_tx_cost
+                        n_trades += 1
                         position_value = shares * current_price
 
                 elif final_signal == Signal.SELL and position is not None:
-                    trade = _close_trade(position, current_price, date_str, "signal_sell")
+                    exit_value = position["shares"] * current_price
+                    exit_tx_cost = exit_value * effective_cost
+                    trade = _close_trade(
+                        position, current_price, date_str, "signal_sell",
+                        entry_tx_cost=position.get("entry_tx_cost", 0.0),
+                        exit_tx_cost=exit_tx_cost,
+                    )
                     trades.append(trade)
-                    cash += position["shares"] * current_price
+                    cash += (exit_value - exit_tx_cost)
+                    total_costs_paid += exit_tx_cost
                     position = None
                     position_value = 0.0
 
@@ -361,9 +415,16 @@ class Backtester:
                 last_price = float(full_data.loc[mask, "Close"].iloc[-1])
             else:
                 last_price = position["entry_price"]
-            trade = _close_trade(position, last_price, last_date_str, "end_of_period")
+            exit_value = position["shares"] * last_price
+            exit_tx_cost = exit_value * effective_cost
+            trade = _close_trade(
+                position, last_price, last_date_str, "end_of_period",
+                entry_tx_cost=position.get("entry_tx_cost", 0.0),
+                exit_tx_cost=exit_tx_cost,
+            )
             trades.append(trade)
-            cash += position["shares"] * last_price
+            cash += (exit_value - exit_tx_cost)
+            total_costs_paid += exit_tx_cost
             position = None
             # Update last equity curve entry
             if equity_curve:
@@ -372,6 +433,15 @@ class Backtester:
 
         # 5. Compute metrics
         metrics = compute_metrics(trades, equity_curve, cfg.initial_capital)
+
+        # SIG-04: Add transaction cost metrics for Phase 4 TTWROR
+        metrics["total_costs_paid"] = round(total_costs_paid, 4)
+        metrics["n_trades"] = n_trades
+        metrics["cost_drag_pct"] = (
+            round(total_costs_paid / cfg.initial_capital * 100, 4)
+            if cfg.initial_capital > 0 else 0.0
+        )
+        metrics["effective_cost_per_trade"] = effective_cost
 
         return BacktestResult(
             config=cfg,
@@ -388,14 +458,23 @@ def _close_trade(
     exit_price: float,
     exit_date: str,
     exit_reason: str,
+    entry_tx_cost: float = 0.0,
+    exit_tx_cost: float = 0.0,
 ) -> SimulatedTrade:
-    """Build a closed SimulatedTrade from an open position dict."""
+    """Build a closed SimulatedTrade from an open position dict.
+
+    pnl is net of transaction costs (entry + exit) per SIG-04 round-trip model.
+    """
     shares = position["shares"]
     entry_price = position["entry_price"]
     entry_date = position["entry_date"]
 
-    pnl = (exit_price - entry_price) * shares
-    pnl_pct = (exit_price - entry_price) / entry_price if entry_price > 0 else 0.0
+    gross_pnl = (exit_price - entry_price) * shares
+    total_tx_costs = entry_tx_cost + exit_tx_cost
+    pnl = gross_pnl - total_tx_costs
+    # pnl_pct based on gross cost basis (entry_price * shares) for comparability
+    cost_basis = entry_price * shares
+    pnl_pct = pnl / cost_basis if cost_basis > 0 else 0.0
 
     try:
         d1 = datetime.strptime(entry_date, "%Y-%m-%d")

@@ -3,6 +3,26 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+# ---------------------------------------------------------------------------
+# SIG-04: Asset-type transaction cost defaults (02-RESEARCH.md Q5)
+# Equity: 10 bps per side (freqtrade default; matches IBKR Pro + spread)
+# Crypto: 25 bps per side (Coinbase Advanced 60 bps midpoint with liquid spread)
+# Applied at BOTH entry AND exit (round-trip = 2 × per-side cost).
+# ---------------------------------------------------------------------------
+COST_PER_TRADE_EQUITY: float = 0.001    # 10 bps per side
+COST_PER_TRADE_CRYPTO: float = 0.0025   # 25 bps per side
+
+
+def default_cost_per_trade(asset_type: str) -> float:
+    """Return the default round-trip-cost-per-side for the given asset type.
+
+    Applied at entry AND exit, so the round-trip total is 2 * this value.
+    Crypto includes BTC, ETH, and any dash-suffixed pairs (BTC-USD, ETH-USD).
+    """
+    if asset_type.lower() in ("crypto", "btc", "eth", "btc-usd", "eth-usd"):
+        return COST_PER_TRADE_CRYPTO
+    return COST_PER_TRADE_EQUITY
+
 
 @dataclass
 class BacktestConfig:
@@ -20,6 +40,7 @@ class BacktestConfig:
     take_profit_pct: float | None = 0.20     # 20% take profit
     buy_threshold: float = 0.30              # aggregator buy threshold
     sell_threshold: float = -0.30            # aggregator sell threshold
+    cost_per_trade: float | None = None      # SIG-04: None → asset-type default
 
 
 @dataclass
@@ -49,3 +70,4 @@ class BacktestResult:
     metrics: dict = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
     agent_signals_log: list[dict] = field(default_factory=list)  # [{"date": ..., "signal": ..., "confidence": ...}, ...]
+    walk_forward_windows: list[dict] = field(default_factory=list)  # SIG-05: per-window metrics (empty for non-walk-forward runs)
