@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Roadmap written, STATE.md initialized, REQUIREMENTS.md traceability table updated.
-last_updated: "2026-04-21T09:01:50.765Z"
-last_activity: 2026-04-21 -- Phase 1 execution started
+stopped_at: Completed 01-01-PLAN.md (batch download + parquet cache)
+last_updated: "2026-04-21T09:13:31.758Z"
+last_activity: 2026-04-21
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 3
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 33
 ---
 
 # Project State
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-04-21)
 ## Current Position
 
 Phase: 1 (Foundation Hardening) — EXECUTING
-Plan: 1 of 3
-Status: Executing Phase 1
-Last activity: 2026-04-21 -- Phase 1 execution started
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-04-21
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -52,6 +52,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: —
 
 *Updated after each plan completion*
+| Phase 01 P01 | 502 | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -63,6 +64,9 @@ Recent decisions affecting current work:
 - Roadmap: 4-phase coarse structure validated against SUMMARY.md dependency chain. No deviation from research recommendation.
 - Roadmap: Phase 2 and Phase 4 flagged for `/gsd-research-phase` before planning (walk-forward window sizing; chart library decision).
 - Roadmap: DATA-04 and DATA-05 (structured logs, PID file, localhost binding) placed in Phase 3 rather than Phase 1 — they are observability/hardening features but depend on the Phase 1 `job_run_log` table being in place first (DATA-04 reads from it).
+- [Phase 01]: _yfinance_lock preserved for Ticker.info paths; batch download bypasses lock safely via yf.download list+threads=True
+- [Phase 01]: ParquetOHLCVCache is synchronous (not async) — file I/O for OHLCV is fast and keeps the API simple
+- [Phase 01]: parquet_cache=None default ensures CachedProvider is 100% backward-compatible with all existing callers
 
 ### Pending Todos
 
@@ -77,6 +81,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21
-Stopped at: Roadmap written, STATE.md initialized, REQUIREMENTS.md traceability table updated.
+Last session: 2026-04-21T09:13:31.755Z
+Stopped at: Completed 01-01-PLAN.md (batch download + parquet cache)
 Resume file: None
