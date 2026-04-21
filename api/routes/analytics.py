@@ -55,7 +55,19 @@ async def portfolio_risk(
     days: int = Query(90, ge=7, le=365),
     db_path: str = Depends(get_db_path),
 ):
-    """Portfolio risk metrics (volatility, Sharpe, drawdown, VaR)."""
+    """Portfolio risk metrics.
+
+    Returns historical-simulation VaR and CVaR at 95% and 99% confidence
+    (SIG-01, SIG-06) computed via QuantStats on the portfolio return series.
+
+    Fields: daily_volatility, annualized_volatility, sharpe_ratio, sortino_ratio,
+    max_drawdown_pct, current_drawdown_pct, var_95, var_99, cvar_95, cvar_99,
+    portfolio_var, portfolio_var_method, best_day_pct, worst_day_pct,
+    positive_days, negative_days, data_points.
+
+    When portfolio_snapshots < 10 rows in the window, var/cvar fields are null
+    and portfolio_var_method == "insufficient_data".
+    """
     analytics = PortfolioAnalytics(db_path)
     data = await analytics.get_portfolio_risk(days=days)
     return {"data": data, "warnings": []}
