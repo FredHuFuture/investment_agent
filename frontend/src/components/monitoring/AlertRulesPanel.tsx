@@ -79,8 +79,8 @@ export default function AlertRulesPanel() {
       resetForm();
       setShowForm(false);
       refetch();
-    } catch {
-      // silently handle — user can retry
+    } catch (err) {
+      window.alert(`Failed to create rule: ${String(err)}`);
     } finally {
       setFormLoading(false);
     }
@@ -90,8 +90,8 @@ export default function AlertRulesPanel() {
     try {
       await toggleAlertRule(rule.id, !rule.enabled);
       refetch();
-    } catch {
-      // silently handle
+    } catch (err) {
+      window.alert(`Failed to toggle rule: ${String(err)}`);
     }
   }
 
@@ -99,8 +99,8 @@ export default function AlertRulesPanel() {
     try {
       await deleteAlertRule(ruleId);
       refetch();
-    } catch {
-      // silently handle
+    } catch (err) {
+      window.alert(`Failed to delete rule: ${String(err)}`);
     }
   }
 
