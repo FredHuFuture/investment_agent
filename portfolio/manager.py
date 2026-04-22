@@ -6,7 +6,7 @@ from typing import Any, Iterable
 
 import aiosqlite
 
-from portfolio.models import Portfolio, Position
+from portfolio.models import Portfolio, Position, PositionStatus, validate_status_transition
 
 
 class PortfolioManager:
@@ -160,6 +160,10 @@ class PortfolioManager:
             if row is None:
                 raise ValueError(f"No open position found for ticker '{ticker}'.")
 
+            # UI-06 FSM guard: SELECT filter ensures current status is 'open',
+            # but validate_status_transition makes the guard explicit + testable.
+            validate_status_transition(PositionStatus.OPEN.value, PositionStatus.CLOSED.value)
+
             quantity = float(row[2])
             avg_cost = float(row[3])
             thesis_id = row[4]
@@ -219,6 +223,24 @@ class PortfolioManager:
                 "realized_pnl": realized_pnl,
                 "return_pct": (exit_price - avg_cost) / avg_cost if avg_cost > 0 else 0.0,
             }
+
+        return await self._with_conn(_op)
+
+    async def set_target_weight(self, ticker: str, target_weight: float | None) -> bool:
+        """UI-04: persist target_weight for an open position.
+
+        Caller should enforce 0.0<=value<=1.0 at API layer — this method does
+        not re-validate to keep DB layer focused.  Pass None to clear the field.
+        Returns True if an open position was updated, False if not found.
+        """
+        async def _op(conn: aiosqlite.Connection) -> bool:
+            cur = await conn.execute(
+                "UPDATE active_positions SET target_weight = ? "
+                "WHERE ticker = ? AND status = 'open'",
+                (target_weight, ticker),
+            )
+            await conn.commit()
+            return cur.rowcount > 0
 
         return await self._with_conn(_op)
 

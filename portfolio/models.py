@@ -2,7 +2,41 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from enum import Enum
 from typing import Any
+
+
+class PositionStatus(str, Enum):
+    """Lifecycle states for an active_positions row (UI-06 FSM).
+
+    Raw string values chosen for 100% back-compat with the existing
+    ``status TEXT`` column.  No 'reopened' state — per research Open Q#3,
+    re-entry after a close reuses 'open'.
+    """
+    OPEN = "open"
+    CLOSED = "closed"
+
+
+# UI-06 transition matrix. Explicitly dict-of-frozenset, not if-chains, so
+# future states can be added without restructuring.
+VALID_TRANSITIONS: dict[str, frozenset[str]] = {
+    PositionStatus.OPEN.value: frozenset({PositionStatus.CLOSED.value}),
+    PositionStatus.CLOSED.value: frozenset({PositionStatus.OPEN.value}),
+}
+
+
+def validate_status_transition(current: str, next_status: str) -> None:
+    """Raise ValueError on invalid PositionStatus transition.
+
+    Allowed: open→closed, closed→open (re-entry).
+    Denied: open→open, closed→closed (no-op transitions are always an error).
+    """
+    allowed = VALID_TRANSITIONS.get(current, frozenset())
+    if next_status not in allowed:
+        raise ValueError(
+            f"Invalid PositionStatus transition: {current!r} -> {next_status!r}. "
+            f"Allowed from {current!r}: {sorted(allowed)}"
+        )
 
 
 @dataclass
@@ -21,6 +55,8 @@ class Position:
     thesis_text: str | None = None
     target_price: float | None = None
     stop_loss: float | None = None
+    # UI-04: target allocation weight (0.0–1.0, nullable; enforced at API layer)
+    target_weight: float | None = None
     # Sprint 8: lifecycle fields
     status: str = "open"
     exit_price: float | None = None
@@ -84,6 +120,9 @@ class Position:
             pos.exit_date = row[15]
             pos.exit_reason = row[16]
             pos.realized_pnl = float(row[17]) if row[17] is not None else None
+        # UI-04: target_weight (index 18, appended after realized_pnl)
+        if len(row) > 18:
+            pos.target_weight = float(row[18]) if row[18] is not None else None
         return pos
 
     def to_dict(self) -> dict[str, Any]:
@@ -107,6 +146,7 @@ class Position:
             "unrealized_pnl": self.unrealized_pnl,
             "unrealized_pnl_pct": self.unrealized_pnl_pct,
             "holding_days": self.holding_days,
+            "target_weight": self.target_weight,
             "status": self.status,
             "exit_price": self.exit_price,
             "exit_date": self.exit_date,

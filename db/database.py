@@ -179,6 +179,51 @@ async def _migrate_ticker_unique_to_partial(conn: aiosqlite.Connection) -> None:
     )
 
 
+async def _seed_default_alert_rules(conn: aiosqlite.Connection) -> None:
+    """UI-03: seed the 5 hardcoded checker rule names into alert_rules so the
+    MonitoringPage rules panel exposes them with enable/disable toggles.
+
+    Idempotent: only inserts when the rule ``name`` is not already present.
+    DDL matches api/routes/alerts.py::_ALERT_RULES_DDL to stay compatible
+    with the lazy-create path there.
+    """
+    await conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS alert_rules (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          metric TEXT NOT NULL,
+          condition TEXT NOT NULL CHECK(condition IN ('gt','lt','eq')),
+          threshold REAL NOT NULL,
+          severity TEXT NOT NULL DEFAULT 'medium',
+          enabled INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+        """
+    )
+    # The 5 hardcoded checker types with their natural severity levels.
+    builtins = [
+        ("STOP_LOSS_HIT", "hardcoded", "eq", 0.0, "critical"),
+        ("TARGET_HIT", "hardcoded", "eq", 0.0, "low"),
+        ("TIME_OVERRUN", "hardcoded", "eq", 0.0, "medium"),
+        ("SIGNIFICANT_LOSS", "hardcoded", "eq", 0.0, "high"),
+        ("SIGNIFICANT_GAIN", "hardcoded", "eq", 0.0, "low"),
+    ]
+    for name, metric, condition, threshold, severity in builtins:
+        existing = await (
+            await conn.execute(
+                "SELECT 1 FROM alert_rules WHERE name = ? AND metric = 'hardcoded' LIMIT 1",
+                (name,),
+            )
+        ).fetchone()
+        if existing is None:
+            await conn.execute(
+                "INSERT INTO alert_rules (name, metric, condition, threshold, severity, enabled) "
+                "VALUES (?, ?, ?, ?, ?, 1)",
+                (name, metric, condition, threshold, severity),
+            )
+
+
 async def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
     """Initialize SQLite database and required schema.
 
@@ -593,6 +638,13 @@ async def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
 
         # Sprint 13.4: multi-portfolio support
         await _migrate_add_portfolios(conn)
+
+        # UI-04: target_weight column (additive, idempotent per FOUND-06 pattern)
+        await _ensure_column(conn, "active_positions", "target_weight", "REAL")
+
+        # UI-03: seed 5 hardcoded checker rule names into alert_rules so the
+        # MonitoringPage rules panel exposes them with enable/disable toggles.
+        await _seed_default_alert_rules(conn)
 
         await conn.commit()
 

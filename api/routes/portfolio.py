@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends
 from api.deps import get_db_path, map_ticker, resolve_asset_type
 from pydantic import BaseModel
 from api.models import AddPositionRequest, BulkImportRequest, ClosePositionRequest, ScaleRequest, SetCashRequest, SplitRequest, ThesisResponse, UpdateThesisRequest
+from pydantic import Field
 from data_providers.factory import get_provider
 from portfolio.manager import PortfolioManager
 
@@ -242,6 +243,42 @@ async def update_thesis(ticker: str, body: UpdateThesisRequest, db_path: str = D
             content={"error": {"code": "NOT_FOUND", "message": str(exc), "detail": None}},
         )
     return {"data": result, "warnings": []}
+
+
+class SetTargetWeightBody(BaseModel):
+    """UI-04: request body for PATCH /positions/{ticker}/target-weight."""
+    target_weight: float | None = Field(default=None, ge=0.0, le=1.0)
+
+
+@router.patch("/positions/{ticker}/target-weight")
+async def set_position_target_weight(
+    ticker: str,
+    body: SetTargetWeightBody,
+    db_path: str = Depends(get_db_path),
+):
+    """UI-04: set target allocation weight for a position.
+
+    Pass target_weight=null to clear. Range 0.0-1.0 enforced by Pydantic.
+    Returns 404 if no open position found for the ticker.
+    """
+    pm = PortfolioManager(db_path)
+    updated = await pm.set_target_weight(ticker.upper(), body.target_weight)
+    if not updated:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": {
+                    "code": "NOT_FOUND",
+                    "message": f"No open position found for ticker '{ticker.upper()}'",
+                    "detail": None,
+                }
+            },
+        )
+    return {
+        "data": {"ticker": ticker.upper(), "target_weight": body.target_weight},
+        "warnings": [],
+    }
 
 
 @router.get("/sector/{sector}")
