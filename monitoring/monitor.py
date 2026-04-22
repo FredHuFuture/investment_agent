@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timezone
 from typing import Any
 
@@ -12,6 +13,27 @@ from monitoring.checker import check_position
 from monitoring.models import Alert
 from monitoring.store import AlertStore
 from portfolio.manager import PortfolioManager
+
+_logger = logging.getLogger("investment_agent.monitor")
+
+
+async def _load_enabled_rules(conn: aiosqlite.Connection) -> set[str] | None:
+    """UI-03: query alert_rules.enabled for hardcoded rule types.
+
+    Returns None when the alert_rules table does not exist (fresh DB before
+    init_db seeding) — backward-compat, all rules will fire.
+    Returns a set of rule names otherwise (may be empty if all disabled).
+    """
+    try:
+        rows = await (
+            await conn.execute(
+                "SELECT name FROM alert_rules WHERE metric = 'hardcoded' AND enabled = 1"
+            )
+        ).fetchall()
+        return {row[0] for row in rows}
+    except aiosqlite.OperationalError:
+        # Table does not exist — backward-compat: return None so all rules fire
+        return None
 
 # Crypto ticker mapping: bare symbols -> yfinance format.
 # Without this, "BTC" resolves to Grayscale Bitcoin Mini Trust ETF (~$31)
@@ -48,6 +70,17 @@ class PortfolioMonitor:
         async with aiosqlite.connect(self._db_path) as conn:
             await conn.execute("PRAGMA foreign_keys=ON;")
 
+            # UI-03: load enabled hardcoded rule types from alert_rules table.
+            # None = table missing (backward-compat, all rules fire).
+            # Empty set = user disabled everything.
+            enabled_rule_types = await _load_enabled_rules(conn)
+            if enabled_rule_types is None:
+                _logger.info(
+                    "alert_rules table missing; all hardcoded rules enabled (backward-compat)"
+                )
+            else:
+                _logger.info("Enabled hardcoded alert types: %s", sorted(enabled_rule_types))
+
             for position in portfolio.positions:
                 # Fetch current price
                 try:
@@ -83,7 +116,8 @@ class PortfolioMonitor:
                         )
 
                 position_alerts = check_position(
-                    position, current_price, expected_stop_loss, expected_target_price
+                    position, current_price, expected_stop_loss, expected_target_price,
+                    enabled_rule_types=enabled_rule_types,
                 )
                 all_alerts.extend(position_alerts)
                 checked_positions += 1

@@ -16,6 +16,7 @@ def check_position(
     current_price: float,
     expected_stop_loss: float | None = None,
     expected_target_price: float | None = None,
+    enabled_rule_types: set[str] | None = None,
 ) -> list[Alert]:
     """Check a single position against all exit trigger rules.
 
@@ -26,7 +27,14 @@ def check_position(
         current_price: Latest market price.
         expected_stop_loss: Stop loss from original thesis (if any).
         expected_target_price: Target price from original thesis (if any).
+        enabled_rule_types: None = all rules enabled (backward-compat).
+            Set = only rule names in the set will fire. Used by
+            PortfolioMonitor to honor alert_rules.enabled toggles (UI-03).
     """
+
+    def _enabled(name: str) -> bool:
+        return enabled_rule_types is None or name in enabled_rule_types
+
     alerts: list[Alert] = []
 
     raw_pnl_pct = (
@@ -42,7 +50,7 @@ def check_position(
     target_hit = False
 
     # 1. STOP_LOSS_HIT (CRITICAL)
-    if expected_stop_loss is not None and current_price <= expected_stop_loss:
+    if _enabled("STOP_LOSS_HIT") and expected_stop_loss is not None and current_price <= expected_stop_loss:
         stop_loss_hit = True
         alerts.append(Alert(
             ticker=position.ticker,
@@ -58,7 +66,7 @@ def check_position(
         ))
 
     # 2. TARGET_HIT (INFO)
-    if expected_target_price is not None and current_price >= expected_target_price:
+    if _enabled("TARGET_HIT") and expected_target_price is not None and current_price >= expected_target_price:
         target_hit = True
         alerts.append(Alert(
             ticker=position.ticker,
@@ -74,25 +82,26 @@ def check_position(
         ))
 
     # 3. TIME_OVERRUN (WARNING)
-    expected_hold = position.expected_hold_days or DEFAULT_HOLD_DAYS_FALLBACK
-    threshold = max(expected_hold * TIME_OVERRUN_MULTIPLIER, TIME_OVERRUN_MINIMUM_FLOOR)
-    if position.holding_days > threshold:
-        multiplier = position.holding_days / expected_hold if expected_hold > 0 else 0.0
-        alerts.append(Alert(
-            ticker=position.ticker,
-            alert_type="TIME_OVERRUN",
-            severity="WARNING",
-            message=(
-                f"{position.ticker} held {position.holding_days}d vs {expected_hold}d expected "
-                f"({multiplier:.1f}x overrun)"
-            ),
-            recommended_action="Review: is the original thesis still intact?",
-            current_price=current_price,
-            trigger_price=None,
-        ))
+    if _enabled("TIME_OVERRUN"):
+        expected_hold = position.expected_hold_days or DEFAULT_HOLD_DAYS_FALLBACK
+        threshold = max(expected_hold * TIME_OVERRUN_MULTIPLIER, TIME_OVERRUN_MINIMUM_FLOOR)
+        if position.holding_days > threshold:
+            multiplier = position.holding_days / expected_hold if expected_hold > 0 else 0.0
+            alerts.append(Alert(
+                ticker=position.ticker,
+                alert_type="TIME_OVERRUN",
+                severity="WARNING",
+                message=(
+                    f"{position.ticker} held {position.holding_days}d vs {expected_hold}d expected "
+                    f"({multiplier:.1f}x overrun)"
+                ),
+                recommended_action="Review: is the original thesis still intact?",
+                current_price=current_price,
+                trigger_price=None,
+            ))
 
     # 4. SIGNIFICANT_LOSS (HIGH) — skip if STOP_LOSS_HIT already fired
-    if not stop_loss_hit and unrealized_pnl_pct < SIGNIFICANT_LOSS_THRESHOLD:
+    if _enabled("SIGNIFICANT_LOSS") and not stop_loss_hit and unrealized_pnl_pct < SIGNIFICANT_LOSS_THRESHOLD:
         alerts.append(Alert(
             ticker=position.ticker,
             alert_type="SIGNIFICANT_LOSS",
@@ -107,7 +116,7 @@ def check_position(
         ))
 
     # 5. SIGNIFICANT_GAIN (INFO) — skip if TARGET_HIT already fired
-    if not target_hit and unrealized_pnl_pct > SIGNIFICANT_GAIN_THRESHOLD:
+    if _enabled("SIGNIFICANT_GAIN") and not target_hit and unrealized_pnl_pct > SIGNIFICANT_GAIN_THRESHOLD:
         alerts.append(Alert(
             ticker=position.ticker,
             alert_type="SIGNIFICANT_GAIN",
