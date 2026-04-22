@@ -150,7 +150,7 @@ class PortfolioManager:
                 await conn.execute(
                     """
                     SELECT ticker, asset_type, quantity, avg_cost,
-                           original_analysis_id, entry_date
+                           original_analysis_id, entry_date, status
                     FROM active_positions
                     WHERE ticker = ? AND status = 'open'
                     """,
@@ -160,9 +160,11 @@ class PortfolioManager:
             if row is None:
                 raise ValueError(f"No open position found for ticker '{ticker}'.")
 
-            # UI-06 FSM guard: SELECT filter ensures current status is 'open',
-            # but validate_status_transition makes the guard explicit + testable.
-            validate_status_transition(PositionStatus.OPEN.value, PositionStatus.CLOSED.value)
+            # UI-06 FSM guard: read actual status from DB row so the guard is
+            # genuinely defensive against data inconsistencies, not just a
+            # documentation comment (WR-02 fix).
+            current_status = str(row[6])
+            validate_status_transition(current_status, PositionStatus.CLOSED.value)
 
             quantity = float(row[2])
             avg_cost = float(row[3])
