@@ -38,12 +38,14 @@ class MonitoringDaemon:
         self._shutdown_event: asyncio.Event | None = None
 
     def _setup_logging(self) -> logging.Logger:
-        """Configure file + console logging.
+        """Configure file + console logging with JSON formatting (DATA-04).
 
-        File: RotatingFileHandler (5 MB, 3 backups)
+        File: RotatingFileHandler (5 MB, 3 backups) -- structure preserved
         Console: stderr
-        Format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+        Format: JSON (JsonFormatter from api.log_format -- stdlib only, no new deps)
         """
+        from api.log_format import JsonFormatter
+
         logger = logging.getLogger("investment_daemon")
         level = getattr(logging, self._config.log_level.upper(), logging.INFO)
         logger.setLevel(level)
@@ -52,7 +54,7 @@ class MonitoringDaemon:
         if logger.handlers:
             return logger
 
-        fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+        fmt = JsonFormatter()
 
         # File handler (rotating)
         log_dir = os.path.dirname(self._config.log_file)
