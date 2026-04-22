@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-02-PLAN.md (FSM + target_weight + daemon wiring + LLM synthesis)
-last_updated: "2026-04-22T07:19:54.764Z"
+stopped_at: "Completed 04-03-PLAN.md (Frontend Performance Components: TtwrorMetricCard + BenchmarkSelector + DailyPnlHeatmap)"
+last_updated: "2026-04-22T07:33:08.180Z"
 last_activity: 2026-04-22
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 14
-  completed_plans: 12
-  percent: 86
+  completed_plans: 13
+  percent: 93
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-21)
 ## Current Position
 
 Phase: 4 (Portfolio UI + Analytics Uplift) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Ready to execute
 Last activity: 2026-04-22
 
@@ -66,6 +66,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 03-data-coverage-expansion P03-03 | 376 | 2 tasks | 4 files |
 | Phase 04 P01 | 2475 | 2 tasks | 5 files |
 | Phase 04 P02 | 1882 | 3 tasks | 9 files |
+| Phase 04 P03 | 509 | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -113,6 +114,8 @@ Recent decisions affecting current work:
 - [Phase 04]: PositionStatus uses open+closed only (no 'reopened' state) per research Open Q#3 — re-entry reuses 'open'
 - [Phase 04]: backtest_mode short-circuit is FIRST check in run_llm_synthesis — prevents ~2.78/ticker API cost on 3yr backtests (FOUND-04)
 - [Phase 04]: enabled_rule_types=None is backward-compat sentinel for alert_rules daemon wiring — all rules fire when table missing
+- [Phase 04]: DailyPnlHeatmap uses template-literal data-testid (daily-pnl-cell-${date}) — dynamic JSX expression; DOM attribute correct as validated by 7 Vitest tests
+- [Phase 04]: getBenchmarkComparison tightened to BenchmarkSymbol param — compile-time SSRF protection at call sites (defense in depth beyond backend allowlist)
 
 ### Pending Todos
 
@@ -127,6 +130,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T07:19:54.761Z
-Stopped at: Completed 04-02-PLAN.md (FSM + target_weight + daemon wiring + LLM synthesis)
+Last session: 2026-04-22T07:33:08.176Z
+Stopped at: Completed 04-03-PLAN.md (Frontend Performance Components: TtwrorMetricCard + BenchmarkSelector + DailyPnlHeatmap)
 Resume file: None
