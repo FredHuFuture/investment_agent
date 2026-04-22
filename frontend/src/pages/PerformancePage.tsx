@@ -7,6 +7,8 @@ import {
   getTopPerformers,
   getBenchmarkComparison,
   getCumulativePnl,
+  getReturns,
+  getDailyPnl,
 } from "../api/endpoints";
 import type {
   ValueHistoryPoint,
@@ -15,7 +17,13 @@ import type {
   TopPerformers,
   BenchmarkComparison,
   CumulativePnlPoint,
+  ReturnsResponse,
+  DailyPnlPoint,
+  BenchmarkSymbol,
 } from "../api/types";
+import TtwrorMetricCard from "../components/performance/TtwrorMetricCard";
+import BenchmarkSelector from "../components/performance/BenchmarkSelector";
+import DailyPnlHeatmap from "../components/performance/DailyPnlHeatmap";
 import MetricCard from "../components/shared/MetricCard";
 import { Card, CardHeader, CardBody } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
@@ -50,6 +58,7 @@ import {
 export default function PerformancePage() {
   usePageTitle("Performance");
   const [monthlyMode, setMonthlyMode] = useState<"dollar" | "percent">("dollar");
+  const [benchmark, setBenchmark] = useState<BenchmarkSymbol>("SPY");
 
   const valueHistory = useApi<ValueHistoryPoint[]>(
     () => getValueHistory(90),
@@ -68,12 +77,21 @@ export default function PerformancePage() {
     { cacheKey: "perf:topPerformers", ttlMs: 120_000 },
   );
   const benchmarkApi = useApi<BenchmarkComparison>(
-    () => getBenchmarkComparison(90),
-    { cacheKey: "perf:benchmark", ttlMs: 120_000 },
+    () => getBenchmarkComparison(90, benchmark),
+    [benchmark],
+    { cacheKey: `perf:benchmark:${benchmark}`, ttlMs: 120_000 },
   );
   const cumulativePnlApi = useApi<CumulativePnlPoint[]>(
     () => getCumulativePnl(),
     { cacheKey: "perf:cumulativePnl", ttlMs: 120_000 },
+  );
+  const returnsApi = useApi<ReturnsResponse>(
+    () => getReturns(365),
+    { cacheKey: "perf:returns", ttlMs: 60_000 },
+  );
+  const dailyPnlApi = useApi<DailyPnlPoint[]>(
+    () => getDailyPnl(365),
+    { cacheKey: "perf:dailyPnl", ttlMs: 60_000 },
   );
 
   function refetchAll() {
@@ -83,6 +101,8 @@ export default function PerformancePage() {
     topPerformers.refetch();
     benchmarkApi.refetch();
     cumulativePnlApi.refetch();
+    returnsApi.refetch();
+    dailyPnlApi.refetch();
   }
 
   const loading =
@@ -102,6 +122,8 @@ export default function PerformancePage() {
     ...topPerformers.warnings,
     ...benchmarkApi.warnings,
     ...cumulativePnlApi.warnings,
+    ...returnsApi.warnings,
+    ...dailyPnlApi.warnings,
   ];
 
   if (loading)
@@ -135,6 +157,13 @@ export default function PerformancePage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-white">Performance</h1>
       <WarningsBanner warnings={warnings} />
+
+      {/* TTWROR + IRR card (UI-01) */}
+      <TtwrorMetricCard
+        data={returnsApi.data}
+        loading={returnsApi.loading}
+        error={returnsApi.error}
+      />
 
       {/* Key metric cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -279,8 +308,9 @@ export default function PerformancePage() {
       {benchmarkApi.data && benchmarkApi.data.series.length > 0 && (
         <Card>
           <CardHeader
-            title={`Portfolio vs ${benchmarkApi.data.benchmark_ticker}`}
+            title={`Portfolio vs ${benchmark}`}
             subtitle="Indexed to 100 at start"
+            action={<BenchmarkSelector value={benchmark} onChange={setBenchmark} />}
           />
           <CardBody>
             <ResponsiveContainer width="100%" height={280}>
@@ -378,6 +408,9 @@ export default function PerformancePage() {
           )}
         </CardBody>
       </Card>
+
+      {/* Daily P&L Heatmap (UI-05) */}
+      <DailyPnlHeatmap data={dailyPnlApi.data ?? []} />
 
       {/* Drawdown & Rolling Sharpe */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

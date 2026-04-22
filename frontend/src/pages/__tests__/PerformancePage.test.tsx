@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import React from "react";
 import { ToastProvider } from "../../contexts/ToastContext";
@@ -41,6 +42,10 @@ vi.mock("../../api/endpoints", () => ({
   getPerformanceAttribution: vi.fn(),
   compareSnapshots: vi.fn(),
   getSectorPerformance: vi.fn(),
+  // Phase 04-03 additions
+  getReturns: vi.fn(),
+  getDailyPnl: vi.fn(),
+  BENCHMARK_OPTIONS: ["SPY", "QQQ", "TLT", "GLD", "BTC-USD"] as const,
 }));
 
 import {
@@ -56,6 +61,8 @@ import {
   getPerformanceAttribution,
   compareSnapshots,
   getSectorPerformance,
+  getReturns,
+  getDailyPnl,
 } from "../../api/endpoints";
 import { invalidateCache } from "../../lib/cache";
 import PerformancePage from "../PerformancePage";
@@ -72,6 +79,8 @@ const mockGetMonthlyHeatmap = vi.mocked(getMonthlyHeatmap);
 const mockGetPerformanceAttribution = vi.mocked(getPerformanceAttribution);
 const mockCompareSnapshots = vi.mocked(compareSnapshots);
 const mockGetSectorPerformance = vi.mocked(getSectorPerformance);
+const mockGetReturns = vi.mocked(getReturns);
+const mockGetDailyPnl = vi.mocked(getDailyPnl);
 
 const mockPerformanceSummary = {
   total_realized_pnl: 5000,
@@ -108,7 +117,8 @@ function mockAllApis() {
       portfolio_return_pct: 12.5,
       benchmark_return_pct: 8.2,
       alpha_pct: 4.3,
-      series: [],
+      data_points: 1,
+      series: [{ date: "2026-01-01", portfolio_indexed: 100, benchmark_indexed: 100 }],
     } as never,
     warnings: [],
   });
@@ -147,6 +157,21 @@ function mockAllApis() {
     } as never,
     warnings: [],
   });
+  mockGetReturns.mockResolvedValue({
+    data: {
+      aggregate: {
+        ttwror: 12.34,
+        irr: 9.87,
+        snapshot_count: 45,
+        start_value: 100000,
+        end_value: 112340,
+        window_days: 365,
+      },
+      positions: [],
+    } as never,
+    warnings: [],
+  });
+  mockGetDailyPnl.mockResolvedValue({ data: [] as never, warnings: [] });
 }
 
 function renderPage() {
@@ -178,6 +203,8 @@ describe("PerformancePage", () => {
     mockGetPerformanceAttribution.mockReturnValue(new Promise(() => {}));
     mockGetSectorPerformance.mockReturnValue(new Promise(() => {}));
     mockCompareSnapshots.mockReturnValue(new Promise(() => {}));
+    mockGetReturns.mockReturnValue(new Promise(() => {}));
+    mockGetDailyPnl.mockReturnValue(new Promise(() => {}));
     renderPage();
     const skeletons = document.querySelectorAll(".animate-pulse");
     expect(skeletons.length).toBeGreaterThan(0);
@@ -196,6 +223,8 @@ describe("PerformancePage", () => {
     mockGetPerformanceAttribution.mockRejectedValue(new Error("Server unavailable"));
     mockGetSectorPerformance.mockRejectedValue(new Error("Server unavailable"));
     mockCompareSnapshots.mockRejectedValue(new Error("Server unavailable"));
+    mockGetReturns.mockRejectedValue(new Error("Server unavailable"));
+    mockGetDailyPnl.mockRejectedValue(new Error("Server unavailable"));
     renderPage();
     await waitFor(() => {
       expect(screen.getByText("Server unavailable")).toBeInTheDocument();
@@ -308,5 +337,59 @@ describe("PerformancePage", () => {
       expect(screen.getByText("Sector Performance")).toBeInTheDocument();
     });
     expect(screen.getAllByText("Technology").length).toBeGreaterThan(0);
+  });
+
+  // Phase 04-03: UI-01 TTWROR card
+  it("displays TTWROR value from getReturns API", async () => {
+    mockAllApis();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId("ttwror-value")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("ttwror-value")).toHaveTextContent("+12.34%");
+  });
+
+  it("displays IRR value from getReturns API", async () => {
+    mockAllApis();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId("irr-value")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("irr-value")).toHaveTextContent("+9.87%");
+  });
+
+  // Phase 04-03: UI-02 BenchmarkSelector
+  it("renders BenchmarkSelector dropdown with 5 options", async () => {
+    mockAllApis();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId("benchmark-selector")).toBeInTheDocument();
+    });
+    const select = screen.getByTestId("benchmark-selector") as HTMLSelectElement;
+    expect(Array.from(select.options).map((o) => o.value)).toEqual([
+      "SPY", "QQQ", "TLT", "GLD", "BTC-USD",
+    ]);
+  });
+
+  it("changing benchmark selector triggers getBenchmarkComparison with new ticker", async () => {
+    const user = userEvent.setup();
+    mockAllApis();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId("benchmark-selector")).toBeInTheDocument();
+    });
+    await user.selectOptions(screen.getByTestId("benchmark-selector"), "QQQ");
+    await waitFor(() => {
+      expect(mockGetBenchmarkComparison).toHaveBeenCalledWith(90, "QQQ");
+    });
+  });
+
+  // Phase 04-03: UI-05 DailyPnlHeatmap
+  it("renders DailyPnlHeatmap section", async () => {
+    mockAllApis();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Daily P&L Heatmap")).toBeInTheDocument();
+    });
   });
 });
