@@ -60,7 +60,7 @@ This milestone hardens an already-working brownfield system against the liabilit
   4. `GET /health` returns daemon last-run timestamps and per-job success/error counts drawn from `job_run_log` — verifiable by calling the endpoint and confirming the JSON schema matches the documented contract.
   5. The daemon process writes a PID file on startup and the API/daemon default bind address is `127.0.0.1`, not `0.0.0.0` — verifiable by inspecting the PID file after launch and confirming `netstat` shows localhost-only binding.
 **Plans**: 4 plans
-  - [ ] 03-01-PLAN.md — DATA-01 (Finnhub provider + FundamentalAgent sector P/E)
+  - [x] 03-01-PLAN.md — DATA-01 (Finnhub provider + FundamentalAgent sector P/E)
   - [ ] 03-02-PLAN.md — DATA-02 (FinBERT local sentiment fallback)
   - [ ] 03-03-PLAN.md — DATA-03 (SEC EDGAR Form 4 insider transactions; depends on 03-01)
   - [ ] 03-04-PLAN.md — DATA-04 + DATA-05 (structured JSON logs, GET /health, daemon PID, localhost bind)
@@ -88,5 +88,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Foundation Hardening | 3/3 | Complete    | 2026-04-21 |
 | 2. Signal Quality Upgrade | 3/3 | Complete    | 2026-04-21 |
-| 3. Data Coverage Expansion | 0/4 | Not started | - |
+| 3. Data Coverage Expansion | 1/4 | In Progress|  |
 | 4. Portfolio UI + Analytics Uplift | 0/TBD | Not started | - |
