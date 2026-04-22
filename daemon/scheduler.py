@@ -1,16 +1,24 @@
 """MonitoringDaemon -- APScheduler-driven long-running daemon."""
 from __future__ import annotations
 
+import atexit
 import asyncio
 import logging
 import logging.handlers
 import os
 import sys
+from pathlib import Path
 from typing import Any
 
 import aiosqlite
 
 from daemon.config import DaemonConfig
+from scripts.ensure_pid import (
+    DEFAULT_PID_PATH,
+    check_pid_file,
+    ensure_pid_file,
+    remove_pid_file,
+)
 from daemon.jobs import (
     run_catalyst_scan,
     run_daily_check,
@@ -36,6 +44,8 @@ class MonitoringDaemon:
         self._logger: logging.Logger | None = None
         self._scheduler = None
         self._shutdown_event: asyncio.Event | None = None
+        self._pid_file: Path = DEFAULT_PID_PATH
+        self._start_time: float | None = None
 
     def _setup_logging(self) -> logging.Logger:
         """Configure file + console logging with JSON formatting (DATA-04).
@@ -158,14 +168,30 @@ class MonitoringDaemon:
     async def start(self) -> None:
         """Start daemon (blocks until shutdown signal).
 
-        1. Setup logging
-        2. Initialize DB schema
-        3. Setup and start scheduler
-        4. Log schedule summary
-        5. Register signal handlers (POSIX only)
-        6. Wait on shutdown event
+        1. PID file reconciliation (DATA-05)
+        2. Setup logging
+        3. Initialize DB schema
+        4. Setup and start scheduler
+        5. Log schedule summary
+        6. Register signal handlers (POSIX only)
+        7. Wait on shutdown event
         """
         import signal as signal_module
+        import time as _time
+
+        # DATA-05: Reconcile stale PID file before anything else.
+        # Raises RuntimeError if another daemon is already running.
+        state, existing_pid = check_pid_file(self._pid_file)
+        if state == "ok":
+            raise RuntimeError(
+                f"Daemon already running (pid={existing_pid}); refusing to start"
+            )
+        if state == "stale":
+            remove_pid_file(self._pid_file)
+
+        ensure_pid_file(self._pid_file)
+        atexit.register(remove_pid_file, self._pid_file)
+        self._start_time = _time.monotonic()
 
         self._logger = self._setup_logging()
         self._logger.info("Investment monitoring daemon starting...")
@@ -219,6 +245,9 @@ class MonitoringDaemon:
             self._scheduler.shutdown(wait=False)
         if self._shutdown_event:
             self._shutdown_event.set()
+        # DATA-05: Remove PID file on graceful shutdown.
+        # atexit handler covers non-graceful exits (crashes, SIGKILL).
+        remove_pid_file(self._pid_file)
         if self._logger:
             self._logger.info("Monitoring daemon stopped.")
 

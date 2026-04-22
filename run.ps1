@@ -40,8 +40,12 @@ if ($Test) {
 }
 
 if ($Backend) {
-    Write-Host "Starting backend on http://localhost:8000 ..." -ForegroundColor Cyan
-    uvicorn api.app:app --port 8000 --reload
+    Write-Host "Starting backend on http://127.0.0.1:8000 ..." -ForegroundColor Cyan
+    # DATA-05: API default bind is 127.0.0.1 (localhost only). To expose on LAN,
+    # explicitly pass --host 0.0.0.0 here AND set a firewall rule. Portfolio data
+    # is readable by anyone who can reach the bound interface -- do not bind
+    # 0.0.0.0 on shared networks without authentication (v2 roadmap).
+    uvicorn api.app:app --host 127.0.0.1 --port 8000 --reload
     exit $LASTEXITCODE
 }
 
@@ -62,7 +66,8 @@ Write-Host ""
 
 $backendJob = Start-Job -ScriptBlock {
     Set-Location $using:ProjectRoot
-    uvicorn api.app:app --port 8000 --reload 2>&1
+    # DATA-05: bind to 127.0.0.1 (localhost only) -- see -Backend block for full note
+    uvicorn api.app:app --host 127.0.0.1 --port 8000 --reload 2>&1
 }
 
 $frontendJob = Start-Job -ScriptBlock {

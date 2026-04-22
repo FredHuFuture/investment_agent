@@ -12,7 +12,8 @@ seed:
 	python seed.py
 
 run-backend:
-	uvicorn api.app:app --port 8000 --reload
+	# DATA-05: bind to 127.0.0.1 (localhost only). To expose on LAN use --host 0.0.0.0.
+	uvicorn api.app:app --host 127.0.0.1 --port 8000 --reload
 
 run-frontend:
 	cd frontend && npm run dev
