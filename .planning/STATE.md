@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 03-01-PLAN.md (DATA-01 Finnhub sector P/E integration)
-last_updated: "2026-04-22T02:44:46.380Z"
+stopped_at: Completed 03-02-PLAN.md (DATA-02 FinBERT local sentiment fallback)
+last_updated: "2026-04-22T03:04:26.524Z"
 last_activity: 2026-04-22
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 10
-  completed_plans: 7
-  percent: 70
+  completed_plans: 8
+  percent: 80
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-21)
 ## Current Position
 
 Phase: 3 (Data Coverage Expansion) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-04-22
 
@@ -60,6 +60,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 02-signal-quality-upgrade P02 | 2400 | 3 tasks | 9 files |
 | Phase 02-signal-quality-upgrade P03 | 2400 | 3 tasks | 8 files |
 | Phase 03-data-coverage-expansion P01 | 395 | 2 tasks | 4 files |
+| Phase 03-data-coverage-expansion P02 | 420 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -92,6 +93,9 @@ Recent decisions affecting current work:
 - [Phase 03-data-coverage-expansion]: Peer-basket sector P/E derivation (5 proxy tickers/sector) for Finnhub — free tier has no sector-aggregate endpoint; median of N=5 resists single poisoned value
 - [Phase 03-data-coverage-expansion]: Sibling get_sector_pe_source() pattern keeps get_sector_pe_median() return type float|None backward-compatible while exposing source provenance for reasoning strings
 - [Phase 03-data-coverage-expansion]: Priority-1 Finnhub inside sector_pe_cache.py (not fundamental.py) — single integration point; yfinance ETF + static table remain as fallback tiers
+- [Phase 03-data-coverage-expansion]: [llm-local] added to [all] extra — give-me-everything intent includes local LLM; ~400 MB size noted in pyproject.toml comment
+- [Phase 03-data-coverage-expansion]: HOLD confidence fixed at 40.0 when below FinBERT threshold — matches plan spec and existing codebase HOLD@40 convention for insufficient data
+- [Phase 03-data-coverage-expansion]: _FINBERT_IMPORT_ATTEMPTED is process-level global (not instance) — import check happens once per process; pipeline cached on instance for resource lifecycle
 
 ### Pending Todos
 
@@ -106,6 +110,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T02:44:46.378Z
-Stopped at: Completed 03-01-PLAN.md (DATA-01 Finnhub sector P/E integration)
+Last session: 2026-04-22T03:04:26.521Z
+Stopped at: Completed 03-02-PLAN.md (DATA-02 FinBERT local sentiment fallback)
 Resume file: None
