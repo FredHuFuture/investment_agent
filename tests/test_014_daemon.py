@@ -348,3 +348,75 @@ async def test_catalyst_scan_no_positions_records_skipped(tmp_path: Path) -> Non
     assert row is not None
     assert row[0] == "catalyst_scan"
     assert row[1] == "skipped"
+
+
+# ---------------------------------------------------------------------------
+# 11. WR-03: MonitoringDaemon.start() passes min_age_seconds=300 to
+#     reconcile_aborted_jobs so that legitimately long-running jobs are not
+#     falsely aborted on daemon restart.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_daemon_start_reconcile_uses_300s_threshold(tmp_path: Path) -> None:
+    """MonitoringDaemon.start() must call reconcile_aborted_jobs(min_age_seconds=300).
+
+    Verifies that the WR-03 fix is in place: the start() call site passes
+    min_age_seconds=300 so jobs running up to 5 minutes are not falsely aborted
+    on daemon restart (aligns with /health STALE_RUNNING_SECONDS=300).
+    """
+    import asyncio
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from daemon.config import DaemonConfig
+    from daemon.scheduler import MonitoringDaemon
+
+    db_path = str(tmp_path / "test.db")
+    await init_db(db_path)
+
+    config = DaemonConfig(db_path=db_path)
+    daemon = MonitoringDaemon(config=config)
+
+    # Capture kwargs forwarded to reconcile_aborted_jobs
+    captured_kwargs: dict = {}
+
+    async def _fake_reconcile(db_path_arg: str, min_age_seconds: int = 5) -> int:
+        captured_kwargs["min_age_seconds"] = min_age_seconds
+        return 0
+
+    # Build a fake scheduler that satisfies scheduler.start() and scheduler.running
+    fake_scheduler = MagicMock()
+    fake_scheduler.running = False
+
+    # Shutdown event that resolves immediately so start() doesn't block
+    fake_event = MagicMock()
+    fake_event.wait = AsyncMock(return_value=None)
+
+    with (
+        patch("daemon.scheduler.check_pid_file", return_value=("missing", None)),
+        patch("daemon.scheduler.ensure_pid_file", return_value=99999),
+        patch("daemon.scheduler.remove_pid_file"),
+        patch("daemon.scheduler.atexit"),
+        patch("daemon.scheduler.init_db", new_callable=AsyncMock),
+        patch("daemon.scheduler.reconcile_aborted_jobs", side_effect=_fake_reconcile),
+    ):
+        # Inject fake scheduler before start() calls _setup_scheduler
+        def _fake_setup_scheduler() -> None:
+            daemon._scheduler = fake_scheduler
+
+        daemon._setup_scheduler = _fake_setup_scheduler  # type: ignore[method-assign]
+
+        # Inject fake shutdown event so start() returns after wait()
+        original_event_class = asyncio.Event
+
+        def _fake_event_ctor() -> MagicMock:
+            return fake_event
+
+        with patch("daemon.scheduler.asyncio.Event", side_effect=_fake_event_ctor):
+            await daemon.start()
+
+    assert "min_age_seconds" in captured_kwargs, (
+        "reconcile_aborted_jobs was not called during daemon.start()"
+    )
+    assert captured_kwargs["min_age_seconds"] == 300, (
+        f"Expected min_age_seconds=300 in start(), got {captured_kwargs['min_age_seconds']}"
+    )

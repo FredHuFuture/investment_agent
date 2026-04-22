@@ -200,8 +200,15 @@ class MonitoringDaemon:
         self._logger.info("Database initialized: %s", self._config.db_path)
 
         # FOUND-07: Reconcile any stale 'running' job_run_log rows to 'aborted'
-        # before starting the scheduler. A row is stale if it is older than 5s.
-        aborted_count = await reconcile_aborted_jobs(self._config.db_path)
+        # before starting the scheduler.  min_age_seconds=300 aligns with both
+        # the /health STALE_RUNNING_SECONDS threshold (300s) and the run_once()
+        # path (also 300s), preventing false-positive aborts of jobs that
+        # legitimately run for several minutes.  The reconcile_aborted_jobs
+        # default of 5s is intentionally kept for callers that want a tighter
+        # sweep; this call site overrides it explicitly (WR-03 fix).
+        aborted_count = await reconcile_aborted_jobs(
+            self._config.db_path, min_age_seconds=300
+        )
         if aborted_count > 0:
             self._logger.warning(
                 "Reconciled %d stale 'running' job(s) to 'aborted'", aborted_count
