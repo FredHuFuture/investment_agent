@@ -63,7 +63,7 @@ This milestone hardens an already-working brownfield system against the liabilit
   - [x] 03-01-PLAN.md — DATA-01 (Finnhub provider + FundamentalAgent sector P/E)
   - [x] 03-02-PLAN.md — DATA-02 (FinBERT local sentiment fallback)
   - [ ] 03-03-PLAN.md — DATA-03 (SEC EDGAR Form 4 insider transactions; depends on 03-01)
-  - [ ] 03-04-PLAN.md — DATA-04 + DATA-05 (structured JSON logs, GET /health, daemon PID, localhost bind)
+  - [x] 03-04-PLAN.md — DATA-04 + DATA-05 (structured JSON logs, GET /health, daemon PID, localhost bind)
 
 ### Phase 4: Portfolio UI + Analytics Uplift
 **Goal**: The dashboard matches table-stakes analytics from Ghostfolio and Portfolio Performance, with accurate return math, a legible daily P&L calendar, and the alert rules engine made visible and toggleable.
@@ -88,5 +88,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Foundation Hardening | 3/3 | Complete    | 2026-04-21 |
 | 2. Signal Quality Upgrade | 3/3 | Complete    | 2026-04-21 |
-| 3. Data Coverage Expansion | 2/4 | In Progress|  |
+| 3. Data Coverage Expansion | 3/4 | In Progress|  |
 | 4. Portfolio UI + Analytics Uplift | 0/TBD | Not started | - |
