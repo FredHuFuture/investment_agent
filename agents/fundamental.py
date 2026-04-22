@@ -110,13 +110,19 @@ class FundamentalAgent(BaseAgent):
                 metrics={**self._empty_metrics(), **metrics},
                 warnings=warnings,
             )
-        # Dynamic sector P/E median (async, cached 24h, fallback to static)
+        # Dynamic sector P/E median (async, cached 24h, prefers Finnhub when
+        # FINNHUB_API_KEY is set, falls back to yfinance ETF, then static table).
         sector_pe_median: float | None = None
+        sector_pe_source: str = "static"  # default; overwritten on success
         try:
-            from data_providers.sector_pe_cache import get_sector_pe_median
+            from data_providers.sector_pe_cache import (
+                get_sector_pe_median,
+                get_sector_pe_source,
+            )
             sector_pe_median = await get_sector_pe_median(
                 metrics.get("sector"), provider=self._provider,
             )
+            sector_pe_source = await get_sector_pe_source(metrics.get("sector"))
         except Exception:
             pass  # use static fallback inside _score_pe_trailing
 
@@ -144,7 +150,10 @@ class FundamentalAgent(BaseAgent):
             warnings.append(f"{missing_count}/8 core metrics missing — confidence slightly reduced.")
         confidence = max(30.0, min(90.0, confidence))
 
-        reasoning = self._build_reasoning(metrics, value_score, quality_score, growth_score)
+        reasoning = self._build_reasoning(
+            metrics, value_score, quality_score, growth_score,
+            sector_pe_source=sector_pe_source,
+        )
 
         metrics.update(
             {
@@ -378,6 +387,7 @@ class FundamentalAgent(BaseAgent):
         value_score: float,
         quality_score: float,
         growth_score: float,
+        sector_pe_source: str = "static",
     ) -> str:
         pe = metrics.get("pe_trailing")
         pb = metrics.get("pb_ratio")
@@ -409,7 +419,18 @@ class FundamentalAgent(BaseAgent):
         else:
             growth_desc += "."
 
-        return f"{value_desc} {quality_desc} {growth_desc} Non-PIT data -- fundamental metrics may reflect restated financials."
+        # Sector P/E source note — distinguishes live Finnhub data from static fallback.
+        _source_notes: dict[str, str] = {
+            "finnhub": "Finnhub sector P/E (live peer basket).",
+            "yfinance": "Sector P/E from yfinance ETF lookup.",
+            "static": "Sector P/E from static sector median.",
+        }
+        source_note = _source_notes.get(sector_pe_source, "Sector P/E from static sector median.")
+
+        return (
+            f"{value_desc} {quality_desc} {growth_desc} {source_note} "
+            "Non-PIT data -- fundamental metrics may reflect restated financials."
+        )
 
     def _empty_metrics(self) -> dict[str, Any]:
         return {
