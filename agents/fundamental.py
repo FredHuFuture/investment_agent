@@ -14,6 +14,12 @@ NON_PIT_WARNING = (
     "Do not use for backtesting without PIT adjustment."
 )
 
+# Minimum Form 4 transaction count required before the insider signal
+# influences the composite score or appears in the reasoning string.
+# Mirrors _MIN_TRANSACTIONS_FOR_SIGNAL in edgar_provider.py but kept
+# local so fundamental.py has no import-time dependency on that module.
+_MIN_TRANSACTIONS_FOR_REASONING = 3
+
 # Sector median P/E ratios for relative valuation.
 # Source: long-run averages; updated periodically.
 SECTOR_PE_MEDIANS: dict[str, float] = {
@@ -126,11 +132,44 @@ class FundamentalAgent(BaseAgent):
         except Exception:
             pass  # use static fallback inside _score_pe_trailing
 
+        # DATA-03: SEC EDGAR Form 4 insider transactions (Plan 03-03).
+        # Defensive secondary check — the early-return at line 50 already prevents
+        # reaching here in backtest_mode, but we double-guard as defence-in-depth.
+        insider_info: dict[str, Any] | None = None
+        insider_score: float = 0.0
+        if not agent_input.backtest_mode:
+            try:
+                from data_providers.edgar_provider import (
+                    EdgarProvider,
+                    _MIN_TRANSACTIONS_FOR_SIGNAL,
+                )
+                edgar = EdgarProvider()
+                insider_info = await edgar.get_insider_transactions(
+                    agent_input.ticker, since_days=90
+                )
+                if (
+                    insider_info is not None
+                    and insider_info.get("transaction_count", 0) >= _MIN_TRANSACTIONS_FOR_SIGNAL
+                ):
+                    ratio = insider_info.get("net_buy_ratio")
+                    if ratio is not None:
+                        if ratio > 0.70:
+                            insider_score = 0.10   # heavy insider buying — bullish tilt
+                        elif ratio < 0.30:
+                            insider_score = -0.10  # heavy insider selling — bearish tilt
+            except Exception as exc:
+                self._logger.info(
+                    "Edgar insider lookup failed for %s: %s", agent_input.ticker, exc
+                )
+
         value_score = self._compute_value_score(metrics, sector_pe_median=sector_pe_median)
         quality_score = self._compute_quality_score(metrics)
         growth_score = self._compute_growth_score(metrics)
 
         composite = value_score * 0.35 + quality_score * 0.35 + growth_score * 0.30
+        # DATA-03: Apply insider tilt AFTER the value/quality/growth weighted average.
+        # insider_score is in [-0.10, +0.10]; composite is on [-100, +100].
+        composite = _clamp(composite + insider_score * 100.0)
         signal, confidence = self._composite_to_signal(composite)
 
         # Penalise confidence when many core metrics are missing —
@@ -153,6 +192,7 @@ class FundamentalAgent(BaseAgent):
         reasoning = self._build_reasoning(
             metrics, value_score, quality_score, growth_score,
             sector_pe_source=sector_pe_source,
+            insider_info=insider_info,
         )
 
         metrics.update(
@@ -161,6 +201,8 @@ class FundamentalAgent(BaseAgent):
                 "quality_score": quality_score,
                 "growth_score": growth_score,
                 "composite_score": composite,
+                "insider_score": insider_score,
+                "insider_info": insider_info,
             }
         )
 
@@ -388,6 +430,7 @@ class FundamentalAgent(BaseAgent):
         quality_score: float,
         growth_score: float,
         sector_pe_source: str = "static",
+        insider_info: dict[str, Any] | None = None,
     ) -> str:
         pe = metrics.get("pe_trailing")
         pb = metrics.get("pb_ratio")
@@ -427,8 +470,35 @@ class FundamentalAgent(BaseAgent):
         }
         source_note = _source_notes.get(sector_pe_source, "Sector P/E from static sector median.")
 
+        # DATA-03: Insider flow sentence (Plan 03-03).
+        # Appended when >=3 Form 4 transactions are available in the trailing 90d window.
+        insider_sentence = ""
+        if (
+            insider_info is not None
+            and insider_info.get("transaction_count", 0) >= _MIN_TRANSACTIONS_FOR_REASONING
+        ):
+            ratio = insider_info.get("net_buy_ratio")
+            count = insider_info["transaction_count"]
+            period = insider_info.get("since_days", 90)
+            if ratio is not None:
+                if ratio > 0.70:
+                    insider_sentence = (
+                        f" Insider accumulation: {ratio:.0%} net buys over {period}d"
+                        f" (n={count}): bullish."
+                    )
+                elif ratio < 0.30:
+                    insider_sentence = (
+                        f" Insider distribution: {ratio:.0%} net buys over {period}d"
+                        f" (n={count}): bearish."
+                    )
+                else:
+                    insider_sentence = (
+                        f" Insider flow neutral: {ratio:.0%} net buys over {period}d"
+                        f" (n={count}): no signal."
+                    )
+
         return (
-            f"{value_desc} {quality_desc} {growth_desc} {source_note} "
+            f"{value_desc} {quality_desc} {growth_desc} {source_note}{insider_sentence} "
             "Non-PIT data -- fundamental metrics may reflect restated financials."
         )
 
