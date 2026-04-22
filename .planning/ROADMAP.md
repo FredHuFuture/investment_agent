@@ -12,7 +12,8 @@ This milestone hardens an already-working brownfield system against the liabilit
 
 - [x] **Phase 1: Foundation Hardening** - Fix the hardest-failing codebase liabilities before any new capability is layered on top
  (completed 2026-04-21)
-- [x] **Phase 2: Signal Quality Upgrade** - Deepen the thesis/drift moat with calibrated, measurable signal quality and rigorous backtesting (completed 2026-04-21)
+- [x] **Phase 2: Signal Quality Upgrade** - Deepen the thesis/drift moat with calibrated, measurable signal quality and rigorous backtesting
+ (completed 2026-04-21)
 - [ ] **Phase 3: Data Coverage Expansion** - Add free-tier providers and operator-observability so new data flows through a trusted pipeline
 - [ ] **Phase 4: Portfolio UI + Analytics Uplift** - Close the UI gap vs. Ghostfolio and Portfolio Performance with accurate performance math and legible dashboards
 
@@ -58,7 +59,11 @@ This milestone hardens an already-working brownfield system against the liabilit
   3. `FundamentalAgent` includes a Form 4 insider-transaction signal sourced from SEC EDGAR via `edgartools` — verifiable by inspecting `agent_output.reasoning` for an insider-transaction component on a ticker with recent Form 4 filings.
   4. `GET /health` returns daemon last-run timestamps and per-job success/error counts drawn from `job_run_log` — verifiable by calling the endpoint and confirming the JSON schema matches the documented contract.
   5. The daemon process writes a PID file on startup and the API/daemon default bind address is `127.0.0.1`, not `0.0.0.0` — verifiable by inspecting the PID file after launch and confirming `netstat` shows localhost-only binding.
-**Plans**: TBD
+**Plans**: 4 plans
+  - [ ] 03-01-PLAN.md — DATA-01 (Finnhub provider + FundamentalAgent sector P/E)
+  - [ ] 03-02-PLAN.md — DATA-02 (FinBERT local sentiment fallback)
+  - [ ] 03-03-PLAN.md — DATA-03 (SEC EDGAR Form 4 insider transactions; depends on 03-01)
+  - [ ] 03-04-PLAN.md — DATA-04 + DATA-05 (structured JSON logs, GET /health, daemon PID, localhost bind)
 
 ### Phase 4: Portfolio UI + Analytics Uplift
 **Goal**: The dashboard matches table-stakes analytics from Ghostfolio and Portfolio Performance, with accurate return math, a legible daily P&L calendar, and the alert rules engine made visible and toggleable.
@@ -83,5 +88,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Foundation Hardening | 3/3 | Complete    | 2026-04-21 |
 | 2. Signal Quality Upgrade | 3/3 | Complete    | 2026-04-21 |
-| 3. Data Coverage Expansion | 0/TBD | Not started | - |
+| 3. Data Coverage Expansion | 0/4 | Not started | - |
 | 4. Portfolio UI + Analytics Uplift | 0/TBD | Not started | - |
