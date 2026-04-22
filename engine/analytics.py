@@ -981,6 +981,64 @@ class PortfolioAnalytics:
             "positions": positions,
         }
 
+    async def get_daily_pnl_heatmap(self, days: int = 365) -> list[dict]:
+        """Daily P&L series for TradeNote-style calendar heatmap (UI-05).
+
+        Strategy: one row per calendar day = total_value(last snapshot on day D)
+            minus total_value(last snapshot on day D-1). Days with no snapshot
+            are omitted.
+
+        Returns: ``[{date: "YYYY-MM-DD", pnl: float}]`` ordered by date ASC.
+
+        Edge cases:
+            - Fewer than 2 distinct calendar days → empty list.
+            - Multiple snapshots on same day → last occurrence wins (daily close semantics).
+        """
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+
+        async with aiosqlite.connect(self._db_path) as conn:
+            rows = await (
+                await conn.execute(
+                    """
+                    SELECT timestamp, total_value
+                    FROM portfolio_snapshots
+                    WHERE timestamp >= ?
+                    ORDER BY timestamp ASC
+                    """,
+                    (cutoff,),
+                )
+            ).fetchall()
+
+        if len(rows) < 2:
+            return []
+
+        # Reduce to one value per calendar day: LAST snapshot of each day.
+        by_day: dict[str, float] = {}
+        for ts, val in rows:
+            if ts is None or val is None:
+                continue
+            try:
+                date_str = ts[:10]  # "YYYY-MM-DD..." — ISO prefix
+                by_day[date_str] = float(val)  # last occurrence wins
+            except (ValueError, TypeError):
+                continue
+
+        dates = sorted(by_day.keys())
+        if len(dates) < 2:
+            return []
+
+        result: list[dict] = []
+        for i in range(1, len(dates)):
+            prev_val = by_day[dates[i - 1]]
+            curr_val = by_day[dates[i]]
+            result.append(
+                {
+                    "date": dates[i],
+                    "pnl": round(curr_val - prev_val, 2),
+                }
+            )
+        return result
+
     async def get_position_pnl_history(self, ticker: str) -> list[dict]:
         """Daily P&L history for a specific position using price snapshots.
 

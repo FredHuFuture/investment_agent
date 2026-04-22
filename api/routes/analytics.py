@@ -7,7 +7,7 @@ import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.deps import get_db_path
-from engine.analytics import PortfolioAnalytics
+from engine.analytics import VALID_BENCHMARKS, PortfolioAnalytics
 
 router = APIRouter()
 
@@ -79,16 +79,66 @@ async def benchmark_comparison(
     benchmark: str = Query("SPY"),
     db_path: str = Depends(get_db_path),
 ):
-    """Compare portfolio performance against a benchmark (e.g., SPY)."""
+    """Compare portfolio performance against a benchmark (e.g., SPY).
+
+    UI-02 SSRF mitigation (Threat T-04-03): ``benchmark`` must be in
+    ``VALID_BENCHMARKS`` allowlist. Free-form tickers are rejected with
+    HTTP 400 before the value reaches the yfinance provider.
+    """
     from data_providers.factory import get_provider
+
+    ticker = benchmark.upper().strip()
+    if ticker not in VALID_BENCHMARKS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Unknown benchmark: {ticker}. "
+                f"Allowed: {', '.join(sorted(VALID_BENCHMARKS))}"
+            ),
+        )
 
     analytics = PortfolioAnalytics(db_path)
     provider = get_provider()
     data = await analytics.get_benchmark_comparison(
         provider=provider,
-        benchmark_ticker=benchmark.upper(),
+        benchmark_ticker=ticker,
         days=days,
     )
+    return {"data": data, "warnings": []}
+
+
+@router.get("/returns")
+async def returns_ttwror_irr(
+    days: int = Query(365, ge=7, le=1825),
+    db_path: str = Depends(get_db_path),
+):
+    """UI-01: TTWROR + IRR aggregate and per-position breakdown.
+
+    Returns {data: {aggregate: {ttwror, irr, snapshot_count, ...},
+                    positions: [{ticker, ttwror, irr, hold_days, ...}]},
+             warnings: []}.
+
+    When fewer than 2 portfolio_snapshots exist in the window, aggregate
+    fields are null and the frontend should display "--".
+    """
+    analytics = PortfolioAnalytics(db_path)
+    data = await analytics.get_ttwror_irr(days=days)
+    return {"data": data, "warnings": []}
+
+
+@router.get("/daily-pnl")
+async def daily_pnl(
+    days: int = Query(365, ge=7, le=1825),
+    db_path: str = Depends(get_db_path),
+):
+    """UI-05: daily P&L series for TradeNote-style calendar heatmap.
+
+    Returns {data: [{date: "YYYY-MM-DD", pnl: float}], warnings: []}.
+    Uses last-of-day snapshot semantics (daily close value).
+    Empty list when fewer than 2 distinct calendar days exist in the window.
+    """
+    analytics = PortfolioAnalytics(db_path)
+    data = await analytics.get_daily_pnl_heatmap(days=days)
     return {"data": data, "warnings": []}
 
 
