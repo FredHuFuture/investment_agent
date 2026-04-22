@@ -10,6 +10,97 @@ from pathlib import Path
 import aiosqlite
 import pandas as pd
 
+# ---------------------------------------------------------------------------
+# UI-02 SSRF mitigation (Threat T-04-03): benchmark ticker must be in this allowlist.
+# Do NOT accept free-form ticker input — yfinance will happily dereference arbitrary
+# strings, leaking server-side requests to attacker-controlled endpoints.
+# ---------------------------------------------------------------------------
+VALID_BENCHMARKS: frozenset[str] = frozenset({"SPY", "QQQ", "TLT", "GLD", "BTC-USD"})
+
+
+def compute_ttwror(values: list[float]) -> float:
+    """True Time-Weighted Return via geometric linking of sub-period returns.
+
+    Args:
+        values: ordered list of portfolio or position market values.
+
+    Returns:
+        TTWROR as decimal (0.10 = 10%). 0.0 when fewer than 2 values.
+
+    Edge cases:
+        - Any ``prev <= 0`` or ``prev is None`` sub-period is skipped
+          (no ZeroDivisionError).
+        - Any ``None`` current value sub-period is skipped.
+    """
+    if len(values) < 2:
+        return 0.0
+    linked = 1.0
+    for i in range(1, len(values)):
+        prev = values[i - 1]
+        cur = values[i]
+        if prev is not None and prev > 0 and cur is not None:
+            linked *= cur / prev
+    return linked - 1.0
+
+
+def compute_irr_closed_form(
+    cost_basis: float, final_value: float, hold_days: int
+) -> float | None:
+    """Annualized IRR for a two-cashflow position (entry + exit).
+
+    Uses the closed-form ``(final/cost)^(365/days) - 1`` — exact for 2-CF cases,
+    avoids root-finder overhead.
+
+    Returns None on degenerate inputs (hold_days<=0 or cost_basis<=0 or
+    final_value<=0) so callers can render "--" in UI.
+
+    # Known limitation: does not model dividend cashflows; IRR understates true
+    # return for dividend stocks (A1 per 04-RESEARCH.md Assumptions Log).
+    """
+    if hold_days <= 0 or cost_basis <= 0 or final_value <= 0:
+        return None
+    try:
+        ratio = final_value / cost_basis
+        hold_years = hold_days / 365.0
+        return ratio ** (1.0 / hold_years) - 1.0
+    except (ValueError, ZeroDivisionError, OverflowError):
+        return None
+
+
+def compute_irr_multi(
+    cash_flows: list[tuple[int, float]],
+) -> float | None:
+    """Annualized IRR for multiple cashflows via ``scipy.optimize.brentq``.
+
+    Args:
+        cash_flows: ``[(day_offset, amount)]`` — negative for outflows
+            (investments), positive for inflows (returns).
+
+    Returns:
+        Annualized IRR as decimal, or None if no root exists in [-0.99, 10.0].
+
+    # Known limitation: does not model dividend cashflows; IRR understates true
+    # return for dividend stocks (A1 per 04-RESEARCH.md Assumptions Log).
+    """
+    from scipy.optimize import brentq
+
+    if len(cash_flows) < 2:
+        return None
+
+    def _npv(r: float) -> float:
+        total = 0.0
+        for day, amount in cash_flows:
+            try:
+                total += amount / ((1.0 + r) ** (day / 365.0))
+            except (ValueError, ZeroDivisionError, OverflowError):
+                return float("inf")
+        return total
+
+    try:
+        return brentq(_npv, -0.99, 10.0, xtol=1e-6, maxiter=200)
+    except (ValueError, RuntimeError):
+        return None
+
 # --- Headless-safe quantstats import (AP-07 / T-02-01-01) ---
 # quantstats/__init__.py does `from . import stats, utils, plots, reports` at module load.
 # quantstats/plots.py immediately imports matplotlib/seaborn (register_matplotlib_converters
@@ -745,6 +836,150 @@ class PortfolioAnalytics:
                 "return_pct": entry.get("return_pct", 0.0),
             })
         return result
+
+    async def get_ttwror_irr(self, days: int = 365) -> dict:
+        """Aggregate + per-position TTWROR/IRR from portfolio_snapshots.
+
+        Aggregate uses geometric linking of portfolio_snapshots.total_value.
+        Per-position IRR uses closed-form entry-price → current-price/exit-price.
+
+        UI-01 contract (honored by frontend TtwrorMetricCard):
+            {
+              "aggregate": {
+                "ttwror": float|None,  # percentage (12.34 == 12.34%)
+                "irr": float|None,
+                "snapshot_count": int,
+                "start_value": float|None,
+                "end_value": float|None,
+                "window_days": int,
+              },
+              "positions": [
+                {"ticker": str, "ttwror": float|None, "irr": float|None,
+                 "hold_days": int, "cost_basis": float, "current_value": float|None,
+                 "status": str},
+              ],
+            }
+
+        Known limitation: does not model dividend cashflows; aggregate IRR is
+        closed-form (single-window) — multi-cashflow aggregate IRR deferred to
+        UI-v2 per research Open Question #2.
+        """
+        from datetime import date as _date
+
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+
+        async with aiosqlite.connect(self._db_path) as conn:
+            # --- Aggregate snapshots ---
+            rows = await (
+                await conn.execute(
+                    "SELECT timestamp, total_value FROM portfolio_snapshots "
+                    "WHERE timestamp >= ? ORDER BY timestamp ASC",
+                    (cutoff,),
+                )
+            ).fetchall()
+
+            values: list[float] = [
+                float(r[1]) for r in rows if r[1] is not None and float(r[1]) > 0
+            ]
+
+            agg_ttwror: float | None = None
+            agg_irr: float | None = None
+            start_value: float | None = None
+            end_value: float | None = None
+
+            if len(values) >= 2:
+                agg_ttwror = round(compute_ttwror(values) * 100.0, 4)
+                start_value = values[0]
+                end_value = values[-1]
+
+                first_ts = rows[0][0]
+                last_ts = rows[-1][0]
+                try:
+                    first_dt = datetime.fromisoformat(first_ts.replace("Z", "+00:00"))
+                    last_dt = datetime.fromisoformat(last_ts.replace("Z", "+00:00"))
+                    hold_days = max((last_dt - first_dt).days, 1)
+                except (ValueError, AttributeError):
+                    hold_days = len(values)
+
+                irr = compute_irr_closed_form(start_value, end_value, hold_days)
+                agg_irr = round(irr * 100.0, 4) if irr is not None else None
+
+            # --- Per-position breakdown ---
+            conn.row_factory = aiosqlite.Row
+            pos_rows = await (
+                await conn.execute(
+                    """
+                    SELECT ticker, quantity, avg_cost, entry_date, status,
+                           exit_price, exit_date, realized_pnl
+                    FROM active_positions
+                    ORDER BY entry_date DESC
+                    """
+                )
+            ).fetchall()
+
+            positions: list[dict] = []
+            for r in pos_rows:
+                ticker = r["ticker"]
+                quantity = float(r["quantity"])
+                avg_cost = float(r["avg_cost"])
+                entry_date = r["entry_date"] or ""
+                status = r["status"] or "open"
+                cost_basis = abs(quantity * avg_cost)
+                current_value: float | None = None
+                pos_hold_days = 0
+
+                try:
+                    entry_dt = _date.fromisoformat(entry_date)
+                    end_dt = (
+                        _date.fromisoformat(r["exit_date"])
+                        if status == "closed" and r["exit_date"]
+                        else _date.today()
+                    )
+                    pos_hold_days = max((end_dt - entry_dt).days, 0)
+                except (ValueError, TypeError):
+                    pos_hold_days = 0
+
+                if status == "closed" and r["exit_price"] is not None:
+                    current_value = abs(quantity * float(r["exit_price"]))
+
+                pos_irr: float | None = None
+                pos_ttwror: float | None = None
+                if current_value is not None and current_value > 0 and cost_basis > 0:
+                    pos_ttwror = round(
+                        ((current_value / cost_basis) - 1.0) * 100.0, 4
+                    )
+                    irr_pos = compute_irr_closed_form(
+                        cost_basis, current_value, pos_hold_days
+                    )
+                    pos_irr = (
+                        round(irr_pos * 100.0, 4) if irr_pos is not None else None
+                    )
+
+                positions.append(
+                    {
+                        "ticker": ticker,
+                        "ttwror": pos_ttwror,
+                        "irr": pos_irr,
+                        "hold_days": pos_hold_days,
+                        "cost_basis": round(cost_basis, 2),
+                        "current_value": round(current_value, 2)
+                        if current_value is not None
+                        else None,
+                        "status": status,
+                    }
+                )
+
+        return {
+            "aggregate": {
+                "ttwror": agg_ttwror,
+                "irr": agg_irr,
+                "snapshot_count": len(values),
+                "start_value": round(start_value, 2) if start_value else None,
+                "end_value": round(end_value, 2) if end_value else None,
+                "window_days": days,
+            },
+            "positions": positions,
+        }
 
     async def get_position_pnl_history(self, ticker: str) -> list[dict]:
         """Daily P&L history for a specific position using price snapshots.
