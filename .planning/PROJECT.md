@@ -41,12 +41,19 @@ An "investment journal that fights back" — a personal investing system that tr
 - ✓ SEC EDGAR Form 4 insider-transaction signal (90-day lookback, 3-transaction minimum, ±0.10 composite tilt) in `FundamentalAgent` — Phase 3 (DATA-03)
 - ✓ `GET /health` endpoint reading `job_run_log` (24h counts, stale detection, uptime via PID mtime, WAL mode check) + stdlib JSON logging — Phase 3 (DATA-04)
 - ✓ Daemon PID file + cross-platform stale detection via `os.kill(pid, 0)` + `atexit` cleanup + API/uvicorn pinned to `--host 127.0.0.1` — Phase 3 (DATA-05)
+- ✓ TTWROR + IRR (closed-form + scipy.brentq for multi-cashflow) in `engine/analytics.py` + `GET /analytics/returns` — Phase 4 (UI-01)
+- ✓ SPY benchmark overlay with SSRF-safe allowlist (`frozenset{"SPY","QQQ","TLT","GLD","BTC-USD"}`) enforced at API layer — Phase 4 (UI-02)
+- ✓ `AlertRulesPanel` with "Built-in" badge + daemon wiring (`monitoring/monitor._load_enabled_rules` reads `alert_rules WHERE enabled=1`) — toggling a rule off stops it firing in the next daemon run — Phase 4 (UI-03)
+- ✓ `target_weight` column + `PATCH /portfolio/positions/{ticker}/target-weight` + `TargetWeightBar` frontend component — Phase 4 (UI-04)
+- ✓ Daily P&L calendar heatmap (custom SVG + Tailwind, keyboard-accessible, 52-week grid) in `DailyPnlHeatmap.tsx` — Phase 4 (UI-05)
+- ✓ `PositionStatus(Enum)` + `VALID_TRANSITIONS` dict + `validate_status_transition` FSM guard reading actual row status (not hardcoded) in `portfolio/manager.py::close_position` — Phase 4 (UI-06)
+- ✓ Opt-in Bull/Bear LLM synthesis (`ENABLE_LLM_SYNTHESIS` flag, default off) in `engine/llm_synthesis.py` with FOUND-04 backtest_mode short-circuit as FIRST check, PII-safe prompt (no $ amounts, no thesis_text, confidence bucketed to 10%), (ticker, asset_type, date)-keyed cache — Phase 4 (UI-07)
 
 ### Active
 
-<!-- Next milestone work: Phase 4 Portfolio UI + Analytics Uplift. -->
+<!-- Milestone complete — no active scope. Next milestone planning pending user direction. -->
 
-- [ ] Phase 4: Portfolio UI + Analytics Uplift (UI-01..07) — TTWROR+IRR / benchmark overlay / named rules panel / target-weight viz / calendar heatmap / PositionStatus FSM / opt-in Bull-Bear synthesis
+(None — Competitive Parity milestone shipped 2026-04-22)
 
 ### Human-deferred from Phase 3
 
@@ -113,6 +120,10 @@ Brownfield project with substantial momentum; the user wants to ground the next 
 | Phase 3 `edgartools` added to CORE dependencies (not optional) | Pure-Python Apache 2.0, small footprint, required by DATA-03 insider signal which is not optional | ✓ Good — tests use `sys.modules` monkeypatch so CI doesn't need SEC network calls |
 | Phase 3 `/health` uptime derived from PID file mtime (not job_run_log) | WR-01 review finding: oldest-running job is `null` during idle periods, misleading to monitors; PID mtime is a reliable daemon-alive signal | ✓ Good — WR-01 fixed in review-fix pass |
 | Phase 3 `daemon.start()` calls `reconcile_aborted_jobs(min_age_seconds=300)` explicitly | WR-03 review: 5s default would false-positive-abort jobs legitimately running 1-5 min; 300s aligns with `/health` stale threshold and normal job budget | ✓ Good — WR-03 fixed |
+| Phase 4 reuses both existing chart libs (Recharts for analytics, LightweightCharts for candlestick) — NO migration | Both were already in `package.json`; migrating would cost ~600 lines of test churn for zero user-visible benefit; custom SVG+Tailwind for heatmap (no third chart lib) | ✓ Good — Phase 4 verified 5/5 criteria, 400 frontend tests passing, 0 regressions |
+| Phase 4 UI-07 LLM synthesis: FOUND-04 backtest_mode short-circuit is the FIRST check — before `ENABLE_LLM_SYNTHESIS`, before API key lookup, before client init | Research warned missing this would cost ~$2.78/ticker on a 3-year daily backtest (~750 Anthropic calls/ticker). The FIRST-check ordering is a regression-test assertion: `mock_client.messages.create.call_count == 0` | ✓ Good — `test_synthesis_skipped_in_backtest_mode` passing |
+| Phase 4 UI-07 LLM prompt PII clamp: ticker + signal label + regime + confidence bucketed to 10% only; NO dollar amounts, NO thesis_text, NO portfolio_id | Prompt-injection via thesis text + PII exposure via dollar amounts are the two highest-risk LLM attack surfaces for a personal investing tool; bucketing confidence is sufficient signal without exposing precise figures | ✓ Good — `test_prompt_excludes_pii` passing |
+| Phase 4 WR-01 fix: `ap.target_weight` added to `load_portfolio` + `get_all_positions` SELECT queries | Review found PATCH succeeded but GET never returned the value — frontend could never display a set target. Real functional bug, not a style nit | ✓ Good — regression test added that PATCHes then GETs and asserts equality |
 
 ## Evolution
 
@@ -132,4 +143,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-21 after Phase 3 (Data Coverage Expansion) completion*
+*Last updated: 2026-04-22 after Phase 4 (Portfolio UI + Analytics Uplift) completion — Competitive Parity milestone complete*
