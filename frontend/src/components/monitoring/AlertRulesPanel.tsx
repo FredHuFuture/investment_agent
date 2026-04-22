@@ -246,59 +246,94 @@ export default function AlertRulesPanel() {
                 </tr>
               </thead>
               <tbody>
-                {data.map((rule) => (
-                  <tr
-                    key={rule.id}
-                    className="border-b border-gray-800/30 hover:bg-gray-800/40 transition-colors"
-                  >
-                    <td className="px-3 py-2.5 text-gray-200">{rule.name}</td>
-                    <td className="px-3 py-2.5 text-gray-400 font-mono text-xs">
-                      {rule.metric}
-                    </td>
-                    <td className="px-3 py-2.5 text-gray-400">
-                      {CONDITION_LABEL[rule.condition] ?? rule.condition}
-                    </td>
-                    <td className="px-3 py-2.5 text-gray-300 font-mono">
-                      {rule.threshold}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
-                          SEVERITY_BADGE[rule.severity] ??
-                          "bg-gray-700 text-gray-300"
-                        }`}
+                {[...data]
+                  .sort((a, b) =>
+                    (a.metric === "hardcoded" ? 0 : 1) -
+                    (b.metric === "hardcoded" ? 0 : 1),
+                  )
+                  .map((rule) => {
+                    const isBuiltin = rule.metric === "hardcoded";
+                    return (
+                      <tr
+                        key={rule.id}
+                        className="border-b border-gray-800/30 hover:bg-gray-800/40 transition-colors"
                       >
-                        {rule.severity}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <button
-                        onClick={() => handleToggle(rule)}
-                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                          rule.enabled ? "bg-accent" : "bg-gray-700"
-                        }`}
-                        title={rule.enabled ? "Disable rule" : "Enable rule"}
-                      >
-                        <span
-                          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                            rule.enabled ? "translate-x-4" : "translate-x-1"
-                          }`}
-                        />
-                      </button>
-                    </td>
-                    <td className="px-3 py-2.5 text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-red-400 hover:text-red-300 hover:bg-red-900/30"
-                        onClick={() => handleDelete(rule.id)}
-                        title="Delete rule"
-                      >
-                        &times;
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
+                        <td className="px-3 py-2.5 text-gray-200">
+                          <span className="flex items-center gap-2 flex-wrap">
+                            {rule.name}
+                            {isBuiltin && (
+                              <span
+                                data-testid={`alert-rule-builtin-badge-${rule.id}`}
+                                className="ml-1 text-[10px] uppercase tracking-wider text-gray-500 bg-gray-800 rounded px-1.5 py-0.5"
+                              >
+                                Built-in
+                              </span>
+                            )}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5 text-gray-400 font-mono text-xs">
+                          {isBuiltin ? (
+                            <span className="text-xs text-gray-500">Built-in</span>
+                          ) : (
+                            rule.metric
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5 text-gray-400">
+                          {isBuiltin ? (
+                            <span className="text-gray-600">&mdash;</span>
+                          ) : (
+                            CONDITION_LABEL[rule.condition] ?? rule.condition
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5 text-gray-300 font-mono">
+                          {isBuiltin ? (
+                            <span className="text-gray-600">&mdash;</span>
+                          ) : (
+                            rule.threshold
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
+                              SEVERITY_BADGE[rule.severity] ??
+                              "bg-gray-700 text-gray-300"
+                            }`}
+                          >
+                            {rule.severity}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <button
+                            data-testid={`alert-rule-toggle-${rule.id}`}
+                            onClick={() => handleToggle(rule)}
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                              rule.enabled ? "bg-accent" : "bg-gray-700"
+                            }`}
+                            title={rule.enabled ? "Disable rule" : "Enable rule"}
+                          >
+                            <span
+                              className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                                rule.enabled ? "translate-x-4" : "translate-x-1"
+                              }`}
+                            />
+                          </button>
+                        </td>
+                        <td className="px-3 py-2.5 text-right">
+                          {!isBuiltin && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-400 hover:text-red-300 hover:bg-red-900/30"
+                              onClick={() => handleDelete(rule.id)}
+                              title="Delete rule"
+                            >
+                              &times;
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </div>
