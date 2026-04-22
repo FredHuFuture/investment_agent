@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 03-03-PLAN.md (DATA-03 SEC EDGAR insider transactions + EdgarProvider)
-last_updated: "2026-04-22T04:54:58.036Z"
-last_activity: 2026-04-22 -- Phase 4 planning complete
+stopped_at: Completed 04-01-PLAN.md (TTWROR + IRR + benchmark allowlist + daily P&L heatmap)
+last_updated: "2026-04-22T06:43:54.548Z"
+last_activity: 2026-04-22
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 14
-  completed_plans: 10
-  percent: 71
+  completed_plans: 11
+  percent: 79
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-21)
 
 **Core value:** Drawdown protection via thesis-aware, regime-aware multi-agent signals — catching when a held position no longer matches the reason it was bought.
-**Current focus:** Phase 3 — Data Coverage Expansion
+**Current focus:** Phase 4 — Portfolio UI + Analytics Uplift
 
 ## Current Position
 
-Phase: 4
-Plan: Not started
+Phase: 4 (Portfolio UI + Analytics Uplift) — EXECUTING
+Plan: 2 of 4
 Status: Ready to execute
-Last activity: 2026-04-22 -- Phase 4 planning complete
+Last activity: 2026-04-22
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -64,6 +64,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 03-data-coverage-expansion P02 | 420 | 2 tasks | 5 files |
 | Phase 03-data-coverage-expansion P04 | 1107 | 3 tasks | 9 files |
 | Phase 03-data-coverage-expansion P03-03 | 376 | 2 tasks | 4 files |
+| Phase 04 P01 | 2475 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -105,6 +106,9 @@ Recent decisions affecting current work:
 - [Phase 03-data-coverage-expansion]: edgartools added to core [project.dependencies] — pure-Python Apache 2.0, insider data is v1 differentiator not opt-in
 - [Phase 03-data-coverage-expansion]: Insider tilt applied AFTER value/quality/growth weighted average — orthogonal lever prevents insider data from distorting valuation ratios
 - [Phase 03-data-coverage-expansion]: _MIN_TRANSACTIONS_FOR_REASONING=3 defined locally in fundamental.py to avoid import-time dependency on edgar_provider
+- [Phase 04]: TTWROR returns decimal from compute_ttwror(); get_ttwror_irr() multiplies by 100 for percentage display
+- [Phase 04]: Aggregate IRR uses closed-form single-window; multi-cashflow aggregate IRR deferred to UI-v2
+- [Phase 04]: VALID_BENCHMARKS type-annotated as frozenset[str]; daily P&L uses last-of-day semantics
 
 ### Pending Todos
 
@@ -119,6 +123,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T03:36:44.718Z
-Stopped at: Completed 03-03-PLAN.md (DATA-03 SEC EDGAR insider transactions + EdgarProvider)
+Last session: 2026-04-22T06:43:54.545Z
+Stopped at: Completed 04-01-PLAN.md (TTWROR + IRR + benchmark allowlist + daily P&L heatmap)
 Resume file: None

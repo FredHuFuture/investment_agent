@@ -38,11 +38,11 @@ Requirements for this milestone (competitive parity + moat hardening). Each maps
 
 ### Portfolio UI & Analytics (UI) — Phase 4: Portfolio UI + Analytics Uplift
 
-- [ ] **UI-01**: True Time-Weighted Return (TTWROR) + IRR per-position and aggregate — `engine/analytics.py` + `api/routes/analytics.py` + `PerformancePage.tsx`
-- [ ] **UI-02**: Benchmark comparison overlay (SPY default, user-selectable) on performance chart — `engine/analytics.py` + `PerformancePage.tsx`
+- [x] **UI-01**: True Time-Weighted Return (TTWROR) + IRR per-position and aggregate — `engine/analytics.py` + `api/routes/analytics.py` + `PerformancePage.tsx`
+- [x] **UI-02**: Benchmark comparison overlay (SPY default, user-selectable) on performance chart — `engine/analytics.py` + `PerformancePage.tsx`
 - [ ] **UI-03**: Named rules inventory panel with enable/disable toggles on `MonitoringPage.tsx` (surface the alert rules engine already in code as a legible UI) — `api/routes/monitoring.py` + `MonitoringPage.tsx`
 - [ ] **UI-04**: Target-weight rebalancing visualization (actual vs. target deviation bars) — `db/database.py` adds `target_weight` column + `PortfolioPage.tsx`
-- [ ] **UI-05**: Calendar heatmap for daily P&L (TradeNote-style) on `PerformancePage.tsx` — new chart component
+- [x] **UI-05**: Calendar heatmap for daily P&L (TradeNote-style) on `PerformancePage.tsx` — new chart component
 - [ ] **UI-06**: `PositionStatus` FSM Enum with transition guard (open → closed → reopened rules enforced) — `portfolio/models.py` + `portfolio/manager.py`
 - [ ] **UI-07**: Opt-in Bull/Bear LLM synthesis step (behind `ENABLE_LLM_SYNTHESIS` flag, falls back to weighted average when off) — `engine/pipeline.py`
 
@@ -124,11 +124,11 @@ Which phases cover which requirements. Filled by the roadmapper.
 | DATA-03 | Phase 3 | Complete |
 | DATA-04 | Phase 3 | Complete |
 | DATA-05 | Phase 3 | Complete |
-| UI-01 | Phase 4 | Pending |
-| UI-02 | Phase 4 | Pending |
+| UI-01 | Phase 4 | Complete |
+| UI-02 | Phase 4 | Complete |
 | UI-03 | Phase 4 | Pending |
 | UI-04 | Phase 4 | Pending |
-| UI-05 | Phase 4 | Pending |
+| UI-05 | Phase 4 | Complete |
 | UI-06 | Phase 4 | Pending |
 | UI-07 | Phase 4 | Pending |
 
