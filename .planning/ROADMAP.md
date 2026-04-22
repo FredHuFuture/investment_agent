@@ -14,7 +14,7 @@ This milestone hardens an already-working brownfield system against the liabilit
  (completed 2026-04-21)
 - [x] **Phase 2: Signal Quality Upgrade** - Deepen the thesis/drift moat with calibrated, measurable signal quality and rigorous backtesting
  (completed 2026-04-21)
-- [x] **Phase 3: Data Coverage Expansion** - Add free-tier providers and operator-observability so new data flows through a trusted pipeline (completed 2026-04-22)
+- [x] **Phase 3: Data Coverage Expansion** - Add free-tier providers and operator-observability so new data flows through a trusted pipeline (completed 2026-04-22)
 - [ ] **Phase 4: Portfolio UI + Analytics Uplift** - Close the UI gap vs. Ghostfolio and Portfolio Performance with accurate performance math and legible dashboards
 
 ## Phase Details
@@ -75,9 +75,12 @@ This milestone hardens an already-working brownfield system against the liabilit
   3. `PortfolioPage.tsx` shows an actual-vs-target deviation bar for each position when a `target_weight` has been set — verifiable by setting a target weight and confirming the bar renders with the correct delta direction and magnitude.
   4. `PerformancePage.tsx` includes a calendar heatmap showing daily P&L colored by positive/negative/neutral, with an interactive tooltip showing exact date and P&L — verifiable by hovering a cell and reading the tooltip value.
   5. `PositionStatus` FSM (`portfolio/models.py`) raises a `ValueError` on invalid transitions (e.g., `closed → monitored`) and the `ENABLE_LLM_SYNTHESIS` flag gates the Bull/Bear synthesis step without breaking the pipeline when the flag is off — both verifiable by the test suite.
-**Plans**: TBD
-**UI hint**: yes
-**Research flag**: TradingView Lightweight Charts vs. Recharts decision for financial time-series (benchmark overlay, calendar heatmap) should be resolved before planning. Run `/gsd-research-phase` before planning Phase 4.
+**Plans**: 4 plans
+  - [ ] 04-01-PLAN.md — UI-01 (TTWROR + IRR math) + UI-02 (benchmark allowlist) + UI-05 (daily P&L data source) — backend analytics
+  - [ ] 04-02-PLAN.md — UI-03 (daemon respects alert_rules.enabled) + UI-04 (target_weight column + PATCH) + UI-06 (PositionStatus FSM) + UI-07 (ENABLE_LLM_SYNTHESIS with FOUND-04 short-circuit) — backend FSM + LLM + rules wiring
+  - [ ] 04-03-PLAN.md — UI-01 + UI-02 + UI-05 display — frontend performance page (depends on 04-01)
+  - [ ] 04-04-PLAN.md — UI-03 panel polish + UI-04 deviation bars — frontend portfolio + monitoring (depends on 04-02)
+**Research completed**: .planning/phases/04-portfolio-ui-analytics-uplift/04-RESEARCH.md (2026-04-21) — chart library decision resolved (keep dual Recharts + lightweight-charts stack); FSM states limited to open/closed; daemon-alert_rules gap confirmed as the real UI-03 work item.
 
 ## Progress
 
@@ -89,4 +92,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Foundation Hardening | 3/3 | Complete    | 2026-04-21 |
 | 2. Signal Quality Upgrade | 3/3 | Complete    | 2026-04-21 |
 | 3. Data Coverage Expansion | 4/4 | Complete    | 2026-04-22 |
-| 4. Portfolio UI + Analytics Uplift | 0/TBD | Not started | - |
+| 4. Portfolio UI + Analytics Uplift | 0/4 | Not started | - |
