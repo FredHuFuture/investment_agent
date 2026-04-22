@@ -38,6 +38,13 @@ dependencies = [
 llm = [
     "anthropic>=0.42",
 ]
+# Local FinBERT sentiment inference — ~400 MB one-time model download.
+# Enables SentimentAgent.analyze() without ANTHROPIC_API_KEY.
+# Install with: pip install -e .[llm-local] && python scripts/fetch_finbert.py
+llm-local = [
+    "transformers>=4.30",
+    "torch>=2.0",
+]
 exchange = [
     "ccxt>=4.0",
 ]
@@ -45,8 +52,9 @@ dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
 ]
+# "Give me everything" — includes local LLM deps (~400 MB torch+transformers).
 all = [
-    "investment-agent[llm,exchange,dev]",
+    "investment-agent[llm,llm-local,exchange,dev]",
 ]
 
 [project.urls]
