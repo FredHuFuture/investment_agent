@@ -632,7 +632,8 @@ class PortfolioManager:
                         ap.exit_price,
                         ap.exit_date,
                         ap.exit_reason,
-                        ap.realized_pnl
+                        ap.realized_pnl,
+                        ap.target_weight
                     FROM active_positions ap
                     LEFT JOIN positions_thesis pt ON ap.original_analysis_id = pt.id
                     WHERE ap.status = 'open'
@@ -762,7 +763,8 @@ class PortfolioManager:
                         ap.exit_price,
                         ap.exit_date,
                         ap.exit_reason,
-                        ap.realized_pnl
+                        ap.realized_pnl,
+                        ap.target_weight
                     FROM active_positions ap
                     LEFT JOIN positions_thesis pt ON ap.original_analysis_id = pt.id
                     WHERE ap.status = 'open'

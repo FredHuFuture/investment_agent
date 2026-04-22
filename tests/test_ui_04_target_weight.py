@@ -185,3 +185,41 @@ async def test_patch_endpoint_success(tmp_path) -> None:
     data = resp.json()
     assert data["data"]["ticker"] == "MSFT"
     assert abs(data["data"]["target_weight"] - 0.25) < 1e-9
+
+
+@pytest.mark.asyncio
+async def test_load_portfolio_returns_target_weight(tmp_path) -> None:
+    """Regression: load_portfolio and get_all_positions must return target_weight
+    after a set_target_weight call (WR-01 fix — SELECT was missing ap.target_weight)."""
+    from db.database import init_db
+    from portfolio.manager import PortfolioManager
+
+    db_file = tmp_path / "test.db"
+    await init_db(db_file)
+
+    mgr = PortfolioManager(str(db_file))
+    await mgr.add_position(
+        ticker="NVDA",
+        asset_type="stock",
+        quantity=8.0,
+        avg_cost=500.0,
+        entry_date="2024-01-01",
+    )
+
+    # Persist a non-None target_weight
+    result = await mgr.set_target_weight("NVDA", 0.12)
+    assert result is True
+
+    # load_portfolio path
+    portfolio = await mgr.load_portfolio()
+    assert len(portfolio.positions) == 1
+    pos = portfolio.positions[0]
+    assert pos.target_weight is not None, "load_portfolio returned None for target_weight (WR-01)"
+    assert abs(pos.target_weight - 0.12) < 1e-9
+
+    # get_all_positions path
+    positions = await mgr.get_all_positions()
+    assert len(positions) == 1
+    pos2 = positions[0]
+    assert pos2.target_weight is not None, "get_all_positions returned None for target_weight (WR-01)"
+    assert abs(pos2.target_weight - 0.12) < 1e-9
