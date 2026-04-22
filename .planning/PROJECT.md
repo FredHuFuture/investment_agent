@@ -2,7 +2,7 @@
 
 ## What This Is
 
-An "investment journal that fights back" — a personal investing system that tracks the thesis behind every position, monitors six specialized analysis agents (Technical, Fundamental, Macro, Crypto, Sentiment, Summary) continuously, and alerts the user when reality diverges from the original plan. Built as a local-first Python/FastAPI backend with a React/TypeScript dashboard; solo-operator focus today, with intent to benchmark against the broader OSS investment-agent landscape.
+An "investment journal that fights back" — a personal investing system that tracks the thesis behind every position, monitors six specialized analysis agents (Technical, Fundamental, Macro, Crypto, Sentiment, Summary) continuously, and alerts the user when reality diverges from the original plan. Local-first Python/FastAPI backend + React/TypeScript dashboard. Solo-operator scope. v1.0 "Competitive Parity" shipped 2026-04-22 — benchmark-grade analytics (TTWROR/IRR, CVaR, portfolio VaR, benchmark overlay, calendar heatmap), calibrated signal quality (Brier, IC/IC-IR, walk-forward backtesting, transaction costs), expanded free-tier data coverage (Finnhub + FinBERT + SEC EDGAR), operator observability (`GET /health` + structured JSON logs), and daemon hardening (`job_run_log` + PID file + localhost bind).
 
 ## Core Value
 
@@ -55,13 +55,19 @@ An "investment journal that fights back" — a personal investing system that tr
 
 (None — Competitive Parity milestone shipped 2026-04-22)
 
-### Human-deferred from Phase 3
+### Human-deferred (carried forward from v1.0)
 
+**From Phase 3:**
 - [ ] Verify FinBERT non-HOLD on real news-rich ticker (requires `pip install -e .[llm-local]`)
 - [ ] Verify live Finnhub API round-trip (requires `FINNHUB_API_KEY`)
 - [ ] Verify daemon PID + `netstat 127.0.0.1` binding with a live launch
 
-See `.planning/phases/03-data-coverage-expansion/03-HUMAN-UAT.md`.
+**From Phase 4:**
+- [ ] Verify `TargetWeightBar` browser flow (set target, reload-persists, invalid-input alert)
+- [ ] Verify `MonitoringPage` rules panel: toggle STOP_LOSS_HIT off → daemon log confirms exclusion on next run
+- [ ] Verify `DailyPnlHeatmap` native browser tooltip with date + P&L on hover
+
+See `.planning/phases/03-data-coverage-expansion/03-HUMAN-UAT.md` and `.planning/phases/04-portfolio-ui-analytics-uplift/04-HUMAN-UAT.md`. Run `/gsd-verify-work 3` and `/gsd-verify-work 4` to close out.
 
 ### Out of Scope
 
