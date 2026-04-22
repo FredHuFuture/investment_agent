@@ -36,13 +36,25 @@ An "investment journal that fights back" — a personal investing system that tr
 - ✓ Backtester transaction costs (10 bps equities / 25 bps crypto, applied at entry AND exit) with `total_costs_paid` / `n_trades` / `cost_drag_pct` in `BacktestResult.metrics` — Phase 2 (SIG-04)
 - ✓ Walk-forward backtesting scaffold (30-day train / 10-day OOS, `purge_days=1` Sharpe-only / `purge_days=5` IC-feeding) in `backtesting/walk_forward.py` — Phase 2 (SIG-05)
 - ✓ `backtest_signal_history` corpus table + `populate_signal_corpus` + `rebuild_signal_corpus` daemon job (dynamic date derivation + DELETE rollback on error, honors FOUND-07) — Phase 2 (SIG-05)
+- ✓ Finnhub data provider with peer-basket sector P/E (5 proxy tickers, median, sanity filter) under 60/min rate limit — Phase 3 (DATA-01)
+- ✓ FinBERT local sentiment fallback (Apache 2.0, `[llm-local]` optional extra, lazy-import safe) when `ANTHROPIC_API_KEY` absent — Phase 3 (DATA-02)
+- ✓ SEC EDGAR Form 4 insider-transaction signal (90-day lookback, 3-transaction minimum, ±0.10 composite tilt) in `FundamentalAgent` — Phase 3 (DATA-03)
+- ✓ `GET /health` endpoint reading `job_run_log` (24h counts, stale detection, uptime via PID mtime, WAL mode check) + stdlib JSON logging — Phase 3 (DATA-04)
+- ✓ Daemon PID file + cross-platform stale detection via `os.kill(pid, 0)` + `atexit` cleanup + API/uvicorn pinned to `--host 127.0.0.1` — Phase 3 (DATA-05)
 
 ### Active
 
-<!-- Next milestone work: Phase 3 Data Coverage Expansion. -->
+<!-- Next milestone work: Phase 4 Portfolio UI + Analytics Uplift. -->
 
-- [ ] Phase 3: Data Coverage Expansion (DATA-01..05) — Finnhub / FinBERT / SEC EDGAR / structured logs + health endpoint / daemon PID + localhost bind
 - [ ] Phase 4: Portfolio UI + Analytics Uplift (UI-01..07) — TTWROR+IRR / benchmark overlay / named rules panel / target-weight viz / calendar heatmap / PositionStatus FSM / opt-in Bull-Bear synthesis
+
+### Human-deferred from Phase 3
+
+- [ ] Verify FinBERT non-HOLD on real news-rich ticker (requires `pip install -e .[llm-local]`)
+- [ ] Verify live Finnhub API round-trip (requires `FINNHUB_API_KEY`)
+- [ ] Verify daemon PID + `netstat 127.0.0.1` binding with a live launch
+
+See `.planning/phases/03-data-coverage-expansion/03-HUMAN-UAT.md`.
 
 ### Out of Scope
 
@@ -96,6 +108,11 @@ Brownfield project with substantial momentum; the user wants to ground the next 
 | Phase 2 ROADMAP SC-1 wording amended from "position covariance matrix" to "cross-position correlation awareness (historical simulation on portfolio returns)" | Tier 1 historical simulation IS correlation-aware (portfolio returns capture cross-position correlations naturally); Tier 2 covariance-matrix decomposition requires longer signal history than current 10-row `signal_history` supports — deferred to v2 | ✓ Good — Phase 2 verified passing (4/4 criteria, 70 regressions, 0 gaps) |
 | Phase 2 calibration uses backtester-generated corpus (`backtest_signal_history`) not live `signal_history` | Live `signal_history` has only 10 rows (single day); walk-forward + Brier + IC need 30+ observations per agent; backtester generates years of synthetic signals against cached prices | ✓ Good — corpus table + `populate_signal_corpus` shipped; Phase 3 will populate AAPL 2022-2025 corpus manually |
 | Phase 2 walk-forward windows: 30/10/5 (IC-feeding) vs 30/10/1 (Sharpe-only); labeled `preliminary_calibration: true` | Standard qlib windows (252/63) require 500+ days of signal history; current corpus supports shorter windows; flag plumbed to API so Phase 4 UI can surface caveat | — Revisit to 252/63 once live signal_history accumulates 2+ years |
+| Phase 3 Finnhub uses peer-basket sector P/E (5 hardcoded proxy tickers per sector, median) | Finnhub free tier doesn't expose sector aggregate endpoints; peer basket is pragmatic and cheap (5 calls per sector, cached 24h) | ✓ Good — Phase 3 verified passing (5/5 criteria, 3 items deferred to human-UAT) |
+| Phase 3 FinBERT gated behind `[llm-local]` optional extra (`transformers>=4.30`, `torch>=2.0`) | Default install stays ~50 MB; FinBERT + PyTorch is ~400 MB and most users won't need the local fallback | ✓ Good — lazy-import verified: `import agents.sentiment` does NOT pull transformers |
+| Phase 3 `edgartools` added to CORE dependencies (not optional) | Pure-Python Apache 2.0, small footprint, required by DATA-03 insider signal which is not optional | ✓ Good — tests use `sys.modules` monkeypatch so CI doesn't need SEC network calls |
+| Phase 3 `/health` uptime derived from PID file mtime (not job_run_log) | WR-01 review finding: oldest-running job is `null` during idle periods, misleading to monitors; PID mtime is a reliable daemon-alive signal | ✓ Good — WR-01 fixed in review-fix pass |
+| Phase 3 `daemon.start()` calls `reconcile_aborted_jobs(min_age_seconds=300)` explicitly | WR-03 review: 5s default would false-positive-abort jobs legitimately running 1-5 min; 300s aligns with `/health` stale threshold and normal job budget | ✓ Good — WR-03 fixed |
 
 ## Evolution
 
@@ -115,4 +132,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-21 after Phase 2 (Signal Quality Upgrade) completion*
+*Last updated: 2026-04-21 after Phase 3 (Data Coverage Expansion) completion*
