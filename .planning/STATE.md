@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-01-PLAN.md (TTWROR + IRR + benchmark allowlist + daily P&L heatmap)
-last_updated: "2026-04-22T06:43:54.548Z"
+stopped_at: Completed 04-02-PLAN.md (FSM + target_weight + daemon wiring + LLM synthesis)
+last_updated: "2026-04-22T07:19:54.764Z"
 last_activity: 2026-04-22
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 14
-  completed_plans: 11
-  percent: 79
+  completed_plans: 12
+  percent: 86
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-21)
 ## Current Position
 
 Phase: 4 (Portfolio UI + Analytics Uplift) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-04-22
 
@@ -65,6 +65,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 03-data-coverage-expansion P04 | 1107 | 3 tasks | 9 files |
 | Phase 03-data-coverage-expansion P03-03 | 376 | 2 tasks | 4 files |
 | Phase 04 P01 | 2475 | 2 tasks | 5 files |
+| Phase 04 P02 | 1882 | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -109,6 +110,9 @@ Recent decisions affecting current work:
 - [Phase 04]: TTWROR returns decimal from compute_ttwror(); get_ttwror_irr() multiplies by 100 for percentage display
 - [Phase 04]: Aggregate IRR uses closed-form single-window; multi-cashflow aggregate IRR deferred to UI-v2
 - [Phase 04]: VALID_BENCHMARKS type-annotated as frozenset[str]; daily P&L uses last-of-day semantics
+- [Phase 04]: PositionStatus uses open+closed only (no 'reopened' state) per research Open Q#3 — re-entry reuses 'open'
+- [Phase 04]: backtest_mode short-circuit is FIRST check in run_llm_synthesis — prevents ~2.78/ticker API cost on 3yr backtests (FOUND-04)
+- [Phase 04]: enabled_rule_types=None is backward-compat sentinel for alert_rules daemon wiring — all rules fire when table missing
 
 ### Pending Todos
 
@@ -123,6 +127,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T06:43:54.545Z
-Stopped at: Completed 04-01-PLAN.md (TTWROR + IRR + benchmark allowlist + daily P&L heatmap)
+Last session: 2026-04-22T07:19:54.761Z
+Stopped at: Completed 04-02-PLAN.md (FSM + target_weight + daemon wiring + LLM synthesis)
 Resume file: None
