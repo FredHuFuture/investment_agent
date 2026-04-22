@@ -1,12 +1,31 @@
-"""SentimentAgent — analyses news headlines via Claude API to produce a
-BUY/HOLD/SELL signal based on overall sentiment.
+"""SentimentAgent — analyses news headlines to produce a BUY/HOLD/SELL signal.
+
+Analysis backends (in preference order):
+1. **Anthropic Claude** — preferred when ``ANTHROPIC_API_KEY`` is set.
+2. **FinBERT** (local) — used when Anthropic key is absent AND
+   ``transformers`` + ``torch`` are installed (``pip install -e .[llm-local]``).
+3. **HOLD fallback** — conservative HOLD @ 35 confidence when both paths are
+   unavailable, with explicit warning.
 
 Fully offline-safe: when the Anthropic SDK is missing or ``ANTHROPIC_API_KEY``
-is not set, the agent returns a conservative HOLD with a low-confidence
-warning instead of raising.
+is not set and FinBERT is not installed, the agent returns a conservative HOLD
+with a low-confidence warning instead of raising.
+
+FinBERT import notes
+--------------------
+``transformers`` and ``torch`` are NOT imported at module load time — they are
+~2 s cold-start even without downloading the model.  The import is deferred to
+the first call of ``_try_load_finbert()``, which is only invoked inside
+``analyze()`` when the Anthropic path is unavailable.
+
+Pre-download helper::
+
+    pip install -e .[llm-local]
+    python scripts/fetch_finbert.py
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -24,6 +43,10 @@ except ImportError:
     AsyncAnthropic = None  # type: ignore[assignment,misc]
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Anthropic configuration
+# ---------------------------------------------------------------------------
 
 # Claude Sonnet pricing (USD per token)
 _INPUT_PRICE_PER_TOKEN = 3.0 / 1_000_000   # $3 / 1M input tokens
@@ -51,6 +74,26 @@ Rules:
 Return ONLY the JSON object, no markdown fences, no commentary.
 """
 
+# ---------------------------------------------------------------------------
+# FinBERT lazy-import state
+#
+# These module-level flags track whether we have already attempted to import
+# transformers.  We try at most once per process — if the import fails, we
+# record that and skip subsequent attempts without re-raising ImportError.
+#
+# Tests that need to simulate different availability states should reset both
+# flags via monkeypatch:
+#   monkeypatch.setattr(agents.sentiment, "_FINBERT_IMPORT_ATTEMPTED", False)
+#   monkeypatch.setattr(agents.sentiment, "_FINBERT_AVAILABLE", False)
+# ---------------------------------------------------------------------------
+
+_FINBERT_IMPORT_ATTEMPTED: bool = False
+_FINBERT_AVAILABLE: bool = False
+
+
+# ---------------------------------------------------------------------------
+# Prompt helpers
+# ---------------------------------------------------------------------------
 
 def _build_user_prompt(ticker: str, headlines: list[NewsHeadline]) -> str:
     """Build the user message listing headlines for Claude to analyse."""
@@ -133,8 +176,15 @@ def parse_sentiment_response(text: str) -> dict[str, Any]:
     }
 
 
+# ---------------------------------------------------------------------------
+# SentimentAgent
+# ---------------------------------------------------------------------------
+
 class SentimentAgent(BaseAgent):
-    """Analyses news sentiment for a ticker using the Claude API."""
+    """Analyses news sentiment for a ticker.
+
+    Backend preference: Anthropic Claude > FinBERT (local) > HOLD fallback.
+    """
 
     def __init__(
         self,
@@ -143,6 +193,8 @@ class SentimentAgent(BaseAgent):
     ) -> None:
         super().__init__(provider)
         self._news_provider = news_provider
+        # Lazy-loaded FinBERT pipeline; cached on the instance after first use.
+        self._finbert_pipeline: Any = None
 
     # ------------------------------------------------------------------
     # BaseAgent interface
@@ -159,33 +211,21 @@ class SentimentAgent(BaseAgent):
         """Run sentiment analysis on recent headlines for *agent_input.ticker*.
 
         Gracefully degrades when:
-        * ``anthropic`` package is not installed  -> HOLD @ 35
-        * ``ANTHROPIC_API_KEY`` env var is missing -> HOLD @ 35
-        * No news provider is configured          -> HOLD @ 40
-        * No headlines are found                   -> HOLD @ 40
+        * ``anthropic`` package not installed + FinBERT unavailable -> HOLD @ 35
+        * ``ANTHROPIC_API_KEY`` unset + FinBERT unavailable          -> HOLD @ 35
+        * ``ANTHROPIC_API_KEY`` unset + FinBERT available            -> FinBERT branch
+        * No news provider configured                                 -> HOLD @ 40
+        * No headlines found                                          -> HOLD @ 40
+        * Anthropic API error                                         -> HOLD @ 35
         """
         self._validate_asset_type(agent_input)
         ticker = agent_input.ticker
         warnings: list[str] = []
 
-        # 1. Check that the Anthropic SDK is available
-        if AsyncAnthropic is None:
-            return self._fallback_output(
-                ticker,
-                confidence=35.0,
-                warning="anthropic package not installed — sentiment analysis unavailable.",
-            )
-
-        # 2. Check for API key
         api_key = os.getenv("ANTHROPIC_API_KEY")
-        if not api_key:
-            return self._fallback_output(
-                ticker,
-                confidence=35.0,
-                warning="ANTHROPIC_API_KEY not set — sentiment analysis unavailable.",
-            )
+        use_anthropic = (AsyncAnthropic is not None) and bool(api_key)
 
-        # 3. Fetch headlines
+        # Fetch headlines up-front — both Anthropic and FinBERT branches need them.
         headlines: list[NewsHeadline] = []
         if self._news_provider is not None:
             try:
@@ -193,7 +233,7 @@ class SentimentAgent(BaseAgent):
             except Exception as exc:
                 warnings.append(f"News fetch failed: {exc}")
 
-        # Filter out stale headlines (>72h old) to avoid sentiment drift
+        # Filter out stale headlines (>72h old) to avoid sentiment drift.
         headlines = _filter_recent(headlines, max_age_hours=72)
 
         if not headlines:
@@ -204,9 +244,200 @@ class SentimentAgent(BaseAgent):
                 extra_warnings=warnings,
             )
 
-        # 4. Call Claude API
+        # Branch 1: Anthropic (preferred when key is set and SDK available).
+        if use_anthropic:
+            return await self._analyze_with_anthropic(ticker, headlines, warnings, api_key)  # type: ignore[arg-type]
+
+        # Branch 2: FinBERT local inference fallback.
+        if self._try_load_finbert():
+            try:
+                out = await self._analyze_with_finbert(ticker, headlines)
+                out.warnings = warnings + out.warnings
+                return out
+            except Exception as exc:
+                warnings.append(f"FinBERT inference failed: {exc}")
+                # Fall through to the HOLD branch below.
+
+        # Branch 3: Both paths unavailable — conservative HOLD.
+        if AsyncAnthropic is None:
+            msg = (
+                "Sentiment unavailable: anthropic package not installed "
+                "and FinBERT not installed. "
+                "Install one: pip install -e .[llm] OR pip install -e .[llm-local]"
+            )
+        else:
+            msg = (
+                "Sentiment unavailable: ANTHROPIC_API_KEY not set "
+                "and FinBERT not installed. "
+                "Set ANTHROPIC_API_KEY or run: pip install -e .[llm-local]"
+            )
+        return self._fallback_output(
+            ticker,
+            confidence=35.0,
+            warning=msg,
+            extra_warnings=warnings,
+        )
+
+    # ------------------------------------------------------------------
+    # FinBERT helpers
+    # ------------------------------------------------------------------
+
+    def _try_load_finbert(self) -> bool:
+        """Return True if FinBERT (transformers) is importable. Cached after first call.
+
+        Does NOT actually load the pipeline — only checks import-ability.
+        The actual pipeline load happens lazily in ``_get_finbert_pipeline()``.
+
+        Notes:
+            Uses module-level globals ``_FINBERT_IMPORT_ATTEMPTED`` and
+            ``_FINBERT_AVAILABLE`` so that the import check happens at most
+            once per process.  Tests can reset these via monkeypatch.
+        """
+        global _FINBERT_IMPORT_ATTEMPTED, _FINBERT_AVAILABLE  # noqa: PLW0603
+        if _FINBERT_IMPORT_ATTEMPTED:
+            return _FINBERT_AVAILABLE
+        _FINBERT_IMPORT_ATTEMPTED = True
+        try:
+            from transformers import pipeline as _pipeline  # noqa: F401
+            _FINBERT_AVAILABLE = True
+        except ImportError:
+            _FINBERT_AVAILABLE = False
+            logger.info(
+                "transformers not installed; FinBERT sentiment fallback disabled. "
+                "Install with: pip install -e .[llm-local]"
+            )
+        return _FINBERT_AVAILABLE
+
+    def _get_finbert_pipeline(self) -> Any:
+        """Return the cached FinBERT pipeline, creating it on first call.
+
+        Loads ``ProsusAI/finbert`` from HuggingFace hub on first invocation
+        (may download ~400 MB if not cached).  Subsequent calls return the
+        cached instance on ``self._finbert_pipeline``.
+        """
+        if self._finbert_pipeline is None:
+            from transformers import pipeline  # type: ignore[import-not-found]
+            logger.info(
+                "Loading FinBERT pipeline (first call — may download ~400 MB if not cached)..."
+            )
+            self._finbert_pipeline = pipeline(
+                "sentiment-analysis", model="ProsusAI/finbert"
+            )
+        return self._finbert_pipeline
+
+    async def _analyze_with_finbert(
+        self, ticker: str, headlines: list[NewsHeadline]
+    ) -> AgentOutput:
+        """Run local FinBERT inference over *headlines*.
+
+        Requires ``>= 3`` headlines for a non-HOLD signal; fewer headlines
+        yield an unreliable local inference and are treated as HOLD @ 40.
+
+        FinBERT labels: ``"positive"`` | ``"negative"`` | ``"neutral"``
+
+        Aggregation rule:
+        - signed_score = +score for positive, -score for negative, 0 for neutral
+        - mean_score = mean(signed_scores)
+        - mean_score >= 0.25 -> BUY
+        - mean_score <= -0.25 -> SELL
+        - otherwise -> HOLD
+        - confidence = min(90, max(30, 50 + abs(mean_score) * 100))
+        """
+        _MIN_HEADLINES = 3
+        if len(headlines) < _MIN_HEADLINES:
+            return self._fallback_output(
+                ticker,
+                confidence=40.0,
+                warning=(
+                    f"FinBERT requires >= {_MIN_HEADLINES} headlines for a "
+                    f"non-HOLD signal; got {len(headlines)}."
+                ),
+            )
+
+        pipe = self._get_finbert_pipeline()
+
+        # Truncate at 512 chars — FinBERT tokeniser truncates at 512 tokens
+        # and very long inputs slow CPU inference significantly.
+        texts: list[str] = [
+            (f"{h.title}. {h.snippet}" if h.snippet else h.title)[:512]
+            for h in headlines
+        ]
+
+        # Run sync pipeline in a thread to avoid blocking the event loop.
+        def _infer() -> list[dict[str, Any]]:
+            return pipe(texts)  # type: ignore[return-value]
+
+        results: list[dict[str, Any]] = await asyncio.to_thread(_infer)
+
+        # Aggregate signed scores across all headlines.
+        signed: list[float] = []
+        for r in results:
+            label = str(r.get("label", "neutral")).lower()
+            score = float(r.get("score", 0.0))
+            if label == "positive":
+                signed.append(+score)
+            elif label == "negative":
+                signed.append(-score)
+            # neutral contributes 0 — intentionally omitted from signed list
+            # but still counted in len(results) for mean denominator
+
+        if not results:
+            return self._fallback_output(
+                ticker,
+                confidence=40.0,
+                warning="FinBERT returned no results.",
+            )
+
+        # Mean over ALL results (neutral items contribute 0 to numerator)
+        mean_score = sum(signed) / len(results)
+
+        _BUY_THRESHOLD = 0.25
+        _SELL_THRESHOLD = -0.25
+        if mean_score >= _BUY_THRESHOLD:
+            signal = Signal.BUY
+            confidence = max(30.0, min(90.0, 50.0 + abs(mean_score) * 100.0))
+        elif mean_score <= _SELL_THRESHOLD:
+            signal = Signal.SELL
+            confidence = max(30.0, min(90.0, 50.0 + abs(mean_score) * 100.0))
+        else:
+            signal = Signal.HOLD
+            confidence = 40.0  # below threshold — low confidence HOLD
+
+        return AgentOutput(
+            agent_name=self.name,
+            ticker=ticker,
+            signal=signal,
+            confidence=confidence,
+            reasoning=(
+                f"FinBERT local inference on {len(headlines)} headlines; "
+                f"mean sentiment score {mean_score:+.3f} -> {signal.value}. "
+                f"Model: ProsusAI/finbert."
+            ),
+            metrics={
+                "sentiment_score": mean_score,
+                "catalyst_count": 0,        # FinBERT doesn't extract named catalysts
+                "headline_count": len(headlines),
+                "cost_usd": 0.0,            # local inference — no API cost
+                "model": "ProsusAI/finbert",
+                "inference": "local",
+            },
+            warnings=["Using FinBERT local inference (ANTHROPIC_API_KEY not set)."],
+        )
+
+    # ------------------------------------------------------------------
+    # Anthropic helpers
+    # ------------------------------------------------------------------
+
+    async def _analyze_with_anthropic(
+        self,
+        ticker: str,
+        headlines: list[NewsHeadline],
+        warnings: list[str],
+        api_key: str,
+    ) -> AgentOutput:
+        """Call the Claude API and return a sentiment AgentOutput."""
         user_message = _build_user_prompt(ticker, headlines)
-        client = AsyncAnthropic(api_key=api_key)
+        client = AsyncAnthropic(api_key=api_key)  # type: ignore[misc]
 
         try:
             response = await client.messages.create(
@@ -224,7 +455,6 @@ class SentimentAgent(BaseAgent):
                 extra_warnings=warnings,
             )
 
-        # 5. Parse response
         raw_text = response.content[0].text
         input_tokens = response.usage.input_tokens
         output_tokens = response.usage.output_tokens
@@ -255,7 +485,7 @@ class SentimentAgent(BaseAgent):
         )
 
     # ------------------------------------------------------------------
-    # Helpers
+    # Shared helpers
     # ------------------------------------------------------------------
 
     def _fallback_output(
@@ -285,6 +515,10 @@ class SentimentAgent(BaseAgent):
             warnings=all_warnings,
         )
 
+
+# ---------------------------------------------------------------------------
+# Standalone helpers
+# ---------------------------------------------------------------------------
 
 def _filter_recent(
     headlines: list[NewsHeadline],
