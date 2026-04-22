@@ -761,6 +761,44 @@ export interface SectorPerformanceEntry {
 }
 
 // ---------------------------------------------------------------------------
+// Phase 04 types: TTWROR + IRR + Daily P&L Heatmap + Benchmark Allowlist
+// ---------------------------------------------------------------------------
+
+// UI-01: TTWROR + IRR response from GET /analytics/returns
+export interface ReturnsAggregate {
+  ttwror: number | null;        // percent (12.34 == 12.34%)
+  irr: number | null;           // percent
+  snapshot_count: number;
+  start_value: number | null;
+  end_value: number | null;
+  window_days: number;
+}
+
+export interface ReturnsPosition {
+  ticker: string;
+  ttwror: number | null;
+  irr: number | null;
+  hold_days: number;
+  cost_basis: number;
+  current_value: number | null;
+  status: string;
+}
+
+export interface ReturnsResponse {
+  aggregate: ReturnsAggregate;
+  positions: ReturnsPosition[];
+}
+
+// UI-05: Daily P&L heatmap point
+export interface DailyPnlPoint {
+  date: string;   // YYYY-MM-DD
+  pnl: number;
+}
+
+// UI-02: Backend allowlist — MUST match engine/analytics.py::VALID_BENCHMARKS
+export type BenchmarkSymbol = "SPY" | "QQQ" | "TLT" | "GLD" | "BTC-USD";
+
+// ---------------------------------------------------------------------------
 // Sprint 38 types
 // ---------------------------------------------------------------------------
 export interface AlertRule {

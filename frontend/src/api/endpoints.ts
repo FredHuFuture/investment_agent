@@ -65,6 +65,9 @@ import type {
   AlertRule,
   PortfolioHealthScore,
   JournalInsight,
+  ReturnsResponse,
+  DailyPnlPoint,
+  BenchmarkSymbol,
 } from "./types";
 
 // Portfolio
@@ -282,7 +285,7 @@ export const getPortfolioRisk = (days = 90) =>
   apiGet<PortfolioRisk>(`/analytics/risk?days=${days}`);
 export const getPortfolioCorrelations = (lookbackDays = 90) =>
   apiGet<CorrelationData>(`/analytics/correlations?lookback_days=${lookbackDays}`);
-export const getBenchmarkComparison = (days = 90, benchmark = "SPY") =>
+export const getBenchmarkComparison = (days = 90, benchmark: BenchmarkSymbol = "SPY") =>
   apiGet<BenchmarkComparison>(`/analytics/benchmark?days=${days}&benchmark=${benchmark}`);
 
 // Regime
@@ -503,3 +506,20 @@ export const getPortfolioHealthScore = () =>
 // Journal insights (Sprint 38)
 export const getJournalInsights = () =>
   apiGet<JournalInsight[]>("/journal/insights");
+
+// Phase 04: TTWROR + IRR (UI-01)
+export const getReturns = (days = 365) =>
+  apiGet<ReturnsResponse>(`/analytics/returns?days=${days}`);
+
+// Phase 04: Daily P&L heatmap (UI-05)
+export const getDailyPnl = (days = 365) =>
+  apiGet<DailyPnlPoint[]>(`/analytics/daily-pnl?days=${days}`);
+
+// Phase 04: Benchmark allowlist — kept in sync with engine/analytics.py::VALID_BENCHMARKS (UI-02)
+export const BENCHMARK_OPTIONS: readonly BenchmarkSymbol[] = [
+  "SPY",
+  "QQQ",
+  "TLT",
+  "GLD",
+  "BTC-USD",
+] as const;
