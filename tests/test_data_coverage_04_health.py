@@ -28,8 +28,15 @@ from db.database import init_db
 
 
 def _run(coro):
-    """Run a coroutine synchronously (compatible with pytest-asyncio auto mode)."""
-    return asyncio.get_event_loop().run_until_complete(coro)
+    """Run a coroutine synchronously using a fresh event loop.
+
+    asyncio.get_event_loop() is deprecated in Python 3.12 and raises
+    RuntimeError when there is no current loop (e.g., after pytest-asyncio
+    closes the default loop from a prior async test module).  Using
+    asyncio.run() creates a fresh loop for each call, which is safe for
+    synchronous test helpers.
+    """
+    return asyncio.run(coro)
 
 
 async def _seed_job_run_log(db_path: str, rows: list) -> None:
