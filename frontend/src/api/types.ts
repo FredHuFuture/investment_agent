@@ -27,6 +27,8 @@ export interface Position {
   exit_date: string | null;
   exit_reason: string | null;
   realized_pnl: number | null;
+  // UI-04: optional target allocation (0.0-1.0)
+  target_weight?: number | null;
 }
 
 export interface ClosePositionResult {

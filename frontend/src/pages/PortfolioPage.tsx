@@ -501,6 +501,11 @@ export default function PortfolioPage() {
               positions={data.positions}
               onRemove={setConfirmRemove}
               onClose={setClosingPosition}
+              totalValue={data.total_value}
+              onPositionUpdated={() => {
+                invalidateCache("portfolio");
+                refetch();
+              }}
             />
           )
         ) : historyApi.data && historyApi.data.length > 0 ? (

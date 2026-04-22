@@ -515,6 +515,13 @@ export const getReturns = (days = 365) =>
 export const getDailyPnl = (days = 365) =>
   apiGet<DailyPnlPoint[]>(`/analytics/daily-pnl?days=${days}`);
 
+// Phase 04: UI-04 — set or clear target_weight for a position
+export const setTargetWeight = (ticker: string, targetWeight: number | null) =>
+  apiPatch<{ ticker: string; target_weight: number | null }>(
+    `/portfolio/positions/${encodeURIComponent(ticker)}/target-weight`,
+    { target_weight: targetWeight },
+  );
+
 // Phase 04: Benchmark allowlist — kept in sync with engine/analytics.py::VALID_BENCHMARKS (UI-02)
 export const BENCHMARK_OPTIONS: readonly BenchmarkSymbol[] = [
   "SPY",

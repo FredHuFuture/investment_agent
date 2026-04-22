@@ -2,14 +2,18 @@ import { Link } from "react-router-dom";
 import DataTable, { type Column } from "../shared/DataTable";
 import { formatCurrency, formatNumber, formatDate, pnlColor, holdColor } from "../../lib/formatters";
 import type { Position } from "../../api/types";
+import TargetWeightBar from "./TargetWeightBar";
+import { setTargetWeight } from "../../api/endpoints";
 
 interface Props {
   positions: Position[];
   onRemove: (ticker: string) => void;
   onClose?: (position: Position) => void;
+  onPositionUpdated?: () => void;
+  totalValue?: number;
 }
 
-export default function PositionsTable({ positions, onRemove, onClose }: Props) {
+export default function PositionsTable({ positions, onRemove, onClose, onPositionUpdated, totalValue }: Props) {
   const columns: Column<Position>[] = [
     {
       key: "ticker",
@@ -107,6 +111,55 @@ export default function PositionsTable({ positions, onRemove, onClose }: Props) 
       render: (r) => <span className="text-gray-500">{formatDate(r.entry_date)}</span>,
       sortValue: (r) => r.entry_date,
       hiddenOnMobile: true,
+    },
+    {
+      key: "target",
+      header: "Target Wt",
+      hiddenOnMobile: true,
+      render: (r) => {
+        const actualWeight = totalValue && totalValue > 0
+          ? r.market_value / totalValue
+          : 0;
+        return (
+          <div className="flex flex-col gap-1">
+            <TargetWeightBar
+              actualWeight={actualWeight}
+              targetWeight={r.target_weight ?? null}
+              ticker={r.ticker}
+            />
+            <button
+              type="button"
+              className="text-[10px] text-gray-500 hover:text-accent text-left"
+              onClick={async () => {
+                const current = r.target_weight;
+                const input = window.prompt(
+                  `Target weight for ${r.ticker} (0.0-1.0; blank to clear):`,
+                  current !== null && current !== undefined ? String(current) : "",
+                );
+                if (input === null) return; // cancelled
+                const trimmed = input.trim();
+                let newVal: number | null = null;
+                if (trimmed !== "") {
+                  const parsed = parseFloat(trimmed);
+                  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) {
+                    window.alert("Target weight must be between 0.0 and 1.0 (or blank).");
+                    return;
+                  }
+                  newVal = parsed;
+                }
+                try {
+                  await setTargetWeight(r.ticker, newVal);
+                  onPositionUpdated?.();
+                } catch (e) {
+                  window.alert(`Failed to update target weight: ${String(e)}`);
+                }
+              }}
+            >
+              {r.target_weight == null ? "set target" : "edit target"}
+            </button>
+          </div>
+        );
+      },
     },
     {
       key: "actions",
