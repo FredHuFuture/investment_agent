@@ -302,6 +302,82 @@ class TestHealthPidFile:
         assert daemon["pid"] is None
 
 
+class TestHealthUptimeFromPidMtime:
+    """Test WR-01: uptime_seconds derives from PID file mtime, not job_run_log."""
+
+    def test_uptime_seconds_positive_when_pid_file_present_and_job_log_empty(
+        self, tmp_path, monkeypatch
+    ):
+        """PID file exists but job_run_log is empty → uptime_seconds is positive int."""
+        db = str(tmp_path / "test.db")
+        _run(init_db(db))
+
+        # Write a PID file (no jobs in DB)
+        pid_file = tmp_path / "daemon.pid"
+        pid_file.write_text("12345")
+
+        import api.routes.health as health_module
+        monkeypatch.setattr(health_module, "PID_FILE_PATH", pid_file)
+
+        app = _make_app(db)
+        with TestClient(app) as client:
+            r = client.get("/health")
+
+        daemon = r.json()["data"]["daemon"]
+        # uptime_seconds must be a non-negative integer — not null — even though
+        # job_run_log is empty (previously the old MIN(started_at) query returned null)
+        assert daemon["uptime_seconds"] is not None
+        assert isinstance(daemon["uptime_seconds"], int)
+        assert daemon["uptime_seconds"] >= 0
+
+    def test_uptime_seconds_null_when_pid_file_absent(self, tmp_path, monkeypatch):
+        """No PID file → uptime_seconds is null (daemon not running)."""
+        db = str(tmp_path / "test.db")
+        _run(init_db(db))
+
+        pid_file = tmp_path / "daemon.pid"
+        if pid_file.exists():
+            pid_file.unlink()
+
+        import api.routes.health as health_module
+        monkeypatch.setattr(health_module, "PID_FILE_PATH", pid_file)
+
+        app = _make_app(db)
+        with TestClient(app) as client:
+            r = client.get("/health")
+
+        daemon = r.json()["data"]["daemon"]
+        assert daemon["uptime_seconds"] is None
+
+    def test_uptime_seconds_reflects_pid_file_age(self, tmp_path, monkeypatch):
+        """uptime_seconds approximately equals (now - pid_file_mtime) in seconds."""
+        import time
+
+        db = str(tmp_path / "test.db")
+        _run(init_db(db))
+
+        pid_file = tmp_path / "daemon.pid"
+        pid_file.write_text("12345")
+
+        # Record mtime immediately after creation
+        before = time.time()
+
+        import api.routes.health as health_module
+        monkeypatch.setattr(health_module, "PID_FILE_PATH", pid_file)
+
+        app = _make_app(db)
+        with TestClient(app) as client:
+            r = client.get("/health")
+
+        after = time.time()
+        elapsed_max = after - before + 2  # 2s tolerance
+
+        daemon = r.json()["data"]["daemon"]
+        assert daemon["uptime_seconds"] is not None
+        # uptime should be small (file was just written) and within tolerance
+        assert 0 <= daemon["uptime_seconds"] <= elapsed_max
+
+
 class TestHealthDegradedOnDbError:
     """Test 10: DB error → 200 with status=degraded."""
 

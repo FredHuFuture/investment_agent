@@ -21,9 +21,17 @@ Response schema (frozen contract; DATA-04):
     },
     "warnings": []
   }
+
+uptime_seconds semantics (WR-01):
+  Computed from the PID file mtime, which is set when the daemon writes its PID
+  on startup.  This correctly reflects "daemon process age" rather than
+  "oldest active job age".  Returns null when the PID file is absent (daemon
+  not running) — distinguishing "daemon running but idle" (positive uptime)
+  from "daemon not running" (null).
 """
 from __future__ import annotations
 
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -110,26 +118,12 @@ async def get_health(db_path: str = Depends(get_db_path)) -> dict:
                 row = await cursor.fetchone()
                 daemon_info["stale_running"] = int(row["n"]) if row else 0
 
-            # Oldest running row -- used to derive uptime_seconds approximation
-            async with conn.execute(
-                """
-                SELECT MIN(started_at) as oldest FROM job_run_log
-                WHERE status = 'running'
-                """
-            ) as cursor:
-                row = await cursor.fetchone()
-                if row and row["oldest"]:
-                    try:
-                        oldest = datetime.fromisoformat(
-                            str(row["oldest"]).replace("Z", "+00:00")
-                        )
-                        if oldest.tzinfo is None:
-                            oldest = oldest.replace(tzinfo=timezone.utc)
-                        daemon_info["uptime_seconds"] = int(
-                            (now - oldest).total_seconds()
-                        )
-                    except (ValueError, TypeError):
-                        pass
+            # uptime_seconds: derived from PID file mtime (WR-01 fix).
+            # The daemon writes its PID file on startup, so mtime ≈ daemon start time.
+            # This correctly returns a positive value when the daemon is idle (no
+            # active jobs in job_run_log), unlike the previous MIN(started_at) query
+            # which returned null between job runs.  Populated below after the DB
+            # block, alongside the other PID-file reads.
 
             # signal_history row count
             async with conn.execute(
@@ -155,7 +149,10 @@ async def get_health(db_path: str = Depends(get_db_path)) -> dict:
             "warnings": ["Failed to query DB for health snapshot."],
         }
 
-    # PID file inspection (filesystem; outside DB block)
+    # PID file inspection (filesystem; outside DB block).
+    # uptime_seconds is computed here from PID file mtime (WR-01 fix):
+    # - daemon present (pid file exists) → uptime = now - mtime (positive even when idle)
+    # - daemon absent (no pid file)      → uptime = null
     try:
         if PID_FILE_PATH.exists():
             daemon_info["pid_file_present"] = True
@@ -163,6 +160,13 @@ async def get_health(db_path: str = Depends(get_db_path)) -> dict:
             try:
                 daemon_info["pid"] = int(pid_text)
             except ValueError:
+                pass
+            # Derive uptime from PID file modification time (set when daemon starts).
+            try:
+                mtime = os.path.getmtime(PID_FILE_PATH)
+                pid_created = datetime.fromtimestamp(mtime, tz=timezone.utc)
+                daemon_info["uptime_seconds"] = int((now - pid_created).total_seconds())
+            except (OSError, ValueError):
                 pass
     except Exception:
         pass
