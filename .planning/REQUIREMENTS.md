@@ -32,7 +32,7 @@ Requirements for this milestone (competitive parity + moat hardening). Each maps
 
 - [x] **DATA-01**: Finnhub provider (live sector P/E, insider, ESG, transcripts) under the existing DataProvider interface with rate-limit + cache — `data_providers/finnhub_provider.py` (new) + `agents/fundamental.py` integration
 - [x] **DATA-02**: FinBERT local sentiment fallback when `ANTHROPIC_API_KEY` absent or for cost-sensitive flows, using HuggingFace pipeline — `agents/sentiment.py`
-- [ ] **DATA-03**: SEC EDGAR insider transactions (Form 4) via `edgartools`, feeding a new signal in `FundamentalAgent` — `data_providers/edgar_provider.py` (new) + `agents/fundamental.py`
+- [x] **DATA-03**: SEC EDGAR insider transactions (Form 4) via `edgartools`, feeding a new signal in `FundamentalAgent` — `data_providers/edgar_provider.py` (new) + `agents/fundamental.py`
 - [x] **DATA-04**: Structured JSON logs for API and daemon + `GET /health` endpoint reporting daemon status and job run counts — `api/app.py` + `api/routes/health.py` (new)
 - [x] **DATA-05**: Daemon PID file + localhost-only default binding for API/daemon — `daemon/scheduler.py` + `api/app.py` + `run.ps1` / `Makefile`
 
@@ -121,7 +121,7 @@ Which phases cover which requirements. Filled by the roadmapper.
 | SIG-06 | Phase 2 | Complete |
 | DATA-01 | Phase 3 | Complete |
 | DATA-02 | Phase 3 | Complete |
-| DATA-03 | Phase 3 | Pending |
+| DATA-03 | Phase 3 | Complete |
 | DATA-04 | Phase 3 | Complete |
 | DATA-05 | Phase 3 | Complete |
 | UI-01 | Phase 4 | Pending |

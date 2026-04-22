@@ -14,7 +14,7 @@ This milestone hardens an already-working brownfield system against the liabilit
  (completed 2026-04-21)
 - [x] **Phase 2: Signal Quality Upgrade** - Deepen the thesis/drift moat with calibrated, measurable signal quality and rigorous backtesting
  (completed 2026-04-21)
-- [ ] **Phase 3: Data Coverage Expansion** - Add free-tier providers and operator-observability so new data flows through a trusted pipeline
+- [x] **Phase 3: Data Coverage Expansion** - Add free-tier providers and operator-observability so new data flows through a trusted pipeline (completed 2026-04-22)
 - [ ] **Phase 4: Portfolio UI + Analytics Uplift** - Close the UI gap vs. Ghostfolio and Portfolio Performance with accurate performance math and legible dashboards
 
 ## Phase Details
@@ -62,7 +62,7 @@ This milestone hardens an already-working brownfield system against the liabilit
 **Plans**: 4 plans
   - [x] 03-01-PLAN.md — DATA-01 (Finnhub provider + FundamentalAgent sector P/E)
   - [x] 03-02-PLAN.md — DATA-02 (FinBERT local sentiment fallback)
-  - [ ] 03-03-PLAN.md — DATA-03 (SEC EDGAR Form 4 insider transactions; depends on 03-01)
+  - [x] 03-03-PLAN.md — DATA-03 (SEC EDGAR Form 4 insider transactions; depends on 03-01)
   - [x] 03-04-PLAN.md — DATA-04 + DATA-05 (structured JSON logs, GET /health, daemon PID, localhost bind)
 
 ### Phase 4: Portfolio UI + Analytics Uplift
@@ -88,5 +88,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Foundation Hardening | 3/3 | Complete    | 2026-04-21 |
 | 2. Signal Quality Upgrade | 3/3 | Complete    | 2026-04-21 |
-| 3. Data Coverage Expansion | 3/4 | In Progress|  |
+| 3. Data Coverage Expansion | 4/4 | Complete   | 2026-04-22 |
 | 4. Portfolio UI + Analytics Uplift | 0/TBD | Not started | - |
