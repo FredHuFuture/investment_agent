@@ -1,4 +1,11 @@
-"""FastAPI application factory."""
+"""FastAPI application factory.
+
+DATA-04 note: uvicorn default bind is 0.0.0.0 on some versions. Run with
+``--host 127.0.0.1`` (set in run.ps1 and Makefile) to limit API access to
+localhost only. To expose on LAN, explicitly pass ``--host 0.0.0.0`` and
+ensure firewall rules are in place -- portfolio data is readable by anyone
+who can reach the bound interface.
+"""
 from __future__ import annotations
 
 import asyncio
@@ -8,6 +15,11 @@ from typing import Any
 
 from dotenv import load_dotenv
 load_dotenv()
+
+# DATA-04: Install JSON structured logging before any other imports that
+# might trigger logging output. Root logger -> JSON on stderr.
+from api.log_format import install_json_logging  # noqa: E402
+install_json_logging()
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,7 +44,7 @@ def create_app(db_path: str = str(DEFAULT_DB_PATH)) -> FastAPI:
     """Build and configure the FastAPI application."""
     app = FastAPI(
         title="Investment Agent API",
-        version="0.1.0",
+        version="0.2.0",
         description="REST API for investment analysis, portfolio management, and backtesting.",
         lifespan=lifespan,
     )
@@ -67,14 +79,9 @@ def create_app(db_path: str = str(DEFAULT_DB_PATH)) -> FastAPI:
             ).model_dump(),
         )
 
-    # -- Health endpoint (inline) ---------------------------------------------
-
-    @app.get("/health", tags=["system"])
-    async def health():
-        return {"data": {"status": "ok", "db_path": app.state.db_path}, "warnings": []}
-
     # -- Register routers -----------------------------------------------------
 
+    from api.routes.health import router as health_router
     from api.routes.analyze import router as analyze_router
     from api.routes.alerts import router as alerts_router
     from api.routes.analytics import router as analytics_router
@@ -93,6 +100,7 @@ def create_app(db_path: str = str(DEFAULT_DB_PATH)) -> FastAPI:
     from api.routes.alert_analytics import router as alert_analytics_router
     from api.routes.analysis_history import router as analysis_history_router
 
+    app.include_router(health_router, prefix="/health", tags=["system"])
     app.include_router(analyze_router, prefix="/analyze", tags=["analysis"])
     app.include_router(analytics_router, prefix="/analytics", tags=["analytics"])
     app.include_router(portfolio_router, prefix="/portfolio", tags=["portfolio"])
