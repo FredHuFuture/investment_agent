@@ -42,6 +42,7 @@ class AnalysisPipeline:
         portfolio: Portfolio | None,
         aggregator: SignalAggregator,
         use_regime: bool,
+        backtest_mode: bool = False,
     ) -> AggregatedSignal:
         """Core pipeline shared by analyze_ticker and analyze_ticker_custom.
 
@@ -105,6 +106,7 @@ class AnalysisPipeline:
             ticker=ticker,
             asset_type=asset_type,
             portfolio=portfolio,
+            backtest_mode=backtest_mode,
         )
 
         # 4. Run agents + ticker info fetch in parallel
@@ -215,6 +217,18 @@ class AnalysisPipeline:
                 signal.metrics["sector_modifier"] = modifier
                 signal.metrics["sector_name"] = sector
                 signal.metrics["pre_sector_confidence"] = pre_confidence
+
+        # UI-07: opt-in Bull/Bear synthesis (skipped silently in backtest_mode per FOUND-04)
+        try:
+            from engine.llm_synthesis import run_llm_synthesis
+            synthesis = await run_llm_synthesis(signal, agent_input)
+            if synthesis is not None:
+                signal.llm_synthesis = synthesis
+        except Exception as exc:
+            _logger.warning(
+                "LLM synthesis step raised unexpectedly for %s: %s", ticker, exc
+            )
+            signal.warnings.append(f"LLM synthesis exception: {exc}")
 
         return signal
 

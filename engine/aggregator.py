@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from agents.models import AgentOutput, Regime, Signal
+
+if TYPE_CHECKING:
+    from engine.llm_synthesis import LlmSynthesis
 
 SIGNAL_VALUE: dict[Signal, float] = {
     Signal.BUY: +1.0,
@@ -27,6 +30,8 @@ class AggregatedSignal:
     warnings: list[str] = field(default_factory=list)
     ticker_info: dict[str, Any] = field(default_factory=dict)
     portfolio_impact: dict[str, Any] = field(default_factory=dict)
+    # UI-07: optional Bull/Bear synthesis (None when ENABLE_LLM_SYNTHESIS=false or backtest_mode=True)
+    llm_synthesis: "LlmSynthesis | None" = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -41,6 +46,7 @@ class AggregatedSignal:
             "warnings": self.warnings,
             "ticker_info": self.ticker_info,
             "portfolio_impact": self.portfolio_impact,
+            "llm_synthesis": self.llm_synthesis.to_dict() if self.llm_synthesis is not None else None,
         }
 
 
