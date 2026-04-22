@@ -99,7 +99,7 @@ def _build_prompt(aggregated: AggregatedSignal) -> str:
 def _cache_key(aggregated: AggregatedSignal) -> tuple:
     regime = aggregated.regime.value if aggregated.regime else "NEUTRAL"
     bucket = int(round(aggregated.final_confidence / 10.0) * 10)
-    return (aggregated.ticker, aggregated.final_signal.value, regime, bucket)
+    return (aggregated.ticker, aggregated.asset_type, aggregated.final_signal.value, regime, bucket)
 
 
 def _cache_get(key: tuple) -> LlmSynthesis | None:
