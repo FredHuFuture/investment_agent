@@ -458,3 +458,129 @@ def test_rebuild_corpus_background_task_does_not_leak_on_exception(
             )
     finally:
         dj.rebuild_signal_corpus = original  # type: ignore[attr-defined]
+
+
+def test_batch_rebuild_outer_exception_marks_error(tmp_path: Path) -> None:
+    """WR-01: systemic failure (e.g., import error) sets status='error' with error_message.
+
+    The job row must NOT remain stuck at status='running' when _run_batch_rebuild
+    raises before or outside the per-ticker loop.  This test replaces daemon.jobs
+    in sys.modules with a broken module so the deferred import inside
+    _run_batch_rebuild raises ImportError, simulating a systemic failure.
+    """
+    import sys
+    import types
+
+    from api.app import create_app
+    from fastapi.testclient import TestClient
+
+    db_path = str(tmp_path / "test.db")
+    asyncio.run(init_db(db_path))
+    app = create_app(db_path=db_path)
+
+    # Inject a broken daemon.jobs module that raises on attribute access.
+    broken_module = types.ModuleType("daemon.jobs")
+    # Accessing any attribute (including rebuild_signal_corpus) raises ImportError.
+
+    class _BrokenModule(types.ModuleType):
+        def __getattr__(self, name: str) -> Any:
+            raise ImportError(f"Simulated import failure: daemon.jobs.{name} unavailable")
+
+    broken = _BrokenModule("daemon.jobs")
+    original_module = sys.modules.get("daemon.jobs")
+
+    sys.modules["daemon.jobs"] = broken
+    try:
+        with TestClient(app) as client:
+            resp = client.post(
+                "/analytics/calibration/rebuild-corpus",
+                json={"tickers": ["SYSFAIL"], "asset_types": {"SYSFAIL": "stock"}},
+            )
+            assert resp.status_code == 200, (
+                f"POST itself must succeed (job row created); got {resp.status_code}"
+            )
+            job_id = resp.json()["job_id"]
+
+            # TestClient runs BackgroundTasks synchronously — job is done now.
+            get_resp = client.get(f"/analytics/calibration/rebuild-corpus/{job_id}")
+        assert get_resp.status_code == 200
+        data = get_resp.json()
+
+        # Job must NOT be stuck at 'running'
+        assert data["status"] == "error", (
+            f"Expected status='error' after outer exception, got '{data['status']}'"
+        )
+        # error_message must be populated (not null)
+        assert data["error_message"] is not None, (
+            "error_message must be non-null after systemic failure"
+        )
+        assert len(data["error_message"]) > 0, (
+            "error_message must be non-empty after systemic failure"
+        )
+    finally:
+        if original_module is not None:
+            sys.modules["daemon.jobs"] = original_module
+        elif "daemon.jobs" in sys.modules:
+            del sys.modules["daemon.jobs"]
+
+
+def test_batch_rebuild_partial_writes_error_message(tmp_path: Path) -> None:
+    """WR-02: when some tickers fail, error_message is populated with a useful summary.
+
+    A partial run (some OK, some failed) must write a non-null error_message
+    to corpus_rebuild_jobs so GET /{job_id} surfaces useful diagnostics without
+    requiring the caller to inspect ticker_progress for every ticker.
+    """
+    import daemon.jobs as dj
+    from api.app import create_app
+    from fastapi.testclient import TestClient
+
+    async def _stub_partial(
+        db_path: str,
+        tickers: list | None = None,
+        **kwargs: Any,
+    ) -> dict:
+        ticker = (tickers or [])[0][0] if tickers else "UNKNOWN"
+        if ticker == "BADINPUT":
+            raise ValueError("Simulated per-ticker failure for BADINPUT")
+        return {"rows_inserted": 100, "tickers_processed": 1, "run_id": "stub"}
+
+    original = dj.rebuild_signal_corpus
+    dj.rebuild_signal_corpus = _stub_partial  # type: ignore[attr-defined]
+
+    db_path = str(tmp_path / "test.db")
+    asyncio.run(init_db(db_path))
+    app = create_app(db_path=db_path)
+
+    try:
+        with TestClient(app) as client:
+            resp = client.post(
+                "/analytics/calibration/rebuild-corpus",
+                json={
+                    "tickers": ["GOOD1", "BADINPUT"],
+                    "asset_types": {"GOOD1": "stock", "BADINPUT": "stock"},
+                },
+            )
+            assert resp.status_code == 200
+            job_id = resp.json()["job_id"]
+
+            get_resp = client.get(f"/analytics/calibration/rebuild-corpus/{job_id}")
+        assert get_resp.status_code == 200
+        data = get_resp.json()
+
+        assert data["status"] == "partial", (
+            f"Expected status='partial', got '{data['status']}'"
+        )
+        # WR-02: error_message must be non-null and contain useful context
+        assert data["error_message"] is not None, (
+            "error_message must not be null for partial status"
+        )
+        assert len(data["error_message"]) > 0, (
+            "error_message must not be empty for partial status"
+        )
+        # Should reference the failed ticker somewhere in the summary
+        assert "BADINPUT" in data["error_message"], (
+            f"error_message should mention failed ticker; got: {data['error_message']!r}"
+        )
+    finally:
+        dj.rebuild_signal_corpus = original  # type: ignore[attr-defined]

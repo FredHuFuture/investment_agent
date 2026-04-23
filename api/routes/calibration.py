@@ -279,72 +279,140 @@ async def _run_batch_rebuild(
 
     Security (T-05-01-04): exception text is truncated to 500 chars before
     persisting to DB, mirroring the daemon/jobs.py line ~1136 pattern.
+
+    Outer exception guard (WR-01/WR-02): any systemic failure before or
+    outside the per-ticker loop (e.g., ImportError on the deferred import)
+    is caught and written to the job row as status='error' with error_message
+    populated, preventing the row from being stuck at status='running'.
     """
-    from daemon.jobs import rebuild_signal_corpus
-
-    progress: dict[str, dict] = {
-        t: {"status": "pending"} for t, _ in tickers_with_type
-    }
-    successes = 0
-    failures = 0
-
-    for ticker, asset_type in tickers_with_type:
-        # Mark ticker as running and flush
-        progress[ticker] = {"status": "running"}
-        await _update_progress(db_path, job_id, progress, increment_completed=False)
-
-        try:
-            result = await rebuild_signal_corpus(
-                db_path=db_path,
-                tickers=[(ticker, asset_type)],
-            )
-            progress[ticker] = {
-                "status": "success",
-                "rows_inserted": int(result.get("rows_inserted", 0)),
-            }
-            successes += 1
-        except Exception as exc:
-            err_text = str(exc)[:500]  # T-05-01-04: truncate to 500 chars
-            _route_logger.error(
-                "rebuild_corpus_batch: ticker=%s failed: %s",
-                ticker,
-                err_text,
-            )
-            progress[ticker] = {
-                "status": "error",
-                "error": err_text,
-            }
-            failures += 1
-
-        # Increment tickers_completed and flush updated progress
-        await _update_progress(db_path, job_id, progress, increment_completed=True)
-
-    # Determine final job status
-    if failures == 0:
-        final_status = "success"
-    elif successes == 0:
-        final_status = "error"
-    else:
-        final_status = "partial"
-
-    completed_at = datetime.now(timezone.utc).isoformat()
     try:
-        async with aiosqlite.connect(db_path) as conn:
-            await conn.execute(
-                """
-                UPDATE corpus_rebuild_jobs
-                SET status = ?, completed_at = ?, ticker_progress_json = ?
-                WHERE job_id = ?
-                """,
-                (final_status, completed_at, json.dumps(progress), job_id),
+        try:
+            from daemon.jobs import rebuild_signal_corpus
+        except Exception as import_exc:
+            _route_logger.error(
+                "rebuild_corpus_batch: failed to import rebuild_signal_corpus"
+                " for job_id=%s: %s",
+                job_id,
+                import_exc,
             )
-            await conn.commit()
-    except Exception as upd_exc:
-        _route_logger.warning(
-            "rebuild_corpus_batch: final status update failed for job_id=%s: %s",
+            raise  # re-raise so outer guard records it as error
+
+        progress: dict[str, dict] = {
+            t: {"status": "pending"} for t, _ in tickers_with_type
+        }
+        successes = 0
+        failures = 0
+
+        for ticker, asset_type in tickers_with_type:
+            # Mark ticker as running and flush
+            progress[ticker] = {"status": "running"}
+            await _update_progress(db_path, job_id, progress, increment_completed=False)
+
+            try:
+                result = await rebuild_signal_corpus(
+                    db_path=db_path,
+                    tickers=[(ticker, asset_type)],
+                )
+                progress[ticker] = {
+                    "status": "success",
+                    "rows_inserted": int(result.get("rows_inserted", 0)),
+                }
+                successes += 1
+            except Exception as exc:
+                err_text = str(exc)[:500]  # T-05-01-04: truncate to 500 chars
+                _route_logger.error(
+                    "rebuild_corpus_batch: ticker=%s failed: %s",
+                    ticker,
+                    err_text,
+                )
+                progress[ticker] = {
+                    "status": "error",
+                    "error": err_text,
+                }
+                failures += 1
+
+            # Increment tickers_completed and flush updated progress
+            await _update_progress(db_path, job_id, progress, increment_completed=True)
+
+        # Determine final job status
+        if failures == 0:
+            final_status = "success"
+            error_summary: str | None = None
+        elif successes == 0:
+            final_status = "error"
+            # WR-02: summarise per-ticker errors into error_message
+            error_texts = [
+                f"{t}: {progress[t].get('error', 'unknown error')}"
+                for t in progress
+                if progress[t].get("status") == "error"
+            ]
+            error_summary = "; ".join(error_texts)[:500]
+        else:
+            final_status = "partial"
+            # WR-02: note that partial failures exist; details in ticker_progress
+            failed_tickers = [
+                t for t in progress if progress[t].get("status") == "error"
+            ]
+            error_summary = (
+                f"{len(failed_tickers)} ticker(s) failed"
+                f" (see ticker_progress for per-ticker errors): "
+                + ", ".join(failed_tickers)
+            )[:500]
+
+        completed_at = datetime.now(timezone.utc).isoformat()
+        try:
+            async with aiosqlite.connect(db_path) as conn:
+                await conn.execute(
+                    """
+                    UPDATE corpus_rebuild_jobs
+                    SET status = ?, completed_at = ?, ticker_progress_json = ?,
+                        error_message = ?
+                    WHERE job_id = ?
+                    """,
+                    (
+                        final_status,
+                        completed_at,
+                        json.dumps(progress),
+                        error_summary,
+                        job_id,
+                    ),
+                )
+                await conn.commit()
+        except Exception as upd_exc:
+            _route_logger.warning(
+                "rebuild_corpus_batch: final status update failed for job_id=%s: %s",
+                job_id,
+                upd_exc,
+            )
+
+    except Exception as outer_exc:
+        # WR-01: systemic failure outside the per-ticker loop — mark job as error
+        # so GET polling surfaces the failure instead of staying stuck at 'running'.
+        _route_logger.error(
+            "rebuild_corpus_batch: unhandled exception for job_id=%s: %s",
             job_id,
-            upd_exc,
+            outer_exc,
         )
+        try:
+            async with aiosqlite.connect(db_path) as conn:
+                await conn.execute(
+                    """
+                    UPDATE corpus_rebuild_jobs
+                    SET status = 'error', completed_at = ?, error_message = ?
+                    WHERE job_id = ?
+                    """,
+                    (
+                        datetime.now(timezone.utc).isoformat(),
+                        str(outer_exc)[:500],
+                        job_id,
+                    ),
+                )
+                await conn.commit()
+        except Exception:
+            _route_logger.warning(
+                "rebuild_corpus_batch: could not write outer error for job_id=%s",
+                job_id,
+            )
 
 
 async def _update_progress(
