@@ -27,7 +27,7 @@ All 4 phases complete. Full snapshot in `.planning/milestones/v1.0-ROADMAP.md`.
 
 ## Phases
 
-- [ ] **Phase 5: Corpus Population + Live Data Closeout** - Populate the real signal corpus for user's tickers and verify all three v1.0 live-environment UAT items that could not be automated
+- [x] **Phase 5: Corpus Population + Live Data Closeout** - Populate the real signal corpus for user's tickers and verify all three v1.0 live-environment UAT items that could not be automated (completed 2026-04-23)
 - [ ] **Phase 6: Calibration & Weights UI** - Surface per-agent signal quality visually and give the user a one-click path to apply IC-IR-derived weights; close out v1.0 browser UAT items
 - [ ] **Phase 7: Digest + Analytics Completeness** - Weekly review artifact, dividend-accurate IRR, and a drift detector that auto-scales weights when an agent loses edge
 
@@ -45,7 +45,7 @@ All 4 phases complete. Full snapshot in `.planning/milestones/v1.0-ROADMAP.md`.
   5. Daemon PID test documented: launching the daemon writes `data/daemon.pid` with a live PID matching the running process, `netstat -an` shows `127.0.0.1:8000 LISTEN` (not `0.0.0.0`), and killing the daemon removes the PID file via atexit — result documented in `03-HUMAN-UAT.md`.
 **Plans**: 2 plans
   - [x] 05-01-PLAN.md (wave 1) — LIVE-01: Corpus rebuild backend endpoint + background task + progress API (`POST /analytics/calibration/rebuild-corpus` + `GET .../{job_id}` + `corpus_rebuild_jobs` table)
-  - [ ] 05-02-PLAN.md (wave 1) — CLOSE-01..03: Three live-environment UAT closeouts (FinBERT / Finnhub / daemon-PID tests + operator scripts + `03-HUMAN-UAT.md` update to `resolved`)
+  - [x] 05-02-PLAN.md (wave 1) — CLOSE-01..03: Three live-environment UAT closeouts (FinBERT / Finnhub / daemon-PID tests + operator scripts + `03-HUMAN-UAT.md` update to `resolved`)
 
 ### Phase 6: Calibration & Weights UI
 **Goal**: The user can open a browser, see which agents are performing well or poorly this week (Brier, IC, IC-IR, sparkline), apply IC-IR-suggested weights with one click, manually disable a noisy agent, and confirm the three deferred v1.0 browser-side UAT flows work as intended — so the dashboard is genuinely usable as a weekly review surface.
@@ -81,7 +81,7 @@ All 4 phases complete. Full snapshot in `.planning/milestones/v1.0-ROADMAP.md`.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 5. Corpus Population + Live Data Closeout | 1/2 | In Progress|  |
+| 5. Corpus Population + Live Data Closeout | 2/2 | Complete   | 2026-04-23 |
 | 6. Calibration & Weights UI | 0/TBD | Not started | - |
 | 7. Digest + Analytics Completeness | 0/TBD | Not started | - |
 
