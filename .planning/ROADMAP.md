@@ -43,7 +43,9 @@ All 4 phases complete. Full snapshot in `.planning/milestones/v1.0-ROADMAP.md`.
   3. FinBERT live test documented: running `pip install -e ".[llm-local]"` + the FinBERT fetch script and analyzing a news-rich ticker (NVDA earnings week) with `ANTHROPIC_API_KEY` unset returns a non-HOLD signal with FinBERT-sourced reasoning — result documented in `03-HUMAN-UAT.md` with status flipped from `partial` to `resolved`.
   4. Finnhub live test documented: setting a real `FINNHUB_API_KEY` and calling `FinnhubProvider.get_sector_pe("technology")` returns a non-None float, and `FundamentalAgent` reasoning on AAPL contains the string `"Finnhub sector P/E"` — result documented in `03-HUMAN-UAT.md`.
   5. Daemon PID test documented: launching the daemon writes `data/daemon.pid` with a live PID matching the running process, `netstat -an` shows `127.0.0.1:8000 LISTEN` (not `0.0.0.0`), and killing the daemon removes the PID file via atexit — result documented in `03-HUMAN-UAT.md`.
-**Plans**: TBD
+**Plans**: 2 plans
+  - [ ] 05-01-PLAN.md (wave 1) — LIVE-01: Corpus rebuild backend endpoint + background task + progress API (`POST /analytics/calibration/rebuild-corpus` + `GET .../{job_id}` + `corpus_rebuild_jobs` table)
+  - [ ] 05-02-PLAN.md (wave 1) — CLOSE-01..03: Three live-environment UAT closeouts (FinBERT / Finnhub / daemon-PID tests + operator scripts + `03-HUMAN-UAT.md` update to `resolved`)
 
 ### Phase 6: Calibration & Weights UI
 **Goal**: The user can open a browser, see which agents are performing well or poorly this week (Brier, IC, IC-IR, sparkline), apply IC-IR-suggested weights with one click, manually disable a noisy agent, and confirm the three deferred v1.0 browser-side UAT flows work as intended — so the dashboard is genuinely usable as a weekly review surface.
@@ -79,7 +81,7 @@ All 4 phases complete. Full snapshot in `.planning/milestones/v1.0-ROADMAP.md`.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 5. Corpus Population + Live Data Closeout | 0/TBD | Not started | - |
+| 5. Corpus Population + Live Data Closeout | 0/2 | Not started | - |
 | 6. Calibration & Weights UI | 0/TBD | Not started | - |
 | 7. Digest + Analytics Completeness | 0/TBD | Not started | - |
 
