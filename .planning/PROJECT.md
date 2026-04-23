@@ -49,25 +49,43 @@ An "investment journal that fights back" — a personal investing system that tr
 - ✓ `PositionStatus(Enum)` + `VALID_TRANSITIONS` dict + `validate_status_transition` FSM guard reading actual row status (not hardcoded) in `portfolio/manager.py::close_position` — Phase 4 (UI-06)
 - ✓ Opt-in Bull/Bear LLM synthesis (`ENABLE_LLM_SYNTHESIS` flag, default off) in `engine/llm_synthesis.py` with FOUND-04 backtest_mode short-circuit as FIRST check, PII-safe prompt (no $ amounts, no thesis_text, confidence bucketed to 10%), (ticker, asset_type, date)-keyed cache — Phase 4 (UI-07)
 
-### Active
+### Active — v1.1 Live Validation
 
-<!-- Milestone complete — no active scope. Next milestone planning pending user direction. -->
+<!-- Current milestone: transition from "ships clean code" to "actually used weekly for 5-10 US equity positions" with signal noise surfaced and actionable. -->
 
-(None — Competitive Parity milestone shipped 2026-04-22)
+**LIVE** — Live data & calibration
+- [ ] **LIVE-01**: Populate `backtest_signal_history` across user's 5-10 tickers (3+ years each) + `POST /calibration/rebuild-corpus` endpoint
+- [ ] **LIVE-02**: `CalibrationPage.tsx` — per-agent Brier, rolling IC, IC-IR + 90-day sparkline; becomes home of weekly review
+- [ ] **LIVE-03**: Agent weight management UI (apply IC-IR weights button + per-agent manual override)
+- [ ] **LIVE-04**: Weekly digest (scheduled Sundays 18:00, Markdown render, email opt-in)
 
-### Human-deferred (carried forward from v1.0)
+**CLOSE** — v1.0 human-UAT closeout
+- [ ] **CLOSE-01**: FinBERT live test on real headlines
+- [ ] **CLOSE-02**: Live Finnhub API round-trip
+- [ ] **CLOSE-03**: Daemon PID + `netstat 127.0.0.1` verification
+- [ ] **CLOSE-04**: Target-weight browser flow
+- [ ] **CLOSE-05**: Rules panel toggle → daemon log exclusion
+- [ ] **CLOSE-06**: DailyPnlHeatmap tooltip
 
-**From Phase 3:**
-- [ ] Verify FinBERT non-HOLD on real news-rich ticker (requires `pip install -e .[llm-local]`)
-- [ ] Verify live Finnhub API round-trip (requires `FINNHUB_API_KEY`)
-- [ ] Verify daemon PID + `netstat 127.0.0.1` binding with a live launch
+**AN** — Analytics completeness
+- [ ] **AN-01**: Dividend-aware IRR
+- [ ] **AN-02**: Signal drift detector (alert + auto weight scale when IC-IR drops)
 
-**From Phase 4:**
-- [ ] Verify `TargetWeightBar` browser flow (set target, reload-persists, invalid-input alert)
-- [ ] Verify `MonitoringPage` rules panel: toggle STOP_LOSS_HIT off → daemon log confirms exclusion on next run
-- [ ] Verify `DailyPnlHeatmap` native browser tooltip with date + P&L on hover
+## Current Milestone: v1.1 Live Validation
 
-See `.planning/phases/03-data-coverage-expansion/03-HUMAN-UAT.md` and `.planning/phases/04-portfolio-ui-analytics-uplift/04-HUMAN-UAT.md`. Run `/gsd-verify-work 3` and `/gsd-verify-work 4` to close out.
+**Goal:** Transition from "ships clean code" to "actually used weekly for 5-10 US equity positions" — with signal noise surfaced, triaged, and actionable.
+
+**Target features:**
+- Live corpus + calibration (Brier/IC/IC-IR produce real numbers for the user's actual portfolio)
+- CalibrationPage + WeightsPage UIs so the user SEES which agents are noisy this week
+- Weekly digest as the canonical weekly-review artifact
+- Close 6 v1.0 human-UAT items so "partial" UATs flip to "resolved"
+- Dividend-aware IRR for dividend-paying equities
+- Signal drift detection with auto weight scaling
+
+### Human-UAT closeout (promoted into v1.1 scope as CLOSE-01..06)
+
+The 6 deferred v1.0 items are now REQ-IDs `CLOSE-01` through `CLOSE-06` in the v1.1 Active list above — see `.planning/REQUIREMENTS.md` for full detail. Source records at `.planning/milestones/v1.0-phases/03-data-coverage-expansion/03-HUMAN-UAT.md` and `.planning/milestones/v1.0-phases/04-portfolio-ui-analytics-uplift/04-HUMAN-UAT.md`.
 
 ### Out of Scope
 
@@ -130,6 +148,9 @@ Brownfield project with substantial momentum; the user wants to ground the next 
 | Phase 4 UI-07 LLM synthesis: FOUND-04 backtest_mode short-circuit is the FIRST check — before `ENABLE_LLM_SYNTHESIS`, before API key lookup, before client init | Research warned missing this would cost ~$2.78/ticker on a 3-year daily backtest (~750 Anthropic calls/ticker). The FIRST-check ordering is a regression-test assertion: `mock_client.messages.create.call_count == 0` | ✓ Good — `test_synthesis_skipped_in_backtest_mode` passing |
 | Phase 4 UI-07 LLM prompt PII clamp: ticker + signal label + regime + confidence bucketed to 10% only; NO dollar amounts, NO thesis_text, NO portfolio_id | Prompt-injection via thesis text + PII exposure via dollar amounts are the two highest-risk LLM attack surfaces for a personal investing tool; bucketing confidence is sufficient signal without exposing precise figures | ✓ Good — `test_prompt_excludes_pii` passing |
 | Phase 4 WR-01 fix: `ap.target_weight` added to `load_portfolio` + `get_all_positions` SELECT queries | Review found PATCH succeeded but GET never returned the value — frontend could never display a set target. Real functional bug, not a style nit | ✓ Good — regression test added that PATCHes then GETs and asserts equality |
+| v1.1 Live Validation: narrow scope to 5-10 US equities + weekly cadence + signal-noise-as-top-risk | User explicitly chose weekly review + research workflow; "signals too noisy" as the top rough edge. This scope prioritizes calibration visibility (CalibrationPage) and action-surfacing (WeightsPage + drift detector) over deploy/UX/crypto breadth — which move to v1.2, v1.3, v1.4 respectively | — Pending v1.1 execution |
+| v1.1 promotes 6 v1.0 human-UAT items to REQ-IDs CLOSE-01..06 | Carrying "partial" UATs across milestones is tech debt; making closure a first-class requirement ensures the 6 external-integration validations actually get done before v1.2 builds on assumed-good foundations | — Pending v1.1 execution |
+| v1.1 skips phase research | All features extend existing v1.0 systems (calibration endpoint + Brier/IC math + notification channels + backtest corpus builder); standard patterns apply; no new technical domain | — Pending v1.1 execution |
 
 ## Evolution
 
@@ -149,4 +170,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-22 after Phase 4 (Portfolio UI + Analytics Uplift) completion — Competitive Parity milestone complete*
+*Last updated: 2026-04-22 at v1.1 Live Validation kickoff (v1.0 Competitive Parity shipped + archived)*
