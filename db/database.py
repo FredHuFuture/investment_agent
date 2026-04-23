@@ -646,6 +646,40 @@ async def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
         # MonitoringPage rules panel exposes them with enable/disable toggles.
         await _seed_default_alert_rules(conn)
 
+        # LIVE-01: corpus_rebuild_jobs — tracks per-ticker batch rebuild progress
+        # for the POST /calibration/rebuild-corpus endpoint (Plan 05-01).
+        # Uses a public UUID job_id (TEXT) rather than integer id so the HTTP API
+        # can expose it directly without exposing internal autoincrement counters.
+        # status 'partial' is distinct from 'error': partial = some tickers OK, some failed.
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS corpus_rebuild_jobs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                job_id TEXT NOT NULL UNIQUE,
+                status TEXT NOT NULL CHECK(status IN ('running','success','partial','error')),
+                tickers_total INTEGER NOT NULL,
+                tickers_completed INTEGER NOT NULL DEFAULT 0,
+                ticker_progress_json TEXT NOT NULL DEFAULT '{}',
+                started_at TEXT NOT NULL,
+                completed_at TEXT,
+                error_message TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+            """
+        )
+        await conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_crj_job_id
+            ON corpus_rebuild_jobs(job_id);
+            """
+        )
+        await conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_crj_status
+            ON corpus_rebuild_jobs(status);
+            """
+        )
+
         await conn.commit()
 
     return path

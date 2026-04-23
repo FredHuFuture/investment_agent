@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # ---------------------------------------------------------------------------
@@ -158,3 +158,58 @@ class SummaryResponse(BaseModel):
     output_tokens: int
     cost_usd: float
     positions_covered: list[str]
+
+
+# ---------------------------------------------------------------------------
+# LIVE-01: Corpus rebuild request/response models
+# ---------------------------------------------------------------------------
+
+class RebuildCorpusRequest(BaseModel):
+    """LIVE-01: trigger backtest signal corpus rebuild.
+
+    When ``tickers`` is None, the endpoint enumerates all OPEN positions from
+    active_positions and rebuilds each one. When ``tickers`` is explicit,
+    ``asset_types`` may override the default "stock" asset_type per ticker.
+    """
+
+    tickers: list[str] | None = Field(
+        default=None,
+        description="Explicit ticker list; None = rebuild all OPEN positions",
+    )
+    asset_types: dict[str, str] | None = Field(
+        default=None,
+        description="Optional ticker->asset_type override map; unspecified tickers default to 'stock'",
+    )
+
+    @field_validator("tickers")
+    @classmethod
+    def _validate_ticker_length(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return v
+        for t in v:
+            if not t or len(t) > 12:
+                raise ValueError(
+                    f"ticker must be 1-12 chars; got {t!r} (len={len(t)})"
+                )
+        return [t.upper() for t in v]
+
+
+class RebuildCorpusResponse(BaseModel):
+    """LIVE-01: POST response — job accepted, running in background."""
+
+    job_id: str = Field(..., description="uuid4.hex; use GET /rebuild-corpus/{job_id}")
+    status: Literal["started"] = "started"
+    ticker_count: int = Field(..., ge=0, description="Number of tickers queued")
+
+
+class RebuildCorpusProgressResponse(BaseModel):
+    """LIVE-01: GET progress response for a corpus rebuild job."""
+
+    job_id: str
+    status: Literal["running", "success", "partial", "error"]
+    tickers_total: int
+    tickers_completed: int
+    ticker_progress: dict[str, dict]  # {ticker: {status, rows_inserted, error}}
+    started_at: str
+    completed_at: str | None = None
+    error_message: str | None = None
