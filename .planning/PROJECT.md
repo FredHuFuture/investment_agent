@@ -54,15 +54,15 @@ An "investment journal that fights back" — a personal investing system that tr
 <!-- Current milestone: transition from "ships clean code" to "actually used weekly for 5-10 US equity positions" with signal noise surfaced and actionable. -->
 
 **LIVE** — Live data & calibration
-- [ ] **LIVE-01**: Populate `backtest_signal_history` across user's 5-10 tickers (3+ years each) + `POST /calibration/rebuild-corpus` endpoint
+- [x] **LIVE-01**: `POST /analytics/calibration/rebuild-corpus` endpoint + `corpus_rebuild_jobs` table + `_run_batch_rebuild` background task (per-ticker FOUND-07 delegation, outer exception guard, error_message on all non-success paths) — Phase 5
 - [ ] **LIVE-02**: `CalibrationPage.tsx` — per-agent Brier, rolling IC, IC-IR + 90-day sparkline; becomes home of weekly review
 - [ ] **LIVE-03**: Agent weight management UI (apply IC-IR weights button + per-agent manual override)
 - [ ] **LIVE-04**: Weekly digest (scheduled Sundays 18:00, Markdown render, email opt-in)
 
 **CLOSE** — v1.0 human-UAT closeout
-- [ ] **CLOSE-01**: FinBERT live test on real headlines
-- [ ] **CLOSE-02**: Live Finnhub API round-trip
-- [ ] **CLOSE-03**: Daemon PID + `netstat 127.0.0.1` verification
+- [x] **CLOSE-01**: FinBERT live test on real headlines — `tests/test_close_01_finbert_live.py` with `importlib.util.find_spec` lazy guard + operator script; `03-HUMAN-UAT.md` flipped to `resolved` — Phase 5
+- [x] **CLOSE-02**: Live Finnhub API round-trip — `tests/test_close_02_finnhub_live.py` with `FINNHUB_API_KEY` skipif guard + sector_pe_cache singleton reset + operator script — Phase 5
+- [x] **CLOSE-03**: Daemon PID + `netstat 127.0.0.1` verification — `tests/test_close_03_daemon_pid_live.py` subprocess test (natural exit for atexit on Windows/POSIX) + operator script — Phase 5
 - [ ] **CLOSE-04**: Target-weight browser flow
 - [ ] **CLOSE-05**: Rules panel toggle → daemon log exclusion
 - [ ] **CLOSE-06**: DailyPnlHeatmap tooltip
@@ -170,4 +170,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-22 at v1.1 Live Validation kickoff (v1.0 Competitive Parity shipped + archived)*
+*Last updated: 2026-04-23 after v1.1 Phase 5 (Corpus Population + Live Data Closeout) completion — LIVE-01, CLOSE-01..03 shipped; live corpus population queued as human-UAT*
