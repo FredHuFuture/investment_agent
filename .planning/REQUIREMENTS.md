@@ -35,7 +35,7 @@
 ### Analytics Completeness (AN)
 
 - [ ] **AN-01**: Dividend-aware IRR — reuse YFinance dividend history (already available via `get_dividends` or `Ticker.dividends`) to add dividend cash-flows into IRR computation; update `engine/analytics.py::compute_irr_multi` to accept a `dividends: list[(date, amount)]` parameter; tests verify dividend-paying stocks (e.g., MSFT, KO) now report higher IRR than dividend-less computation. Backward-compat: parameter defaults to empty list.
-- [ ] **AN-02**: Signal drift detector — new `engine/drift_detector.py` evaluates per-agent IC-IR weekly; when IC-IR drops >20% below 60-day average (or falls below 0.5 for 2 consecutive weekly runs), emits alert via existing notification channel AND auto-scales the agent's next weight via WeightAdapter. Visible in CalibrationPage as "⚠ drift detected" badge.
+- [ ] **AN-02**: Signal drift detector — new `engine/drift_detector.py` evaluates per-agent IC-IR weekly; when IC-IR drops >20% below 60-day average (or falls below 0.5 for 2 consecutive weekly runs), emits alert via existing notification channel AND auto-scales the agent's next weight via WeightAdapter. Visible in CalibrationPage as "drift detected" badge.
 
 ## v2 Requirements (deferred beyond v1.1)
 
@@ -80,28 +80,26 @@ Ideas surfaced in v1.0 retrospective or v1.1 scoping, deferred here so they aren
 
 ## Traceability
 
-Filled by the roadmapper.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LIVE-01 | TBD | Pending |
-| LIVE-02 | TBD | Pending |
-| LIVE-03 | TBD | Pending |
-| LIVE-04 | TBD | Pending |
-| CLOSE-01 | TBD | Pending |
-| CLOSE-02 | TBD | Pending |
-| CLOSE-03 | TBD | Pending |
-| CLOSE-04 | TBD | Pending |
-| CLOSE-05 | TBD | Pending |
-| CLOSE-06 | TBD | Pending |
-| AN-01 | TBD | Pending |
-| AN-02 | TBD | Pending |
+| LIVE-01 | Phase 5 | Pending |
+| CLOSE-01 | Phase 5 | Pending |
+| CLOSE-02 | Phase 5 | Pending |
+| CLOSE-03 | Phase 5 | Pending |
+| LIVE-02 | Phase 6 | Pending |
+| LIVE-03 | Phase 6 | Pending |
+| CLOSE-04 | Phase 6 | Pending |
+| CLOSE-05 | Phase 6 | Pending |
+| CLOSE-06 | Phase 6 | Pending |
+| LIVE-04 | Phase 7 | Pending |
+| AN-01 | Phase 7 | Pending |
+| AN-02 | Phase 7 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 12 total
-- Mapped to phases: 0 (roadmapper will map)
-- Unmapped: 12 ⚠ (pre-roadmap)
+- Mapped to phases: 12
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-04-22*
-*Last updated: 2026-04-22 at v1.1 kickoff*
+*Last updated: 2026-04-22 — traceability filled by roadmapper (12/12 requirements mapped to Phases 5-7)*
