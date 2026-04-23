@@ -44,7 +44,7 @@ All 4 phases complete. Full snapshot in `.planning/milestones/v1.0-ROADMAP.md`.
   4. Finnhub live test documented: setting a real `FINNHUB_API_KEY` and calling `FinnhubProvider.get_sector_pe("technology")` returns a non-None float, and `FundamentalAgent` reasoning on AAPL contains the string `"Finnhub sector P/E"` — result documented in `03-HUMAN-UAT.md`.
   5. Daemon PID test documented: launching the daemon writes `data/daemon.pid` with a live PID matching the running process, `netstat -an` shows `127.0.0.1:8000 LISTEN` (not `0.0.0.0`), and killing the daemon removes the PID file via atexit — result documented in `03-HUMAN-UAT.md`.
 **Plans**: 2 plans
-  - [ ] 05-01-PLAN.md (wave 1) — LIVE-01: Corpus rebuild backend endpoint + background task + progress API (`POST /analytics/calibration/rebuild-corpus` + `GET .../{job_id}` + `corpus_rebuild_jobs` table)
+  - [x] 05-01-PLAN.md (wave 1) — LIVE-01: Corpus rebuild backend endpoint + background task + progress API (`POST /analytics/calibration/rebuild-corpus` + `GET .../{job_id}` + `corpus_rebuild_jobs` table)
   - [ ] 05-02-PLAN.md (wave 1) — CLOSE-01..03: Three live-environment UAT closeouts (FinBERT / Finnhub / daemon-PID tests + operator scripts + `03-HUMAN-UAT.md` update to `resolved`)
 
 ### Phase 6: Calibration & Weights UI
@@ -81,7 +81,7 @@ All 4 phases complete. Full snapshot in `.planning/milestones/v1.0-ROADMAP.md`.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 5. Corpus Population + Live Data Closeout | 0/2 | Not started | - |
+| 5. Corpus Population + Live Data Closeout | 1/2 | In Progress|  |
 | 6. Calibration & Weights UI | 0/TBD | Not started | - |
 | 7. Digest + Analytics Completeness | 0/TBD | Not started | - |
 

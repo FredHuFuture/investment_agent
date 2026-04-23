@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: Competitive Parity
 status: executing
-stopped_at: v1.1 roadmap written — Phase 5 ready for planning
-last_updated: "2026-04-23T05:16:10.595Z"
-last_activity: 2026-04-23 -- Phase 5 planning complete
+stopped_at: Completed 05-01-PLAN.md (corpus rebuild endpoints)
+last_updated: "2026-04-23T06:20:39.858Z"
+last_activity: 2026-04-23
 progress:
-  total_phases: 3
+  total_phases: 1
   completed_phases: 0
   total_plans: 2
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 50
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-04-22)
 
 ## Current Position
 
-Phase: 5
-Plan: Not started (defining plans)
+Phase: 5 (Corpus Population + Live Data Closeout) — EXECUTING
+Plan: 2 of 2
 Status: Ready to execute
-Last activity: 2026-04-23 -- Phase 5 planning complete
+Last activity: 2026-04-23
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -49,6 +49,7 @@ Full record: `.planning/milestones/v1.0-ROADMAP.md`, `.planning/milestones/v1.0-
 | 2 - Signal Quality Upgrade | 3 | ~2040s |
 | 3 - Data Coverage Expansion | 4 | ~575s |
 | 4 - Portfolio UI + Analytics Uplift | 4 | ~1301s |
+| Phase 05-corpus-population-live-data-closeout P01 | 1489 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,9 @@ Key decisions carrying forward into v1.1:
 - [v1.0 Phase 04]: window.prompt used for target-weight inline edit — proper modal deferred to UI-v2-03
 - [v1.0 Phase 04]: Built-in alert rules sorted first; delete hidden for metric==="hardcoded" rules
 - [v1.0 Phase 04]: backtest_mode short-circuit is FIRST check in run_llm_synthesis — prevents ~$2.78/ticker API cost on 3yr backtests
+- [Phase 05-corpus-population-live-data-closeout]: BackgroundTasks (not asyncio.create_task) for corpus rebuild: TestClient executes synchronously enabling deterministic test assertions; production runs async after response
+- [Phase 05-corpus-population-live-data-closeout]: corpus_rebuild_jobs separate from job_run_log: needs UUID TEXT job_id, per-ticker JSON progress, and 'partial' status distinct from error/success
+- [Phase 05-corpus-population-live-data-closeout]: Per-ticker single-element delegation: rebuild_signal_corpus(tickers=[(t, at)]) preserves FOUND-07 atomicity — one DELETE rollback scope per ticker
 
 ### Pending Todos
 
@@ -85,6 +89,6 @@ Key decisions carrying forward into v1.1:
 
 ## Session Continuity
 
-Last session: 2026-04-22
-Stopped at: v1.1 roadmap written — Phase 5 ready for planning
+Last session: 2026-04-23T06:20:39.854Z
+Stopped at: Completed 05-01-PLAN.md (corpus rebuild endpoints)
 Resume: Run `/gsd-plan-phase 5`
