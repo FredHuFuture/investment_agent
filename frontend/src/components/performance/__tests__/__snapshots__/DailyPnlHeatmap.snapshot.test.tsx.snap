@@ -1,0 +1,324 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`CLOSE-06: DailyPnlHeatmap tooltip contract > A: diverse pnl values produce correct title strings + colors 1`] = `
+<div>
+  <div
+    class="
+      rounded-card bg-gray-900 border border-gray-800/60 shadow-card
+      p-0
+      
+    "
+  >
+    <div
+      class="px-4 sm:px-5 py-3.5 border-b border-gray-800/40 flex items-center justify-between "
+    >
+      <div>
+        <h3
+          class="text-sm font-semibold text-gray-200"
+        >
+          Daily P&L Heatmap
+        </h3>
+        <p
+          class="text-xs text-gray-500 mt-0.5"
+        >
+          Calendar view; hover a cell for exact P&L
+        </p>
+      </div>
+    </div>
+    <div
+      class="p-4 sm:p-5 "
+    >
+      <div
+        class="overflow-x-auto"
+      >
+        <div
+          class="flex gap-1"
+        >
+          <div
+            class="flex flex-col gap-1 pr-1"
+          >
+            <div
+              class="h-3 text-[10px] text-gray-500 flex items-center"
+            >
+              Mon
+            </div>
+            <div
+              class="h-3 text-[10px] text-gray-500 flex items-center"
+            >
+              Tue
+            </div>
+            <div
+              class="h-3 text-[10px] text-gray-500 flex items-center"
+            >
+              Wed
+            </div>
+            <div
+              class="h-3 text-[10px] text-gray-500 flex items-center"
+            >
+              Thu
+            </div>
+            <div
+              class="h-3 text-[10px] text-gray-500 flex items-center"
+            >
+              Fri
+            </div>
+            <div
+              class="h-3 text-[10px] text-gray-500 flex items-center"
+            >
+              Sat
+            </div>
+            <div
+              class="h-3 text-[10px] text-gray-500 flex items-center"
+            >
+              Sun
+            </div>
+          </div>
+          <div
+            class="flex flex-col gap-1"
+          >
+            <div
+              aria-label="2026-04-13: +$101"
+              class="h-3 w-3 rounded-sm bg-green-600/50"
+              data-testid="daily-pnl-cell-2026-04-13"
+              role="img"
+              tabindex="0"
+              title="2026-04-13: +$101"
+            />
+            <div
+              aria-label="2026-04-14: +$1,500"
+              class="h-3 w-3 rounded-sm bg-green-600/80"
+              data-testid="daily-pnl-cell-2026-04-14"
+              role="img"
+              tabindex="0"
+              title="2026-04-14: +$1,500"
+            />
+            <div
+              aria-label="2026-04-15: +$0"
+              class="h-3 w-3 rounded-sm bg-gray-700/50"
+              data-testid="daily-pnl-cell-2026-04-15"
+              role="img"
+              tabindex="0"
+              title="2026-04-15: +$0"
+            />
+            <div
+              aria-label="2026-04-16: -$75"
+              class="h-3 w-3 rounded-sm bg-red-600/25"
+              data-testid="daily-pnl-cell-2026-04-16"
+              role="img"
+              tabindex="0"
+              title="2026-04-16: -$75"
+            />
+            <div
+              aria-label="2026-04-17: -$2,000"
+              class="h-3 w-3 rounded-sm bg-red-600/80"
+              data-testid="daily-pnl-cell-2026-04-17"
+              role="img"
+              tabindex="0"
+              title="2026-04-17: -$2,000"
+            />
+            <div
+              class="h-3 w-3 rounded-sm bg-gray-800/40"
+              tabindex="-1"
+              title=""
+            />
+            <div
+              class="h-3 w-3 rounded-sm bg-gray-800/40"
+              tabindex="-1"
+              title=""
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`CLOSE-06: DailyPnlHeatmap tooltip contract > B: null pnl renders '--' title 1`] = `
+<div>
+  <div
+    class="
+      rounded-card bg-gray-900 border border-gray-800/60 shadow-card
+      p-0
+      
+    "
+  >
+    <div
+      class="px-4 sm:px-5 py-3.5 border-b border-gray-800/40 flex items-center justify-between "
+    >
+      <div>
+        <h3
+          class="text-sm font-semibold text-gray-200"
+        >
+          Daily P&L Heatmap
+        </h3>
+        <p
+          class="text-xs text-gray-500 mt-0.5"
+        >
+          Calendar view; hover a cell for exact P&L
+        </p>
+      </div>
+    </div>
+    <div
+      class="p-4 sm:p-5 "
+    >
+      <div
+        class="overflow-x-auto"
+      >
+        <div
+          class="flex gap-1"
+        >
+          <div
+            class="flex flex-col gap-1 pr-1"
+          >
+            <div
+              class="h-3 text-[10px] text-gray-500 flex items-center"
+            >
+              Mon
+            </div>
+            <div
+              class="h-3 text-[10px] text-gray-500 flex items-center"
+            >
+              Tue
+            </div>
+            <div
+              class="h-3 text-[10px] text-gray-500 flex items-center"
+            >
+              Wed
+            </div>
+            <div
+              class="h-3 text-[10px] text-gray-500 flex items-center"
+            >
+              Thu
+            </div>
+            <div
+              class="h-3 text-[10px] text-gray-500 flex items-center"
+            >
+              Fri
+            </div>
+            <div
+              class="h-3 text-[10px] text-gray-500 flex items-center"
+            >
+              Sat
+            </div>
+            <div
+              class="h-3 text-[10px] text-gray-500 flex items-center"
+            >
+              Sun
+            </div>
+          </div>
+          <div
+            class="flex flex-col gap-1"
+          >
+            <div
+              aria-label="2026-04-13: +$50"
+              class="h-3 w-3 rounded-sm bg-green-600/25"
+              data-testid="daily-pnl-cell-2026-04-13"
+              role="img"
+              tabindex="0"
+              title="2026-04-13: +$50"
+            />
+            <div
+              aria-label="2026-04-14: --"
+              class="h-3 w-3 rounded-sm bg-gray-800/40"
+              data-testid="daily-pnl-cell-2026-04-14"
+              role="img"
+              tabindex="0"
+              title="2026-04-14: --"
+            />
+            <div
+              aria-label="2026-04-15: +$25"
+              class="h-3 w-3 rounded-sm bg-green-600/25"
+              data-testid="daily-pnl-cell-2026-04-15"
+              role="img"
+              tabindex="0"
+              title="2026-04-15: +$25"
+            />
+            <div
+              class="h-3 w-3 rounded-sm bg-gray-800/40"
+              tabindex="-1"
+              title=""
+            />
+            <div
+              class="h-3 w-3 rounded-sm bg-gray-800/40"
+              tabindex="-1"
+              title=""
+            />
+            <div
+              class="h-3 w-3 rounded-sm bg-gray-800/40"
+              tabindex="-1"
+              title=""
+            />
+            <div
+              class="h-3 w-3 rounded-sm bg-gray-800/40"
+              tabindex="-1"
+              title=""
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`CLOSE-06: DailyPnlHeatmap tooltip contract > C: empty data renders EmptyState (no table) 1`] = `
+<div>
+  <div
+    class="
+      rounded-card bg-gray-900 border border-gray-800/60 shadow-card
+      p-0
+      
+    "
+  >
+    <div
+      class="px-4 sm:px-5 py-3.5 border-b border-gray-800/40 flex items-center justify-between "
+    >
+      <div>
+        <h3
+          class="text-sm font-semibold text-gray-200"
+        >
+          Daily P&L Heatmap
+        </h3>
+      </div>
+    </div>
+    <div
+      class="p-4 sm:p-5 "
+    >
+      <div
+        class="flex flex-col items-center justify-center py-16 gap-4"
+      >
+        <div
+          class="w-14 h-14 rounded-2xl bg-gray-800/40 border border-gray-800/40 flex items-center justify-center"
+        >
+          <svg
+            class="w-7 h-7 text-gray-600"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.5"
+            viewBox="0 0 24 24"
+          >
+            <path
+              d="M3 3v18h18"
+            />
+            <path
+              d="M7 16l4-5 4 3 5-6"
+            />
+          </svg>
+        </div>
+        <div
+          class="text-center"
+        >
+          <p
+            class="text-sm text-gray-400"
+          >
+            Run a health check to generate daily P&L data.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;

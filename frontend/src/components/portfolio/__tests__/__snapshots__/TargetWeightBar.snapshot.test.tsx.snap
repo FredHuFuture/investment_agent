@@ -1,0 +1,127 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`CLOSE-04: TargetWeightBar snapshot contract > A: null target renders nothing 1`] = `<div />`;
+
+exports[`CLOSE-04: TargetWeightBar snapshot contract > B: overweight (+5pp) renders amber fill + '+5.0%' label 1`] = `
+<div>
+  <div
+    class="flex items-center gap-2 text-xs"
+    data-testid="target-weight-bar-AAPL"
+  >
+    <span
+      class="text-gray-500 w-14 text-right font-mono"
+    >
+      15.0
+      %
+    </span>
+    <div
+      class="relative h-2 w-24 bg-gray-800 rounded-full overflow-hidden"
+    >
+      <div
+        class="absolute left-1/2 inset-y-0 w-px bg-gray-500"
+      />
+      <div
+        class="absolute inset-y-0 bg-amber-500/70 rounded-full"
+        style="width: 20%; left: 50%;"
+      />
+    </div>
+    <span
+      class="w-12 font-mono text-amber-400"
+    >
+      ▲
+      +
+      5.0
+      %
+    </span>
+    <span
+      class="text-gray-500 text-[10px]"
+    >
+      (target 
+      10.0
+      %)
+    </span>
+  </div>
+</div>
+`;
+
+exports[`CLOSE-04: TargetWeightBar snapshot contract > C: underweight (-2pp) renders green fill + '-2.0%' label 1`] = `
+<div>
+  <div
+    class="flex items-center gap-2 text-xs"
+    data-testid="target-weight-bar-MSFT"
+  >
+    <span
+      class="text-gray-500 w-14 text-right font-mono"
+    >
+      8.0
+      %
+    </span>
+    <div
+      class="relative h-2 w-24 bg-gray-800 rounded-full overflow-hidden"
+    >
+      <div
+        class="absolute left-1/2 inset-y-0 w-px bg-gray-500"
+      />
+      <div
+        class="absolute inset-y-0 bg-green-500/70 rounded-full"
+        style="width: 8%; right: 50%;"
+      />
+    </div>
+    <span
+      class="w-12 font-mono text-green-400"
+    >
+      ▼
+      -2.0
+      %
+    </span>
+    <span
+      class="text-gray-500 text-[10px]"
+    >
+      (target 
+      10.0
+      %)
+    </span>
+  </div>
+</div>
+`;
+
+exports[`CLOSE-04: TargetWeightBar snapshot contract > D: neutral (at target) renders '+0.0%' label 1`] = `
+<div>
+  <div
+    class="flex items-center gap-2 text-xs"
+    data-testid="target-weight-bar-NVDA"
+  >
+    <span
+      class="text-gray-500 w-14 text-right font-mono"
+    >
+      10.0
+      %
+    </span>
+    <div
+      class="relative h-2 w-24 bg-gray-800 rounded-full overflow-hidden"
+    >
+      <div
+        class="absolute left-1/2 inset-y-0 w-px bg-gray-500"
+      />
+      <div
+        class="absolute inset-y-0 bg-gray-600/50 rounded-full"
+        style="width: 0%; right: 50%;"
+      />
+    </div>
+    <span
+      class="w-12 font-mono text-gray-400"
+    >
+      +
+      0.0
+      %
+    </span>
+    <span
+      class="text-gray-500 text-[10px]"
+    >
+      (target 
+      10.0
+      %)
+    </span>
+  </div>
+</div>
+`;
