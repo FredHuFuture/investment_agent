@@ -327,13 +327,18 @@ async def test_daemon_status(client: httpx.AsyncClient):
 
 @pytest.mark.asyncio
 async def test_weights_default(client: httpx.AsyncClient):
+    # LIVE-03 (Phase 6): GET /weights now returns the new shape with
+    # {current, suggested_ic_ir, overrides, source, computed_at, sample_size}.
+    # The old shape ({buy_threshold, sell_threshold, weights}) is superseded.
+    # See 06-01-SUMMARY.md for the legacy contract note.
     resp = await client.get("/weights")
     assert resp.status_code == 200
     data = resp.json()["data"]
     assert data["source"] == "default"
-    assert data["buy_threshold"] == 0.30
-    assert data["sell_threshold"] == -0.30
-    assert "stock" in data["weights"]
+    assert "current" in data
+    assert "stock" in data["current"]
+    assert "suggested_ic_ir" in data
+    assert "overrides" in data
 
 
 # ---------------------------------------------------------------------------
