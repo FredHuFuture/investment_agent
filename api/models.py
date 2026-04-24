@@ -213,3 +213,46 @@ class RebuildCorpusProgressResponse(BaseModel):
     started_at: str
     completed_at: str | None = None
     error_message: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# LIVE-03 (Phase 6) weights models
+# ---------------------------------------------------------------------------
+
+class WeightsOverviewResponse(BaseModel):
+    """GET /weights — current + IC-IR-suggested + override state."""
+
+    current: dict[str, dict[str, float]]
+    suggested_ic_ir: dict[str, dict[str, float] | None]
+    overrides: dict[str, dict[str, dict[str, bool]]]
+    source: str
+    computed_at: str
+    sample_size: int
+
+
+class ApplyIcIrResponse(BaseModel):
+    """POST /weights/apply-ic-ir — persisted new weights."""
+
+    applied: bool
+    weights: dict[str, dict[str, float]]
+    source: str
+    sample_size: int
+
+
+class OverrideRequest(BaseModel):
+    """PATCH /weights/override — toggle an agent's excluded state."""
+
+    agent: str = Field(..., min_length=1, max_length=64)
+    asset_type: str = Field(..., pattern="^(stock|btc|eth)$")
+    excluded: bool
+
+
+class OverrideResponse(BaseModel):
+    """PATCH /weights/override — updated agent + renormalized same-asset_type weights."""
+
+    agent: str
+    asset_type: str
+    excluded: bool
+    manual_override: bool
+    renormalized_weights: dict[str, float]
+    source: str
