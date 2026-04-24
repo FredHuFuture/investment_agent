@@ -19,7 +19,7 @@
 ### Live Data & Calibration (LIVE)
 
 - [x] **LIVE-01**: Populate `backtest_signal_history` corpus across all 5-10 tickers in the user's portfolio (3+ years of cached OHLCV each); expose a `POST /api/v1/calibration/rebuild-corpus` endpoint that invokes `rebuild_signal_corpus` per ticker with progress reporting; background job mode for long runs — `daemon/jobs.py::rebuild_signal_corpus` + `api/routes/calibration.py`
-- [ ] **LIVE-02**: `CalibrationPage.tsx` frontend surface at `/calibration` showing per-agent Brier score, rolling IC, IC-IR, and a 90-day sparkline trend per agent; each row clickable to drill into per-ticker agent history — `frontend/src/pages/CalibrationPage.tsx` (new) + extends `/analytics/calibration` endpoint
+- [x] **LIVE-02**: `CalibrationPage.tsx` frontend surface at `/calibration` showing per-agent Brier score, rolling IC, IC-IR, and a 90-day sparkline trend per agent; each row clickable to drill into per-ticker agent history — `frontend/src/pages/CalibrationPage.tsx` (new) + extends `/analytics/calibration` endpoint
 - [x] **LIVE-03**: Agent weight management UI — `WeightsPage.tsx` (or embedded in CalibrationPage) showing current weights, IC-IR-suggested weights, a "Apply IC-IR weights" button that persists to `agent_weights` table + a per-agent manual override toggle (e.g., "exclude TechnicalAgent from Stock analysis until I re-enable") — `engine/weight_adapter.py` + new `frontend/src/pages/WeightsPage.tsx` + `agent_weights` table schema
 - [ ] **LIVE-04**: Weekly digest — `POST /api/v1/digest/weekly` endpoint renders a Markdown digest covering (a) portfolio performance vs benchmark this week, (b) top 5 signal flips this week, (c) agents whose IC-IR moved >20%, (d) open thesis drift alerts, (e) action items. Opt-in email delivery via existing notification channel. Scheduled job runs every Sunday 18:00. — `engine/digest.py` (new) + `api/routes/digest.py` + `daemon/scheduler.py` + existing email/Telegram channels
 
@@ -86,7 +86,7 @@ Ideas surfaced in v1.0 retrospective or v1.1 scoping, deferred here so they aren
 | CLOSE-01 | Phase 5 | Complete |
 | CLOSE-02 | Phase 5 | Complete |
 | CLOSE-03 | Phase 5 | Complete |
-| LIVE-02 | Phase 6 | Pending |
+| LIVE-02 | Phase 6 | Complete |
 | LIVE-03 | Phase 6 | Complete |
 | CLOSE-04 | Phase 6 | Pending |
 | CLOSE-05 | Phase 6 | Pending |
