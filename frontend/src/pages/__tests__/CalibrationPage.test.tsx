@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import React from "react";
@@ -227,5 +227,48 @@ describe("CalibrationPage", () => {
       asset_type: "stock",
       excluded: true,
     });
+  });
+
+  // Test WR-02: unmount during pending rebuild timeout must not trigger state update
+  it("does not call refetch or setRebuilding after unmount during pending rebuild (WR-02)", async () => {
+    const emptyCalData = {
+      ...MOCK_CAL,
+      corpus_metadata: { ...MOCK_CAL.corpus_metadata, total_observations: 0 },
+    };
+    mockGetCalibrationAnalytics.mockResolvedValue({ data: emptyCalData, warnings: [] });
+    mockRebuildCalibrationCorpus.mockResolvedValue({
+      data: { job_id: "abc123def456", status: "started", ticker_count: 3 },
+      warnings: [],
+    });
+
+    const { unmount } = renderPage();
+
+    // Wait for the rebuild button to appear using real timers
+    await waitFor(() => {
+      expect(screen.getByTestId("cal-rebuild-corpus-button")).toBeInTheDocument();
+    });
+
+    // Click rebuild and let the async handler complete (still real timers here)
+    await userEvent.click(screen.getByTestId("cal-rebuild-corpus-button"));
+    expect(mockRebuildCalibrationCorpus).toHaveBeenCalledOnce();
+
+    // Snapshot call count before unmount — the 3s window.setTimeout is now pending
+    const callCountBeforeUnmount = mockGetCalibrationAnalytics.mock.calls.length;
+
+    // Switch to fake timers then unmount — useEffect cleanup clears the pending timeout
+    vi.useFakeTimers();
+    try {
+      unmount();
+
+      // Advance well past the 3s delay; the timeout was cleared so callback never runs
+      act(() => {
+        vi.advanceTimersByTime(5_000);
+      });
+
+      // No additional fetch should have occurred after unmount
+      expect(mockGetCalibrationAnalytics.mock.calls.length).toBe(callCountBeforeUnmount);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

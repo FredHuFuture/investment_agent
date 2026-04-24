@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useApi } from "../hooks/useApi";
 import {
   getCalibrationAnalytics,
@@ -35,6 +35,19 @@ export default function CalibrationPage() {
   const [assetType, setAssetType] = useState<AssetType>("stock");
   const [applying, setApplying] = useState(false);
   const [rebuilding, setRebuilding] = useState(false);
+
+  const mountedRef = useRef(true);
+  const rebuildTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (rebuildTimeoutRef.current !== null) {
+        clearTimeout(rebuildTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const calApi = useApi<CalibrationResponse>(
     () => getCalibrationAnalytics(),
@@ -82,8 +95,10 @@ export default function CalibrationPage() {
       toast.success(
         `Corpus rebuild started (job ${resp.data.job_id.slice(0, 8)}…, ${resp.data.ticker_count} tickers)`,
       );
-      // Schedule a background refetch after delay; operator can also refresh manually.
-      setTimeout(() => {
+      // Schedule a background refetch after delay; cancelled on unmount to avoid
+      // state updates on a dead component (WR-02).
+      rebuildTimeoutRef.current = window.setTimeout(() => {
+        if (!mountedRef.current) return;
         calApi.refetch();
         setRebuilding(false);
       }, 3_000);
