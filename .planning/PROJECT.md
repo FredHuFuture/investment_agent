@@ -55,17 +55,17 @@ An "investment journal that fights back" — a personal investing system that tr
 
 **LIVE** — Live data & calibration
 - [x] **LIVE-01**: `POST /analytics/calibration/rebuild-corpus` endpoint + `corpus_rebuild_jobs` table + `_run_batch_rebuild` background task (per-ticker FOUND-07 delegation, outer exception guard, error_message on all non-success paths) — Phase 5
-- [ ] **LIVE-02**: `CalibrationPage.tsx` — per-agent Brier, rolling IC, IC-IR + 90-day sparkline; becomes home of weekly review
-- [ ] **LIVE-03**: Agent weight management UI (apply IC-IR weights button + per-agent manual override)
+- [x] **LIVE-02**: `/calibration` route + `CalibrationPage.tsx` + 5 new components (CalibrationTable, AgentCalibrationRow, ICSparkline, AssetTypeTabs, WeightsEditor) with `rolling_ic` sparkline + empty-corpus CTA to Phase 5 rebuild endpoint — Phase 6
+- [x] **LIVE-03**: `agent_weights` table + `GET /weights` + `POST /weights/apply-ic-ir` (preserves manual_override) + `PATCH /weights/override` (KNOWN_AGENTS allowlist, 5 signal agents) + WeightsEditor UI. Pipeline wiring to `load_weights_from_db` deferred to Phase 7 AN-02 drift detector — Phase 6
 - [ ] **LIVE-04**: Weekly digest (scheduled Sundays 18:00, Markdown render, email opt-in)
 
 **CLOSE** — v1.0 human-UAT closeout
 - [x] **CLOSE-01**: FinBERT live test on real headlines — `tests/test_close_01_finbert_live.py` with `importlib.util.find_spec` lazy guard + operator script; `03-HUMAN-UAT.md` flipped to `resolved` — Phase 5
 - [x] **CLOSE-02**: Live Finnhub API round-trip — `tests/test_close_02_finnhub_live.py` with `FINNHUB_API_KEY` skipif guard + sector_pe_cache singleton reset + operator script — Phase 5
 - [x] **CLOSE-03**: Daemon PID + `netstat 127.0.0.1` verification — `tests/test_close_03_daemon_pid_live.py` subprocess test (natural exit for atexit on Windows/POSIX) + operator script — Phase 5
-- [ ] **CLOSE-04**: Target-weight browser flow
-- [ ] **CLOSE-05**: Rules panel toggle → daemon log exclusion
-- [ ] **CLOSE-06**: DailyPnlHeatmap tooltip
+- [x] **CLOSE-04**: Target-weight browser flow — Vitest snapshot locks TargetWeightBar rendering contract (4 states) + operator script + `04-HUMAN-UAT.md` flipped to `resolved` — Phase 6
+- [x] **CLOSE-05**: Rules panel toggle → daemon log exclusion — AlertRulesPanel snapshot (3 scenarios) + operator script + `04-HUMAN-UAT.md` resolved — Phase 6
+- [x] **CLOSE-06**: DailyPnlHeatmap tooltip — heatmap snapshot (3 scenarios) + operator script + `04-HUMAN-UAT.md` resolved — Phase 6
 
 **AN** — Analytics completeness
 - [ ] **AN-01**: Dividend-aware IRR
@@ -170,4 +170,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-23 after v1.1 Phase 5 (Corpus Population + Live Data Closeout) completion — LIVE-01, CLOSE-01..03 shipped; live corpus population queued as human-UAT*
+*Last updated: 2026-04-24 after v1.1 Phase 6 (Calibration & Weights UI) completion — LIVE-02, LIVE-03, CLOSE-04..06 shipped; 9/12 v1.1 reqs done; Phase 7 remains (LIVE-04 digest + AN-01 dividend IRR + AN-02 drift detector + pipeline wiring)*
