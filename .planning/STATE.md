@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: Competitive Parity
 status: executing
-stopped_at: Completed 05-02-PLAN.md (CLOSE-01, CLOSE-02, CLOSE-03 UAT closeout)
-last_updated: "2026-04-24T05:28:40.945Z"
-last_activity: 2026-04-24 -- Phase 6 planning complete
+stopped_at: Completed 06-01-PLAN.md (LIVE-03 agent_weights table + 3 endpoints)
+last_updated: "2026-04-24T06:08:59.754Z"
+last_activity: 2026-04-24
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 5
-  completed_plans: 2
-  percent: 40
+  completed_plans: 3
+  percent: 60
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-22)
 
 **Core value:** Drawdown protection via thesis-aware, regime-aware multi-agent signals — catching when a held position no longer matches the reason it was bought.
-**Current focus:** Phase 5 — Corpus Population + Live Data Closeout
+**Current focus:** Phase 6 — Calibration & Weights UI
 
 ## Current Position
 
-Phase: 5
-Plan: Not started
+Phase: 6 (Calibration & Weights UI) — EXECUTING
+Plan: 2 of 3
 Status: Ready to execute
-Last activity: 2026-04-24 -- Phase 6 planning complete
+Last activity: 2026-04-24
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -51,6 +51,7 @@ Full record: `.planning/milestones/v1.0-ROADMAP.md`, `.planning/milestones/v1.0-
 | 4 - Portfolio UI + Analytics Uplift | 4 | ~1301s |
 | Phase 05-corpus-population-live-data-closeout P01 | 1489 | 2 tasks | 4 files |
 | Phase 05-corpus-population-live-data-closeout P02 | 7 | 3 tasks | 7 files |
+| Phase 06-calibration-weights-ui P06-01 | 600 | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,8 @@ Key decisions carrying forward into v1.1:
 - [Phase 05-corpus-population-live-data-closeout]: Meta-tests introspect fn.pytestmark to lock in skipif guards: refactor-proof CI safety
 - [Phase 05-corpus-population-live-data-closeout]: subprocess natural exit (sleep+exit) not terminate() for atexit PID cleanup: Windows SIGTERM does not trigger atexit
 - [Phase 05-corpus-population-live-data-closeout]: sector_pe_cache._finnhub_provider = None reset in CLOSE-02: closes Phase 3 singleton isolation follow-up
+- [Phase 06-calibration-weights-ui]: agent_weights table is the persistence target for LIVE-03 weights UI (source='default'|'ic_ir'|'manual'); seeds from DEFAULT_WEIGHTS on empty; pipeline wiring to load_weights_from_db deferred to Phase 7 AN-02
+- [Phase 06-calibration-weights-ui]: GET /weights LIVE-03 shape supersedes legacy {buy_threshold,sell_threshold,weights} contract; frontend WeightsPage donut breaks until 06-02 ships
 
 ### Pending Todos
 
@@ -94,6 +97,6 @@ Key decisions carrying forward into v1.1:
 
 ## Session Continuity
 
-Last session: 2026-04-23T06:34:42.236Z
-Stopped at: Completed 05-02-PLAN.md (CLOSE-01, CLOSE-02, CLOSE-03 UAT closeout)
+Last session: 2026-04-24T06:08:59.750Z
+Stopped at: Completed 06-01-PLAN.md (LIVE-03 agent_weights table + 3 endpoints)
 Resume: Run `/gsd-plan-phase 5`
