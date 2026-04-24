@@ -680,6 +680,48 @@ async def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
             """
         )
 
+        # LIVE-03 (Phase 6): per-(agent, asset_type) weights table.
+        # Source of truth for signal aggregator in production; supports manual
+        # overrides without disturbing other agents' weights.
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS agent_weights (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                agent_name TEXT NOT NULL,
+                asset_type TEXT NOT NULL CHECK (asset_type IN ('stock', 'btc', 'eth')),
+                weight REAL NOT NULL DEFAULT 0.0,
+                manual_override INTEGER NOT NULL DEFAULT 0,
+                excluded INTEGER NOT NULL DEFAULT 0,
+                source TEXT NOT NULL DEFAULT 'default'
+                    CHECK (source IN ('default', 'ic_ir', 'manual')),
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE (agent_name, asset_type)
+            );
+            """
+        )
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_agent_weights_asset_type "
+            "ON agent_weights (asset_type);"
+        )
+        # Seed defaults ONLY when table is empty (never reseed — preserves user
+        # overrides on subsequent startups). FOUND-06 idempotent pattern.
+        existing = await (
+            await conn.execute("SELECT COUNT(*) FROM agent_weights")
+        ).fetchone()
+        if existing is not None and existing[0] == 0:
+            from engine.aggregator import SignalAggregator  # deferred import
+            for asset_type, agent_map in SignalAggregator.DEFAULT_WEIGHTS.items():
+                for agent_name, weight in agent_map.items():
+                    await conn.execute(
+                        """
+                        INSERT INTO agent_weights
+                            (agent_name, asset_type, weight, manual_override,
+                             excluded, source)
+                        VALUES (?, ?, ?, 0, 0, 'default')
+                        """,
+                        (agent_name, asset_type, float(weight)),
+                    )
+
         await conn.commit()
 
     return path

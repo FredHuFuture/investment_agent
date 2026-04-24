@@ -322,3 +322,50 @@ class SignalAggregator:
         result.metrics["regime_adjusted_weights"] = adjusted
 
         return result
+
+
+async def load_weights_from_db(db_path: str) -> dict[str, dict[str, float]] | None:
+    """Load agent weights from the ``agent_weights`` table (LIVE-03).
+
+    - Skips rows where ``excluded=1``.
+    - Renormalizes each asset_type so remaining weights sum to 1.0 (FOUND-05 contract).
+    - Returns ``None`` when the table is empty or missing (caller falls back to
+      ``SignalAggregator.DEFAULT_WEIGHTS``).
+
+    Deferred import of aiosqlite avoids making aggregator a DB-dependent module at
+    import time — tests and offline tooling that construct ``SignalAggregator`` directly
+    do not need aiosqlite on the path.
+    """
+    import aiosqlite  # deferred import — keep aggregator importable without DB
+
+    try:
+        async with aiosqlite.connect(db_path) as conn:
+            conn.row_factory = aiosqlite.Row
+            rows = await (
+                await conn.execute(
+                    "SELECT agent_name, asset_type, weight, excluded FROM agent_weights"
+                )
+            ).fetchall()
+    except Exception:
+        # Table missing (OperationalError) or other DB error — fall back to defaults.
+        return None
+
+    if not rows:
+        return None
+
+    raw: dict[str, dict[str, float]] = {}
+    for row in rows:
+        if int(row["excluded"]) == 1:
+            continue
+        raw.setdefault(row["asset_type"], {})[row["agent_name"]] = float(row["weight"])
+
+    # Renormalize each asset_type to sum 1.0 (FOUND-05 contract).
+    normalized: dict[str, dict[str, float]] = {}
+    for asset_type, agents in raw.items():
+        total = sum(agents.values())
+        if total > 0:
+            normalized[asset_type] = {k: round(v / total, 4) for k, v in agents.items()}
+        else:
+            normalized[asset_type] = agents
+
+    return normalized if normalized else None
