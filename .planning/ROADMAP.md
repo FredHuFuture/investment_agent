@@ -27,7 +27,8 @@ All 4 phases complete. Full snapshot in `.planning/milestones/v1.0-ROADMAP.md`.
 
 ## Phases
 
-- [x] **Phase 5: Corpus Population + Live Data Closeout** - Populate the real signal corpus for user's tickers and verify all three v1.0 live-environment UAT items that could not be automated (completed 2026-04-23)
+- [x] **Phase 5: Corpus Population + Live Data Closeout** - Populate the real signal corpus for user's tickers and verify all three v1.0 live-environment UAT items that could not be automated
+ (completed 2026-04-23)
 - [ ] **Phase 6: Calibration & Weights UI** - Surface per-agent signal quality visually and give the user a one-click path to apply IC-IR-derived weights; close out v1.0 browser UAT items
 - [ ] **Phase 7: Digest + Analytics Completeness** - Weekly review artifact, dividend-accurate IRR, and a drift detector that auto-scales weights when an agent loses edge
 
@@ -57,7 +58,10 @@ All 4 phases complete. Full snapshot in `.planning/milestones/v1.0-ROADMAP.md`.
   3. The per-agent manual override toggle persists an "excluded" state for a chosen agent; the next analysis run omits that agent's signal and the remaining agents' weights re-normalize to sum to 1.0 — verifiable by inspecting the aggregation log entry.
   4. Target-weight browser flow verified: set target weight, bar renders with correct deviation color, persists on page reload, clearing sets to null, out-of-range value shows validation alert — documented in `04-HUMAN-UAT.md` with status `resolved`.
   5. Rules panel toggle verified (STOP_LOSS_HIT off → next daemon monitor log excludes it → re-enabling restores it) and DailyPnlHeatmap tooltip verified (hover shows correct date and P&L) — both documented in `04-HUMAN-UAT.md` with status `resolved`.
-**Plans**: TBD
+**Plans**: 3 plans
+  - [ ] 06-01-PLAN.md (wave 1) — LIVE-03 backend: `agent_weights` table + 3 endpoints (GET /weights overview, POST /weights/apply-ic-ir, PATCH /weights/override) + SignalAggregator DB wiring
+  - [ ] 06-02-PLAN.md (wave 2, depends_on: [06-01]) — LIVE-02 + LIVE-03 frontend: `/calibration` page with per-agent Brier/IC/IC-IR/sparkline + embedded WeightsEditor (Current vs IC-IR-suggested + exclude toggle + Apply button)
+  - [ ] 06-03-PLAN.md (wave 2) — CLOSE-04..06 UAT closeout: 3 Vitest snapshot tests + 3 operator scripts + `04-HUMAN-UAT.md` flip to resolved
 **UI hint**: yes
 
 ### Phase 7: Digest + Analytics Completeness
@@ -82,7 +86,7 @@ All 4 phases complete. Full snapshot in `.planning/milestones/v1.0-ROADMAP.md`.
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 5. Corpus Population + Live Data Closeout | 2/2 | Complete    | 2026-04-23 |
-| 6. Calibration & Weights UI | 0/TBD | Not started | - |
+| 6. Calibration & Weights UI | 0/3 | Not started | - |
 | 7. Digest + Analytics Completeness | 0/TBD | Not started | - |
 
 ---
