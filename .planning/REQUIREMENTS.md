@@ -28,9 +28,9 @@
 - [x] **CLOSE-01**: Close Phase 3 human-UAT — run `pip install -e ".[llm-local]"` + `python scripts/fetch_finbert.py`; confirm FinBERT returns non-HOLD on real news-rich ticker (NVDA earnings week). Document result in `03-HUMAN-UAT.md` + run `/gsd-verify-work 3` to flip status from `partial` to `resolved`.
 - [x] **CLOSE-02**: Close Phase 3 human-UAT — set `FINNHUB_API_KEY` to a real free-tier key; confirm `FinnhubProvider.get_sector_pe("technology")` returns a float; confirm `FundamentalAgent` reasoning on AAPL contains `"Finnhub sector P/E"` string. Document in `03-HUMAN-UAT.md`.
 - [x] **CLOSE-03**: Close Phase 3 human-UAT — launch daemon, confirm `data/daemon.pid` contains live PID matching process; confirm `netstat -an` shows `127.0.0.1:8000 LISTEN` (not `0.0.0.0`); kill daemon, verify PID file removed by atexit. Document in `03-HUMAN-UAT.md`.
-- [ ] **CLOSE-04**: Close Phase 4 human-UAT — target-weight browser flow (set, persist on reload, clear, invalid-input alert). Document in `04-HUMAN-UAT.md`.
-- [ ] **CLOSE-05**: Close Phase 4 human-UAT — MonitoringPage rules panel (toggle STOP_LOSS_HIT off, confirm daemon log excludes it on next run). Document in `04-HUMAN-UAT.md`.
-- [ ] **CLOSE-06**: Close Phase 4 human-UAT — DailyPnlHeatmap tooltip on hover with date + P&L + correct color. Document in `04-HUMAN-UAT.md`.
+- [x] **CLOSE-04**: Close Phase 4 human-UAT — target-weight browser flow (set, persist on reload, clear, invalid-input alert). Document in `04-HUMAN-UAT.md`.
+- [x] **CLOSE-05**: Close Phase 4 human-UAT — MonitoringPage rules panel (toggle STOP_LOSS_HIT off, confirm daemon log excludes it on next run). Document in `04-HUMAN-UAT.md`.
+- [x] **CLOSE-06**: Close Phase 4 human-UAT — DailyPnlHeatmap tooltip on hover with date + P&L + correct color. Document in `04-HUMAN-UAT.md`.
 
 ### Analytics Completeness (AN)
 
@@ -88,9 +88,9 @@ Ideas surfaced in v1.0 retrospective or v1.1 scoping, deferred here so they aren
 | CLOSE-03 | Phase 5 | Complete |
 | LIVE-02 | Phase 6 | Complete |
 | LIVE-03 | Phase 6 | Complete |
-| CLOSE-04 | Phase 6 | Pending |
-| CLOSE-05 | Phase 6 | Pending |
-| CLOSE-06 | Phase 6 | Pending |
+| CLOSE-04 | Phase 6 | Complete |
+| CLOSE-05 | Phase 6 | Complete |
+| CLOSE-06 | Phase 6 | Complete |
 | LIVE-04 | Phase 7 | Pending |
 | AN-01 | Phase 7 | Pending |
 | AN-02 | Phase 7 | Pending |
