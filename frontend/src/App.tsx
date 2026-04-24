@@ -23,6 +23,7 @@ const BacktestPage = lazy(() => import("./pages/BacktestPage"));
 const SignalsPage = lazy(() => import("./pages/SignalsPage"));
 const MonitoringPage = lazy(() => import("./pages/MonitoringPage"));
 const WeightsPage = lazy(() => import("./pages/WeightsPage"));
+const CalibrationPage = lazy(() => import("./pages/CalibrationPage"));
 const DaemonPage = lazy(() => import("./pages/DaemonPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const AnalysisHistoryPage = lazy(() => import("./pages/AnalysisHistoryPage"));
@@ -68,6 +69,7 @@ function AppContent() {
           <Route path="/backtest" element={<BacktestPage />} />
           <Route path="/signals" element={<SignalsPage />} />
           <Route path="/monitoring" element={<MonitoringPage />} />
+          <Route path="/calibration" element={<CalibrationPage />} />
           <Route path="/weights" element={<WeightsPage />} />
           <Route path="/daemon" element={<DaemonPage />} />
           <Route path="/analysis-history" element={<AnalysisHistoryPage />} />

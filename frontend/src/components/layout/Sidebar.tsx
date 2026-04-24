@@ -128,6 +128,19 @@ const NAV_ICONS: Record<string, () => JSX.Element> = {
       ]}
     />
   ),
+  Calibration: () => (
+    <MultiIcon
+      paths={[
+        "M2 12h4",
+        "M18 12h4",
+        "M12 2v4",
+        "M12 18v4",
+        "M12 12m-3 0a3 3 0 1 0 6 0 3 3 0 0 0-6 0",
+        "M4.93 4.93l2.83 2.83",
+        "M16.24 16.24l2.83 2.83",
+      ]}
+    />
+  ),
   Weights: () => (
     <MultiIcon
       paths={[
@@ -196,6 +209,7 @@ const navGroups: NavGroup[] = [
     label: "Tools",
     items: [
       { to: "/backtest", label: "Backtest", icon: "Backtest" },
+      { to: "/calibration", label: "Calibration", icon: "Calibration" },
       { to: "/weights", label: "Weights", icon: "Weights" },
       { to: "/monitoring", label: "Monitoring", icon: "Monitoring" },
       { to: "/daemon", label: "Daemon", icon: "Daemon" },

@@ -68,6 +68,10 @@ import type {
   ReturnsResponse,
   DailyPnlPoint,
   BenchmarkSymbol,
+  CalibrationResponse,
+  WeightsOverviewResponse,
+  ApplyIcIrResponse,
+  OverrideResponse,
 } from "./types";
 
 // Portfolio
@@ -530,3 +534,47 @@ export const BENCHMARK_OPTIONS: readonly BenchmarkSymbol[] = [
   "GLD",
   "BTC-USD",
 ] as const;
+
+// ---------------------------------------------------------------------------
+// Phase 06 (LIVE-02, LIVE-03): Calibration analytics + Weights V2
+// ---------------------------------------------------------------------------
+
+// Phase 06 (LIVE-02): /analytics/calibration — per-agent Brier/IC/IC-IR/rolling_ic
+// Note: existing getCalibration() above points to legacy /signals/calibration (bucket endpoint)
+// and is left untouched for legacy consumers. This new function targets the analytics endpoint.
+export const getCalibrationAnalytics = () =>
+  apiGet<CalibrationResponse>("/analytics/calibration");
+
+// Phase 06 (LIVE-03): /weights V2 — per-(agent,asset_type) with overrides
+// Note: existing getWeights() above returns the legacy WeightsData shape; getWeightsV2 returns
+// the new WeightsOverviewResponse shape from the 06-01 agent_weights table.
+export const getWeightsV2 = () =>
+  apiGet<WeightsOverviewResponse>("/weights");
+
+export const applyIcIrWeights = () =>
+  apiPost<ApplyIcIrResponse>("/weights/apply-ic-ir", {});
+
+export const overrideAgentWeight = (body: {
+  agent: string;
+  asset_type: "stock" | "btc" | "eth";
+  excluded: boolean;
+}) => apiPatch<OverrideResponse>("/weights/override", body);
+
+// Phase 06 (LIVE-02): trigger corpus rebuild from CalibrationPage CTA
+export const rebuildCalibrationCorpus = () =>
+  apiPost<{ job_id: string; status: string; ticker_count: number }>(
+    "/analytics/calibration/rebuild-corpus",
+    {},
+  );
+
+export const getCalibrationRebuildJob = (jobId: string) =>
+  apiGet<{
+    job_id: string;
+    status: "running" | "success" | "partial" | "error";
+    tickers_total: number;
+    tickers_completed: number;
+    ticker_progress: Record<string, { status: string; rows_inserted?: number; error?: string }>;
+    started_at: string;
+    completed_at: string | null;
+    error_message: string | null;
+  }>(`/analytics/calibration/rebuild-corpus/${jobId}`);

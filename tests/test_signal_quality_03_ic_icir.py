@@ -190,3 +190,65 @@ def test_icir_returns_none_when_std_is_zero() -> None:
     assert result is None, (
         f"Expected None when std(IC)=0, got {result}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Test G: GET /analytics/calibration returns rolling_ic field per agent (LIVE-02)
+# ---------------------------------------------------------------------------
+
+async def test_calibration_exposes_rolling_ic_field(tmp_path: Path) -> None:
+    """Seeded corpus → /analytics/calibration response includes rolling_ic list.
+
+    LIVE-02: The CalibrationPage sparkline requires a rolling IC time series
+    per agent. This test verifies the field is present and is a list.
+
+    Strategy: seed 60 rows for TechnicalAgent (>= min_samples=30); call the
+    route handler directly via a FastAPI TestClient so the response shape is
+    checked end-to-end without a running server.
+    """
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from api.routes.calibration import router as cal_router
+    from api.deps import get_db_path
+
+    # Build a minimal FastAPI app that uses the calibration router.
+    app = FastAPI()
+    db_file = tmp_path / "cal_rolling_ic.db"
+    await _seed_synthetic_corpus(db_file, "TechnicalAgent", n=60, true_ic=0.12, seed=42)
+
+    # Override the DB path dependency to point to our test DB.
+    app.dependency_overrides[get_db_path] = lambda: str(db_file)
+    app.include_router(cal_router, prefix="/analytics")
+
+    with TestClient(app) as client:
+        resp = client.get("/analytics/calibration")
+
+    assert resp.status_code == 200, f"Unexpected status: {resp.status_code} {resp.text}"
+    body = resp.json()
+    agents = body["data"]["agents"]
+
+    # TechnicalAgent was seeded with N=60 → rolling_ic should be a non-empty list
+    assert "TechnicalAgent" in agents, "Expected TechnicalAgent in agents"
+    tech = agents["TechnicalAgent"]
+    assert "rolling_ic" in tech, (
+        f"Expected 'rolling_ic' key in TechnicalAgent entry; got keys: {list(tech.keys())}"
+    )
+    assert isinstance(tech["rolling_ic"], list), (
+        f"Expected rolling_ic to be a list, got {type(tech['rolling_ic'])}"
+    )
+    # Length should be <= window (default 60); non-empty for N=60
+    assert len(tech["rolling_ic"]) > 0, "Expected at least one rolling IC point for N=60"
+
+    # FundamentalAgent is in NULL_EXPECTED — should have rolling_ic as empty list
+    assert "FundamentalAgent" in agents, "Expected FundamentalAgent in agents"
+    fund = agents["FundamentalAgent"]
+    assert "rolling_ic" in fund, (
+        f"Expected 'rolling_ic' key in FundamentalAgent entry; got keys: {list(fund.keys())}"
+    )
+    assert isinstance(fund["rolling_ic"], list), (
+        f"Expected rolling_ic to be a list for FundamentalAgent"
+    )
+    assert fund["rolling_ic"] == [], (
+        f"Expected empty rolling_ic for FundamentalAgent (NULL_EXPECTED), got {fund['rolling_ic']}"
+    )

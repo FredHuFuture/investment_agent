@@ -94,6 +94,7 @@ async def get_calibration(
                 "preliminary_calibration": True,
                 "signal_source": "backtest_generated",
                 "note": NULL_EXPECTED[agent],
+                "rolling_ic": [],  # LIVE-02: empty list for NULL_EXPECTED agents
             }
             continue
 
@@ -115,6 +116,9 @@ async def get_calibration(
             "sample_size": sample_size,
             "preliminary_calibration": True,
             "signal_source": "backtest_generated",
+            # LIVE-02: expose rolling IC time series for CalibrationPage sparkline.
+            # rolling is already computed above by compute_rolling_ic; pad with [] when empty.
+            "rolling_ic": rolling or [],
         }
 
     corpus = await store.get_backtest_corpus_metadata()

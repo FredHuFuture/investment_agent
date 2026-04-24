@@ -830,3 +830,64 @@ export interface JournalInsight {
   metric_value: number | null;
   severity: "positive" | "neutral" | "negative";
 }
+
+// ---------------------------------------------------------------------------
+// Phase 06 types: /analytics/calibration + /weights (LIVE-02, LIVE-03)
+// ---------------------------------------------------------------------------
+
+export interface AgentCalibrationEntry {
+  brier_score: number | null;
+  ic_5d: number | null;
+  ic_horizon: string;
+  ic_ir: number | null;
+  sample_size: number;
+  preliminary_calibration: boolean;
+  signal_source: string;
+  rolling_ic: (number | null)[];
+  note?: string;  // Present for FundamentalAgent (FOUND-04)
+}
+
+export interface CorpusMetadata {
+  date_range: [string, string] | null;
+  total_observations: number;
+  tickers_covered: string[];
+  n_agents: number;
+  survivorship_bias_warning: boolean;
+}
+
+export interface CalibrationResponse {
+  agents: Record<string, AgentCalibrationEntry>;
+  corpus_metadata: CorpusMetadata;
+  horizon: string;
+  window_days: number;
+}
+
+export interface WeightsOverrideFlags {
+  excluded: boolean;
+  manual_override: boolean;
+}
+
+export interface WeightsOverviewResponse {
+  current: Record<string, Record<string, number>>;  // asset_type -> agent -> weight
+  suggested_ic_ir: Record<string, Record<string, number> | null>;
+  overrides: Record<string, Record<string, WeightsOverrideFlags>>;
+  source: "default" | "ic_ir" | "manual";
+  computed_at: string;
+  sample_size: number;
+}
+
+export interface ApplyIcIrResponse {
+  applied: boolean;
+  weights: Record<string, Record<string, number>>;
+  source: string;
+  sample_size: number;
+}
+
+export interface OverrideResponse {
+  agent: string;
+  asset_type: string;
+  excluded: boolean;
+  manual_override: boolean;
+  renormalized_weights: Record<string, number>;
+  source: string;
+}
