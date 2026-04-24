@@ -42,7 +42,8 @@ KNOWN_AGENTS = {
     "MacroAgent",
     "SentimentAgent",
     "CryptoAgent",
-    "SummaryAgent",
+    # SummaryAgent omitted: it is a narrative generator, not a signal producer,
+    # and has no row in DEFAULT_WEIGHTS / agent_weights.
 }
 VALID_ASSET_TYPES = {"stock", "btc", "eth"}
 

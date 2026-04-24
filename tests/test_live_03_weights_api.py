@@ -725,3 +725,35 @@ async def test_empty_corpus_graceful_degradation(tmp_path: Path) -> None:
     assert len(warnings) > 0, "Expected at least one warning when corpus is empty"
     assert any("corpus" in w.lower() or "ic-ir" in w.lower() or "insufficient" in w.lower()
                for w in warnings), f"Expected corpus-related warning, got: {warnings}"
+
+
+async def test_summary_agent_rejected_from_weights_override(tmp_path: Path) -> None:
+    """Test 26 (WR-01): SummaryAgent is not a signal producer and must be rejected by KNOWN_AGENTS.
+
+    SummaryAgent has no row in DEFAULT_WEIGHTS / agent_weights; accepting it creates a
+    weight=0.0 row that surfaces as a misleading 'Active 0%' entry in the WeightsEditor.
+    """
+    db_path = str(tmp_path / "test.db")
+    await init_db(db_path)
+
+    client = _make_client(db_path)
+    resp = client.patch(
+        "/weights/override",
+        json={"agent": "SummaryAgent", "asset_type": "stock", "excluded": True},
+    )
+    assert resp.status_code == 400, (
+        f"Expected 400 for SummaryAgent (not a signal producer), got {resp.status_code}: {resp.text}"
+    )
+    detail = resp.json().get("detail", {})
+    assert detail.get("code") == "UNKNOWN_AGENT", (
+        f"Expected UNKNOWN_AGENT error code, got: {detail}"
+    )
+
+    # Verify SummaryAgent was NOT inserted into agent_weights
+    async with aiosqlite.connect(db_path) as conn:
+        row = await (
+            await conn.execute(
+                "SELECT id FROM agent_weights WHERE agent_name='SummaryAgent'"
+            )
+        ).fetchone()
+    assert row is None, "SummaryAgent should not be stored in agent_weights"
