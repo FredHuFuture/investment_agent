@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useApi } from "../hooks/useApi";
 import {
   getCalibrationAnalytics,
@@ -6,8 +6,9 @@ import {
   applyIcIrWeights,
   overrideAgentWeight,
   rebuildCalibrationCorpus,
+  getDriftLog,
 } from "../api/endpoints";
-import type { CalibrationResponse, WeightsOverviewResponse } from "../api/types";
+import type { CalibrationResponse, WeightsOverviewResponse, DriftLogEntry, DriftLogResponse } from "../api/types";
 import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { SkeletonCard } from "../components/ui/Skeleton";
@@ -57,6 +58,23 @@ export default function CalibrationPage() {
     () => getWeightsV2(),
     { cacheKey: "cal:weights", ttlMs: 60_000 },
   );
+  const driftApi = useApi<DriftLogResponse>(
+    () => getDriftLog(),
+    { cacheKey: "drift-log", ttlMs: 60_000 },
+  );
+
+  // AN-02: build {agent_name -> DriftLogEntry} for the currently selected asset_type tab.
+  // Graceful degradation: if driftApi.data is undefined (fetch failed), map is empty
+  // and rows render without badges — no error toast, no spinner stuck.
+  const driftByAgent = useMemo<Record<string, DriftLogEntry>>(() => {
+    const map: Record<string, DriftLogEntry> = {};
+    if (driftApi.data?.drifts) {
+      for (const d of driftApi.data.drifts) {
+        if (d.asset_type === assetType) map[d.agent_name] = d;
+      }
+    }
+    return map;
+  }, [driftApi.data, assetType]);
 
   const refetchAll = useCallback(() => {
     calApi.refetch();
@@ -142,6 +160,7 @@ export default function CalibrationPage() {
       {!loading && calApi.data && (
         <CalibrationTable
           data={calApi.data}
+          driftByAgent={driftByAgent}
           onRebuildCorpus={handleRebuildCorpus}
           rebuildInProgress={rebuilding}
         />

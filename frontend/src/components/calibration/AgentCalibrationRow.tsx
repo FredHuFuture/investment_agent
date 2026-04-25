@@ -1,9 +1,11 @@
-import type { AgentCalibrationEntry } from "../../api/types";
+import type { AgentCalibrationEntry, DriftLogEntry } from "../../api/types";
 import ICSparkline from "./ICSparkline";
+import DriftBadge from "./DriftBadge";
 
 interface Props {
   agentName: string;
   entry: AgentCalibrationEntry;
+  driftEntry?: DriftLogEntry | null; // optional — backward-compat
 }
 
 function fmtBrier(v: number | null, sampleSize: number): { text: string; title: string } {
@@ -46,7 +48,7 @@ function fmtIc(
  * FundamentalAgent (and any NULL_EXPECTED agent) renders a full-width note
  * instead of metric cells when entry.note is present.
  */
-export default function AgentCalibrationRow({ agentName, entry }: Props) {
+export default function AgentCalibrationRow({ agentName, entry, driftEntry = null }: Props) {
   // FundamentalAgent FOUND-04 note branch — takes precedence over metrics
   if (entry.note) {
     return (
@@ -77,7 +79,10 @@ export default function AgentCalibrationRow({ agentName, entry }: Props) {
         {ic.text}
       </td>
       <td className="py-2 pr-3 text-sm text-gray-400 font-mono" title={icir.title}>
-        {icir.text}
+        <span className="inline-flex items-center">
+          {icir.text}
+          <DriftBadge entry={driftEntry} agentName={agentName} />
+        </span>
       </td>
       <td className="py-2">
         <ICSparkline

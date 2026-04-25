@@ -1,4 +1,4 @@
-import type { CalibrationResponse } from "../../api/types";
+import type { CalibrationResponse, DriftLogEntry } from "../../api/types";
 import { Card, CardHeader, CardBody } from "../ui/Card";
 import EmptyState from "../shared/EmptyState";
 import { Button } from "../ui/Button";
@@ -6,6 +6,7 @@ import AgentCalibrationRow from "./AgentCalibrationRow";
 
 interface Props {
   data: CalibrationResponse;
+  driftByAgent?: Record<string, DriftLogEntry>; // optional — keys are agent_name
   onRebuildCorpus?: () => void;
   rebuildInProgress?: boolean;
 }
@@ -31,6 +32,7 @@ const AGENT_ORDER = [
  */
 export default function CalibrationTable({
   data,
+  driftByAgent = {},
   onRebuildCorpus,
   rebuildInProgress,
 }: Props) {
@@ -84,6 +86,7 @@ export default function CalibrationTable({
                 key={name}
                 agentName={name}
                 entry={agents[name]!}
+                driftEntry={driftByAgent[name] ?? null}
               />
             ))}
           </tbody>

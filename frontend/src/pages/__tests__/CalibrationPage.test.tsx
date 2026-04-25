@@ -31,6 +31,7 @@ vi.mock("../../api/endpoints", () => ({
   overrideAgentWeight: vi.fn(),
   rebuildCalibrationCorpus: vi.fn(),
   getCalibrationRebuildJob: vi.fn(),
+  getDriftLog: vi.fn(),
 }));
 
 import {
@@ -39,6 +40,7 @@ import {
   applyIcIrWeights,
   overrideAgentWeight,
   rebuildCalibrationCorpus,
+  getDriftLog,
 } from "../../api/endpoints";
 import CalibrationPage from "../CalibrationPage";
 
@@ -47,6 +49,7 @@ const mockGetWeightsV2 = vi.mocked(getWeightsV2);
 const mockApplyIcIrWeights = vi.mocked(applyIcIrWeights);
 const mockOverrideAgentWeight = vi.mocked(overrideAgentWeight);
 const mockRebuildCalibrationCorpus = vi.mocked(rebuildCalibrationCorpus);
+const mockGetDriftLog = vi.mocked(getDriftLog);
 
 function makeAgent(overrides = {}) {
   return {
@@ -122,6 +125,7 @@ describe("CalibrationPage", () => {
     invalidateCache();
     mockGetCalibrationAnalytics.mockResolvedValue({ data: MOCK_CAL, warnings: [] });
     mockGetWeightsV2.mockResolvedValue({ data: MOCK_WEIGHTS, warnings: [] });
+    mockGetDriftLog.mockResolvedValue({ data: { drifts: [] }, warnings: [] });
   });
 
   // Test T7: smoke render — both APIs loaded, both sections visible
@@ -227,6 +231,44 @@ describe("CalibrationPage", () => {
       asset_type: "stock",
       excluded: true,
     });
+  });
+
+  // Test D4 (AN-02): drift badge appears when /drift/log returns a triggered entry
+  it("renders drift badge on TechnicalAgent row when /drift/log returns triggered entry", async () => {
+    mockGetDriftLog.mockResolvedValue({
+      data: {
+        drifts: [
+          {
+            agent_name: "TechnicalAgent",
+            asset_type: "stock",
+            evaluated_at: new Date().toISOString(),
+            current_icir: 0.42,
+            avg_icir_60d: 0.55,
+            delta_pct: -23.6,
+            threshold_type: "pct_drop",
+            triggered: true,
+            preliminary_threshold: false,
+            weight_before: 0.25,
+            weight_after: 0.21,
+          },
+        ],
+      },
+      warnings: [],
+    });
+    renderPage();
+    const badge = await screen.findByTestId("cal-drift-badge-TechnicalAgent");
+    expect(badge).toBeInTheDocument();
+    expect(badge.textContent).toMatch(/Drift Detected/i);
+  });
+
+  // Test D5 (AN-02): calibration table still renders when /drift/log fails (degraded path)
+  it("renders calibration table without crash when /drift/log fails", async () => {
+    mockGetDriftLog.mockRejectedValue(new Error("500"));
+    renderPage();
+    const table = await screen.findByTestId("cal-calibration-table");
+    expect(table).toBeInTheDocument();
+    // No drift badges should appear
+    expect(screen.queryAllByTestId(/^cal-drift-badge-/).length).toBe(0);
   });
 
   // Test WR-02: unmount during pending rebuild timeout must not trigger state update

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import React from "react";
-import type { AgentCalibrationEntry } from "../../../api/types";
+import type { AgentCalibrationEntry, DriftLogEntry } from "../../../api/types";
 
 // Mock recharts for sparkline rendering in jsdom
 vi.mock("recharts", () => ({
@@ -92,5 +92,77 @@ describe("AgentCalibrationRow", () => {
     expect(
       screen.queryByTestId("cal-ic-sparkline-FundamentalAgent"),
     ).not.toBeInTheDocument();
+  });
+
+  // Test D1: no driftEntry prop → no drift badge (backward-compat)
+  it("does not render drift badge when driftEntry is undefined", () => {
+    renderRow("MacroAgent", FULL_ENTRY);
+    expect(screen.queryByTestId("cal-drift-badge-MacroAgent")).toBeNull();
+  });
+
+  // Test D2: driftEntry with triggered=true → drift badge visible
+  it("renders drift badge when driftEntry has triggered=true", () => {
+    const driftEntry: DriftLogEntry = {
+      agent_name: "MacroAgent",
+      asset_type: "stock",
+      evaluated_at: new Date().toISOString(),
+      current_icir: 0.4,
+      avg_icir_60d: 0.6,
+      delta_pct: -33.0,
+      threshold_type: "pct_drop",
+      triggered: true,
+      preliminary_threshold: false,
+      weight_before: 0.2,
+      weight_after: 0.13,
+    };
+    const { container } = render(
+      <table>
+        <tbody>
+          <AgentCalibrationRow
+            agentName="MacroAgent"
+            entry={FULL_ENTRY}
+            driftEntry={driftEntry}
+          />
+        </tbody>
+      </table>,
+    );
+    expect(
+      container.querySelector('[data-testid="cal-drift-badge-MacroAgent"]'),
+    ).toBeInTheDocument();
+  });
+
+  // Test D3: FOUND-04 note branch — drift badge must NOT appear (no IC-IR cell)
+  it("does not render drift badge in FOUND-04 note branch", () => {
+    const noteEntry: AgentCalibrationEntry = {
+      ...FULL_ENTRY,
+      note: "Excluded from corpus per FOUND-04",
+    };
+    const driftEntry: DriftLogEntry = {
+      agent_name: "FundamentalAgent",
+      asset_type: "stock",
+      evaluated_at: new Date().toISOString(),
+      current_icir: 0.4,
+      avg_icir_60d: 0.6,
+      delta_pct: -33.0,
+      threshold_type: "pct_drop",
+      triggered: true,
+      preliminary_threshold: false,
+      weight_before: null,
+      weight_after: null,
+    };
+    const { container } = render(
+      <table>
+        <tbody>
+          <AgentCalibrationRow
+            agentName="FundamentalAgent"
+            entry={noteEntry}
+            driftEntry={driftEntry}
+          />
+        </tbody>
+      </table>,
+    );
+    expect(
+      container.querySelector('[data-testid="cal-drift-badge-FundamentalAgent"]'),
+    ).toBeNull();
   });
 });
