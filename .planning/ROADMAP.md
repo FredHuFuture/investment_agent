@@ -31,7 +31,7 @@ All 4 phases complete. Full snapshot in `.planning/milestones/v1.0-ROADMAP.md`.
  (completed 2026-04-23)
 - [x] **Phase 6: Calibration & Weights UI** - Surface per-agent signal quality visually and give the user a one-click path to apply IC-IR-derived weights; close out v1.0 browser UAT items
  (completed 2026-04-24)
-- [ ] **Phase 7: Digest + Analytics Completeness** - Weekly review artifact, dividend-accurate IRR, and a drift detector that auto-scales weights when an agent loses edge
+- [x] **Phase 7: Digest + Analytics Completeness** - Weekly review artifact, dividend-accurate IRR, and a drift detector that auto-scales weights when an agent loses edge (completed 2026-04-25)
 
 ## Phase Details
 
@@ -78,7 +78,7 @@ All 4 phases complete. Full snapshot in `.planning/milestones/v1.0-ROADMAP.md`.
 **Plans**: 3 plans
   - [x] 07-01-PLAN.md (wave 1) — AN-01 dividend IRR + AN-02 drift detector + drift_log table + Phase 6 deferred pipeline wiring + GET /drift/log endpoint + Sunday 17:30 cron
   - [x] 07-02-PLAN.md (wave 2, depends_on: [07-01]) — LIVE-04 weekly digest: engine/digest.py renderer + POST /digest/weekly + EmailDispatcher.send_markdown_email extension + Sunday 18:00 cron
-  - [ ] 07-03-PLAN.md (wave 2, depends_on: [07-01]) — AN-02 frontend: DriftBadge component (3 states) + AgentCalibrationRow integration + CalibrationPage useApi wiring
+  - [x] 07-03-PLAN.md (wave 2, depends_on: [07-01]) — AN-02 frontend: DriftBadge component (3 states) + AgentCalibrationRow integration + CalibrationPage useApi wiring
 **UI hint**: yes
 
 ---
@@ -91,7 +91,7 @@ All 4 phases complete. Full snapshot in `.planning/milestones/v1.0-ROADMAP.md`.
 |-------|----------------|--------|-----------|
 | 5. Corpus Population + Live Data Closeout | 2/2 | Complete    | 2026-04-23 |
 | 6. Calibration & Weights UI | 3/3 | Complete    | 2026-04-24 |
-| 7. Digest + Analytics Completeness | 2/3 | In Progress|  |
+| 7. Digest + Analytics Completeness | 3/3 | Complete   | 2026-04-25 |
 
 ---
 
