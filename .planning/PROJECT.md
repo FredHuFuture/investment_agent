@@ -2,7 +2,11 @@
 
 ## What This Is
 
-An "investment journal that fights back" — a personal investing system that tracks the thesis behind every position, monitors six specialized analysis agents (Technical, Fundamental, Macro, Crypto, Sentiment, Summary) continuously, and alerts the user when reality diverges from the original plan. Local-first Python/FastAPI backend + React/TypeScript dashboard. Solo-operator scope. v1.0 "Competitive Parity" shipped 2026-04-22 — benchmark-grade analytics (TTWROR/IRR, CVaR, portfolio VaR, benchmark overlay, calendar heatmap), calibrated signal quality (Brier, IC/IC-IR, walk-forward backtesting, transaction costs), expanded free-tier data coverage (Finnhub + FinBERT + SEC EDGAR), operator observability (`GET /health` + structured JSON logs), and daemon hardening (`job_run_log` + PID file + localhost bind).
+An "investment journal that fights back" — a personal investing system that tracks the thesis behind every position, monitors six specialized analysis agents (Technical, Fundamental, Macro, Crypto, Sentiment, Summary) continuously, and alerts the user when reality diverges from the original plan. Local-first Python/FastAPI backend + React/TypeScript dashboard. Solo-operator scope.
+
+**v1.0 "Competitive Parity"** shipped 2026-04-22 — benchmark-grade analytics (TTWROR/IRR, CVaR, portfolio VaR, benchmark overlay, calendar heatmap), calibrated signal quality (Brier, IC/IC-IR, walk-forward backtesting, transaction costs), expanded free-tier data coverage (Finnhub + FinBERT + SEC EDGAR), operator observability (`GET /health` + structured JSON logs), and daemon hardening (`job_run_log` + PID file + localhost bind).
+
+**v1.1 "Live Validation"** shipped 2026-04-25 — `POST /calibration/rebuild-corpus` async endpoint with per-ticker progress; unified `/calibration` page (per-agent Brier/IC/IC-IR + 90-day rolling-IC sparkline + WeightsEditor with one-click Apply IC-IR + per-agent exclude toggle); weekly Markdown digest (`POST /digest/weekly` + Sunday 18:00 cron + opt-in SMTP delivery + PII clamp); dividend-aware IRR via cached `YFinanceProvider.get_dividends`; auto-scaling drift detector (`engine/drift_detector.py` + Sunday 17:30 cron + `agent_weights` UPSERT preserving `manual_override=1` + DriftBadge UI); pipeline now reads weights from `agent_weights` table (Phase 6 deferral closed); 6 v1.0 human-UAT items (CLOSE-01..06) closed via skipif-guarded pytest suites + Vitest snapshots + operator scripts.
 
 ## Core Value
 
@@ -49,43 +53,54 @@ An "investment journal that fights back" — a personal investing system that tr
 - ✓ `PositionStatus(Enum)` + `VALID_TRANSITIONS` dict + `validate_status_transition` FSM guard reading actual row status (not hardcoded) in `portfolio/manager.py::close_position` — Phase 4 (UI-06)
 - ✓ Opt-in Bull/Bear LLM synthesis (`ENABLE_LLM_SYNTHESIS` flag, default off) in `engine/llm_synthesis.py` with FOUND-04 backtest_mode short-circuit as FIRST check, PII-safe prompt (no $ amounts, no thesis_text, confidence bucketed to 10%), (ticker, asset_type, date)-keyed cache — Phase 4 (UI-07)
 
-### Active — v1.1 Live Validation
+### Active — v1.2 (TBD)
 
-<!-- Current milestone: transition from "ships clean code" to "actually used weekly for 5-10 US equity positions" with signal noise surfaced and actionable. -->
+<!-- v1.1 Live Validation shipped 2026-04-25; all 12/12 requirements moved to Validated below. v1.2 to be scoped via `/gsd-new-milestone`. Candidate themes carried in `.planning/ROADMAP.md` v1.2 (Planned) section. -->
+
+(empty — define via `/gsd-new-milestone`)
+
+### Validated — v1.1 Live Validation (shipped 2026-04-25)
+
+<!-- 12/12 v1.1 requirements shipped, code-reviewed, and verified across 3 phases (5, 6, 7). 8 operator-runtime UAT items deferred (Phase 5: 1, Phase 6: 4, Phase 7: 3) — tracked in per-phase HUMAN-UAT.md files. -->
 
 **LIVE** — Live data & calibration
-- [x] **LIVE-01**: `POST /analytics/calibration/rebuild-corpus` endpoint + `corpus_rebuild_jobs` table + `_run_batch_rebuild` background task (per-ticker FOUND-07 delegation, outer exception guard, error_message on all non-success paths) — Phase 5
-- [x] **LIVE-02**: `/calibration` route + `CalibrationPage.tsx` + 5 new components (CalibrationTable, AgentCalibrationRow, ICSparkline, AssetTypeTabs, WeightsEditor) with `rolling_ic` sparkline + empty-corpus CTA to Phase 5 rebuild endpoint — Phase 6
-- [x] **LIVE-03**: `agent_weights` table + `GET /weights` + `POST /weights/apply-ic-ir` (preserves manual_override) + `PATCH /weights/override` (KNOWN_AGENTS allowlist, 5 signal agents) + WeightsEditor UI. Pipeline wiring to `load_weights_from_db` CLOSED in Phase 7 (`engine/pipeline.py::analyze_ticker` reads from DB) — Phase 6+7
-- [x] **LIVE-04**: Weekly Markdown digest (`POST /api/v1/digest/weekly` with 5 H2 sections — perf vs benchmark, signal flips, IC-IR movers, thesis drift, action items) + Sunday 18:00 APScheduler cron + `EmailDispatcher.send_markdown_email` (HTML-escaped + `<pre>`-wrapped) + Telegram 4096 truncation + PII clamp (no $ amounts, no thesis text) — Phase 7
+- ✓ **LIVE-01**: `POST /analytics/calibration/rebuild-corpus` endpoint + `corpus_rebuild_jobs` table + `_run_batch_rebuild` background task (per-ticker FOUND-07 delegation, outer exception guard, error_message on all non-success paths) — v1.1 Phase 5
+- ✓ **LIVE-02**: `/calibration` route + `CalibrationPage.tsx` + 5 new components (CalibrationTable, AgentCalibrationRow, ICSparkline, AssetTypeTabs, WeightsEditor) with `rolling_ic` sparkline + empty-corpus CTA to Phase 5 rebuild endpoint — v1.1 Phase 6
+- ✓ **LIVE-03**: `agent_weights` table + `GET /weights` + `POST /weights/apply-ic-ir` (preserves manual_override) + `PATCH /weights/override` (KNOWN_AGENTS allowlist, 5 signal agents) + WeightsEditor UI. Pipeline wiring to `load_weights_from_db` CLOSED in Phase 7 (`engine/pipeline.py::analyze_ticker` reads from DB) — v1.1 Phase 6+7
+- ✓ **LIVE-04**: Weekly Markdown digest (`POST /api/v1/digest/weekly` with 5 H2 sections — perf vs benchmark, signal flips, IC-IR movers, thesis drift, action items) + Sunday 18:00 APScheduler cron + `EmailDispatcher.send_markdown_email` (HTML-escaped + `<pre>`-wrapped) + Telegram 4096 truncation + PII clamp (no $ amounts, no thesis text) — v1.1 Phase 7
 
 **CLOSE** — v1.0 human-UAT closeout
-- [x] **CLOSE-01**: FinBERT live test on real headlines — `tests/test_close_01_finbert_live.py` with `importlib.util.find_spec` lazy guard + operator script; `03-HUMAN-UAT.md` flipped to `resolved` — Phase 5
-- [x] **CLOSE-02**: Live Finnhub API round-trip — `tests/test_close_02_finnhub_live.py` with `FINNHUB_API_KEY` skipif guard + sector_pe_cache singleton reset + operator script — Phase 5
-- [x] **CLOSE-03**: Daemon PID + `netstat 127.0.0.1` verification — `tests/test_close_03_daemon_pid_live.py` subprocess test (natural exit for atexit on Windows/POSIX) + operator script — Phase 5
-- [x] **CLOSE-04**: Target-weight browser flow — Vitest snapshot locks TargetWeightBar rendering contract (4 states) + operator script + `04-HUMAN-UAT.md` flipped to `resolved` — Phase 6
-- [x] **CLOSE-05**: Rules panel toggle → daemon log exclusion — AlertRulesPanel snapshot (3 scenarios) + operator script + `04-HUMAN-UAT.md` resolved — Phase 6
-- [x] **CLOSE-06**: DailyPnlHeatmap tooltip — heatmap snapshot (3 scenarios) + operator script + `04-HUMAN-UAT.md` resolved — Phase 6
+- ✓ **CLOSE-01**: FinBERT live test on real headlines — `tests/test_close_01_finbert_live.py` with `importlib.util.find_spec` lazy guard + operator script; `03-HUMAN-UAT.md` flipped to `resolved` — v1.1 Phase 5
+- ✓ **CLOSE-02**: Live Finnhub API round-trip — `tests/test_close_02_finnhub_live.py` with `FINNHUB_API_KEY` skipif guard + sector_pe_cache singleton reset + operator script — v1.1 Phase 5
+- ✓ **CLOSE-03**: Daemon PID + `netstat 127.0.0.1` verification — `tests/test_close_03_daemon_pid_live.py` subprocess test (natural exit for atexit on Windows/POSIX) + operator script — v1.1 Phase 5
+- ✓ **CLOSE-04**: Target-weight browser flow — Vitest snapshot locks TargetWeightBar rendering contract (4 states) + operator script + `04-HUMAN-UAT.md` flipped to `resolved` — v1.1 Phase 6
+- ✓ **CLOSE-05**: Rules panel toggle → daemon log exclusion — AlertRulesPanel snapshot (3 scenarios) + operator script + `04-HUMAN-UAT.md` resolved — v1.1 Phase 6
+- ✓ **CLOSE-06**: DailyPnlHeatmap tooltip — heatmap snapshot (3 scenarios) + operator script + `04-HUMAN-UAT.md` resolved — v1.1 Phase 6
 
 **AN** — Analytics completeness
-- [x] **AN-01**: Dividend-aware IRR — `compute_irr_multi(dividends=[(date, amount)])` extended; `YFinanceProvider.get_dividends` + `DividendCache` Parquet sibling at `data/cache/dividends/{ticker}.parquet` (FOUND-02 pattern, 24h TTL); strict-inequality test verified MSFT/KO IRR ≥0.5pp higher with dividends — Phase 7
-- [x] **AN-02**: Signal drift detector — `engine/drift_detector.py` evaluates per-agent IC-IR weekly with `preliminary_threshold` flag (mirroring Phase 2 preliminary_calibration when <60 samples); >20% drop or <0.5 absolute floor triggers + auto-scale via `agent_weights` UPSERT (preserves `manual_override=1`, NEVER-zero-all guard); Sunday 17:30 APScheduler cron; `drift_log` table; `GET /api/v1/drift/log` endpoint; `DriftBadge.tsx` 3-state UI (null/amber-preliminary/red-triggered) integrated into CalibrationPage — Phase 7
+- ✓ **AN-01**: Dividend-aware IRR — `compute_irr_multi(dividends=[(date, amount)])` extended; `YFinanceProvider.get_dividends` + `DividendCache` Parquet sibling at `data/cache/dividends/{ticker}.parquet` (FOUND-02 pattern, 24h TTL); strict-inequality test verified MSFT/KO IRR ≥0.5pp higher with dividends — v1.1 Phase 7
+- ✓ **AN-02**: Signal drift detector — `engine/drift_detector.py` evaluates per-agent IC-IR weekly with `preliminary_threshold` flag (mirroring Phase 2 preliminary_calibration when <60 samples); >20% drop or <0.5 absolute floor triggers + auto-scale via `agent_weights` UPSERT (preserves `manual_override=1`, NEVER-zero-all guard); Sunday 17:30 APScheduler cron; `drift_log` table; `GET /api/v1/drift/log` endpoint; `DriftBadge.tsx` 3-state UI (null/amber-preliminary/red-triggered) integrated into CalibrationPage — v1.1 Phase 7
 
-## Current Milestone: v1.1 Live Validation
+## Current State: v1.1 Shipped — v1.2 Pending Scope
 
-**Goal:** Transition from "ships clean code" to "actually used weekly for 5-10 US equity positions" — with signal noise surfaced, triaged, and actionable.
+**v1.1 Live Validation** shipped 2026-04-25 closes the "is this dashboard actually trustworthy?" gap: corpus rebuild on demand, calibration metrics surface noisy agents per-week, IC-IR-derived weights apply with one click, weekly digest summarizes the week's signal flips + drift, and the drift detector auto-down-weights agents that lose edge.
 
-**Target features:**
-- Live corpus + calibration (Brier/IC/IC-IR produce real numbers for the user's actual portfolio)
-- CalibrationPage + WeightsPage UIs so the user SEES which agents are noisy this week
-- Weekly digest as the canonical weekly-review artifact
-- Close 6 v1.0 human-UAT items so "partial" UATs flip to "resolved"
-- Dividend-aware IRR for dividend-paying equities
-- Signal drift detection with auto weight scaling
+**Next milestone (v1.2) candidates** — see `.planning/ROADMAP.md` for full list:
+- Deployment story (Docker, OpenTelemetry, `pandas-ta-classic`)
+- UX depth (allocation donuts, CSV import wizard, alert-threshold UI, Riskfolio-Lib, QuantStats)
+- Signal Quality v2 (calibration reliability plots, regime-conditioned RSI, trade-shuffle MC)
+- Data Coverage v2 (MarketAux, SimFin, CoinGecko on-chain)
+- **Open research flag from v1.1:** validate drift-detector thresholds (`>20%` IC-IR drop / `<0.5` floor) against the populated live corpus before promoting them out of "preliminary" status.
 
-### Human-UAT closeout (promoted into v1.1 scope as CLOSE-01..06)
+### v1.1 Operator UAT debt (8 items — runtime/browser/corpus required)
 
-The 6 deferred v1.0 items are now REQ-IDs `CLOSE-01` through `CLOSE-06` in the v1.1 Active list above — see `.planning/REQUIREMENTS.md` for full detail. Source records at `.planning/milestones/v1.0-phases/03-data-coverage-expansion/03-HUMAN-UAT.md` and `.planning/milestones/v1.0-phases/04-portfolio-ui-analytics-uplift/04-HUMAN-UAT.md`.
+These items are deferred because they require live external services (SMTP, browser DOM, multi-month corpus accumulation) and cannot be automated in CI:
+
+- **v1.1 Phase 5 (1):** Live corpus rebuild against operator's portfolio.
+- **v1.1 Phase 6 (4):** Apply IC-IR weights live round-trip; CLOSE-04 target-weight reload persistence; CLOSE-05 rules-panel daemon-log inspection; CLOSE-06 native-tooltip browser hover.
+- **v1.1 Phase 7 (3):** Live SMTP digest delivery; non-preliminary drift detection (60+ weekly IC samples per agent); CalibrationPage DriftBadge browser visual.
+
+Tracked in `.planning/milestones/v1.1-phases/0{5,6,7}-*/0{5,6,7}-HUMAN-UAT.md`.
 
 ### Out of Scope
 
@@ -148,9 +163,14 @@ Brownfield project with substantial momentum; the user wants to ground the next 
 | Phase 4 UI-07 LLM synthesis: FOUND-04 backtest_mode short-circuit is the FIRST check — before `ENABLE_LLM_SYNTHESIS`, before API key lookup, before client init | Research warned missing this would cost ~$2.78/ticker on a 3-year daily backtest (~750 Anthropic calls/ticker). The FIRST-check ordering is a regression-test assertion: `mock_client.messages.create.call_count == 0` | ✓ Good — `test_synthesis_skipped_in_backtest_mode` passing |
 | Phase 4 UI-07 LLM prompt PII clamp: ticker + signal label + regime + confidence bucketed to 10% only; NO dollar amounts, NO thesis_text, NO portfolio_id | Prompt-injection via thesis text + PII exposure via dollar amounts are the two highest-risk LLM attack surfaces for a personal investing tool; bucketing confidence is sufficient signal without exposing precise figures | ✓ Good — `test_prompt_excludes_pii` passing |
 | Phase 4 WR-01 fix: `ap.target_weight` added to `load_portfolio` + `get_all_positions` SELECT queries | Review found PATCH succeeded but GET never returned the value — frontend could never display a set target. Real functional bug, not a style nit | ✓ Good — regression test added that PATCHes then GETs and asserts equality |
-| v1.1 Live Validation: narrow scope to 5-10 US equities + weekly cadence + signal-noise-as-top-risk | User explicitly chose weekly review + research workflow; "signals too noisy" as the top rough edge. This scope prioritizes calibration visibility (CalibrationPage) and action-surfacing (WeightsPage + drift detector) over deploy/UX/crypto breadth — which move to v1.2, v1.3, v1.4 respectively | — Pending v1.1 execution |
-| v1.1 promotes 6 v1.0 human-UAT items to REQ-IDs CLOSE-01..06 | Carrying "partial" UATs across milestones is tech debt; making closure a first-class requirement ensures the 6 external-integration validations actually get done before v1.2 builds on assumed-good foundations | — Pending v1.1 execution |
-| v1.1 skips phase research | All features extend existing v1.0 systems (calibration endpoint + Brier/IC math + notification channels + backtest corpus builder); standard patterns apply; no new technical domain | — Pending v1.1 execution |
+| v1.1 Live Validation: narrow scope to 5-10 US equities + weekly cadence + signal-noise-as-top-risk | User explicitly chose weekly review + research workflow; "signals too noisy" as the top rough edge. This scope prioritizes calibration visibility (CalibrationPage) and action-surfacing (WeightsPage + drift detector) over deploy/UX/crypto breadth — which move to v1.2, v1.3, v1.4 respectively | ✓ Good — 12/12 reqs shipped in 3 calendar days; CalibrationPage proves the calibration story end-to-end |
+| v1.1 promotes 6 v1.0 human-UAT items to REQ-IDs CLOSE-01..06 | Carrying "partial" UATs across milestones is tech debt; making closure a first-class requirement ensures the 6 external-integration validations actually get done before v1.2 builds on assumed-good foundations | ✓ Good — all 6 closed via skipif-pytest + Vitest snapshots + operator scripts; both v1.0 HUMAN-UAT.md files flipped to `resolved` |
+| v1.1 skips phase research (Phases 5, 6); Phase 7 added research | All features extend existing v1.0 systems for 5/6; Phase 7 added drift-threshold research because thresholds (`>20%` / `<0.5`) had no empirical backing | ✓ Good — Phase 7 research surfaced the `preliminary_threshold` flag pattern (mirrors Phase 2 `preliminary_calibration`) before implementation, avoiding a false-confidence trap |
+| v1.1 Phase 6 unifies LIVE-02 (CalibrationPage) + LIVE-03 (WeightsEditor) into a single `/calibration` page; `/weights` becomes a Navigate redirect | Weekly-review workflow consults calibration metrics and weights together; two pages would force back-and-forth navigation | ✓ Good — single page, 26 component tests, 9 page tests; user can apply IC-IR + manual-override + drift visibility in one place |
+| v1.1 Phase 6 deferred pipeline wiring (`load_weights_from_db` in `analyze_ticker`) to Phase 7 AN-02 | Drift detector and pipeline both write/read `agent_weights`; bundling the wiring with AN-02 avoided two separate touch-points to `engine/pipeline.py` and let WR-02-style `manual_override` semantics be designed end-to-end | ✓ Good — closed in Phase 7 commit `db298b2`; 0 regressions in pipeline tests; `signal_aggregator` now honors persisted weights |
+| v1.1 Phase 7 `_clamp_pii` regex narrowed from `(thesis\|secret\|position).*` to `\b(thesis\|secret)\b.*` | WR-03 review found "position" was wiping daemon SIGNAL_REVERSAL alert messages (which legitimately contain "position" as a noun); narrowing to thesis/secret keeps PII clamp targeted at user-supplied text | ✓ Good — verified by spot-check: `_clamp_pii("Review position -- original thesis...")` redacts `original [redacted]` only |
+| v1.1 drift-detector NEVER-zero-all guard checks total weight across asset_type, not per-agent | Original draft would zero a single agent below floor without checking whether that left other agents at zero too — a runaway scaling that breaks SignalAggregator | ✓ Good — `total_new <= 0` check at line 247 of `engine/drift_detector.py` triggers no-op write rather than corrupted weights |
+| v1.1 Phase 7 drift-detector thresholds (`>20%` drop / `<0.5` absolute floor) shipped as `preliminary_threshold` until 60+ weekly IC samples accumulate | Same problem as Phase 2 walk-forward windows: real thresholds need real corpus data; flag the limitation in DB + UI rather than hide it | — Revisit in v1.2 once 60+ weeks of weekly drift_detector runs accumulate (research flag carried forward) |
 
 ## Evolution
 
@@ -170,4 +190,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-25 after v1.1 Phase 7 (Digest + Analytics Completeness) completion — LIVE-04, AN-01, AN-02 shipped; Phase 6 deferred pipeline wiring closed; **12/12 v1.1 requirements complete** — milestone ready for `/gsd-complete-milestone v1.1`*
+*Last updated: 2026-04-25 after **v1.1 Live Validation milestone** complete — all 12/12 requirements shipped across Phases 5-7; v1.1 archived to `.planning/milestones/v1.1-{ROADMAP,REQUIREMENTS}.md`; git tagged `v1.1`. Active section reset for v1.2 scoping via `/gsd-new-milestone`.*
