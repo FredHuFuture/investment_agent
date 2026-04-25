@@ -54,7 +54,7 @@ def _bucket_pct(pct: float | None) -> str:
     return f"{round(float(pct), 2):+.2f}%"
 
 
-_THESIS_RE = re.compile(r"(thesis|secret|position).*", re.IGNORECASE)
+_THESIS_RE = re.compile(r"\b(thesis|secret)\b.*", re.IGNORECASE)
 
 
 def _clamp_pii(text: str) -> str:

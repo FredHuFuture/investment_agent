@@ -258,3 +258,63 @@ async def test_digest_pii_clamp_strips_dollar_and_thesis(seeded_db):
     assert dollar_matches == [], (
         f"Dollar amount pattern found in digest body: {dollar_matches}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Test 8: WR-03 regression — "position" word must NOT be redacted by _clamp_pii
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_digest_pii_clamp_position_word_not_redacted(seeded_db):
+    """WR-03: Alert messages containing the word 'position' must NOT be fully
+    redacted. Only 'thesis' and 'secret' keywords trigger redaction.
+
+    Before fix: _THESIS_RE matched 'position' → entire SIGNAL_REVERSAL message
+    was replaced with '[redacted]', making the digest useless for operators.
+    After fix: 'position' passes through; only thesis/secret content is stripped.
+    """
+    now = datetime.now(timezone.utc)
+    created = (now - timedelta(days=1)).isoformat()
+
+    async with aiosqlite.connect(seeded_db) as conn:
+        # Typical SIGNAL_REVERSAL message from daemon/jobs.py
+        await conn.execute(
+            """
+            INSERT INTO monitoring_alerts
+              (ticker, alert_type, severity, message, recommended_action,
+               acknowledged, created_at)
+            VALUES ('NVDA', 'SIGNAL_REVERSAL', 'HIGH',
+                    'Review position -- original signal was BUY, re-analysis now signals SELL.',
+                    'Review', 0, ?)
+            """,
+            (created,),
+        )
+        # Also seed a message that DOES contain 'thesis' — should still be redacted
+        await conn.execute(
+            """
+            INSERT INTO monitoring_alerts
+              (ticker, alert_type, severity, message, recommended_action,
+               acknowledged, created_at)
+            VALUES ('AAPL', 'THESIS_DRIFT', 'WARNING',
+                    'Thesis drift detected: original thesis was long-term growth.',
+                    'Review', 0, ?)
+            """,
+            (created,),
+        )
+        await conn.commit()
+
+    body = await render_weekly_digest(seeded_db)
+
+    section_d = body[body.index("## ") :]  # find alerts section
+    # "position" word must be preserved in the output
+    assert "position" in body, (
+        "The word 'position' must NOT be redacted from SIGNAL_REVERSAL alert messages"
+    )
+    # "BUY" and "SELL" signal words must survive (actionable content)
+    assert "BUY" in body or "SELL" in body, (
+        "Signal direction words must not be redacted from alert messages"
+    )
+    # thesis content must still be stripped
+    assert "long-term growth" not in body, (
+        "Thesis narrative text after 'thesis' keyword must still be redacted"
+    )
