@@ -34,8 +34,8 @@
 
 ### Analytics Completeness (AN)
 
-- [ ] **AN-01**: Dividend-aware IRR — reuse YFinance dividend history (already available via `get_dividends` or `Ticker.dividends`) to add dividend cash-flows into IRR computation; update `engine/analytics.py::compute_irr_multi` to accept a `dividends: list[(date, amount)]` parameter; tests verify dividend-paying stocks (e.g., MSFT, KO) now report higher IRR than dividend-less computation. Backward-compat: parameter defaults to empty list.
-- [ ] **AN-02**: Signal drift detector — new `engine/drift_detector.py` evaluates per-agent IC-IR weekly; when IC-IR drops >20% below 60-day average (or falls below 0.5 for 2 consecutive weekly runs), emits alert via existing notification channel AND auto-scales the agent's next weight via WeightAdapter. Visible in CalibrationPage as "drift detected" badge.
+- [x] **AN-01**: Dividend-aware IRR — reuse YFinance dividend history (already available via `get_dividends` or `Ticker.dividends`) to add dividend cash-flows into IRR computation; update `engine/analytics.py::compute_irr_multi` to accept a `dividends: list[(date, amount)]` parameter; tests verify dividend-paying stocks (e.g., MSFT, KO) now report higher IRR than dividend-less computation. Backward-compat: parameter defaults to empty list.
+- [x] **AN-02**: Signal drift detector — new `engine/drift_detector.py` evaluates per-agent IC-IR weekly; when IC-IR drops >20% below 60-day average (or falls below 0.5 for 2 consecutive weekly runs), emits alert via existing notification channel AND auto-scales the agent's next weight via WeightAdapter. Visible in CalibrationPage as "drift detected" badge.
 
 ## v2 Requirements (deferred beyond v1.1)
 
@@ -92,8 +92,8 @@ Ideas surfaced in v1.0 retrospective or v1.1 scoping, deferred here so they aren
 | CLOSE-05 | Phase 6 | Complete |
 | CLOSE-06 | Phase 6 | Complete |
 | LIVE-04 | Phase 7 | Pending |
-| AN-01 | Phase 7 | Pending |
-| AN-02 | Phase 7 | Pending |
+| AN-01 | Phase 7 | Complete |
+| AN-02 | Phase 7 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 12 total

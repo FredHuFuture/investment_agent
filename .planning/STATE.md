@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: Competitive Parity
 status: executing
-stopped_at: Completed 06-03-PLAN.md (CLOSE-04, CLOSE-05, CLOSE-06 UAT closeout — Phase 6 complete)
-last_updated: "2026-04-25T04:40:33.867Z"
-last_activity: 2026-04-25 -- Phase 7 planning complete
+stopped_at: Completed 07-01-PLAN.md (AN-01 dividend IRR, AN-02 drift detector + pipeline wiring)
+last_updated: "2026-04-25T05:12:48.979Z"
+last_activity: 2026-04-25
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 8
-  completed_plans: 5
-  percent: 63
+  completed_plans: 6
+  percent: 75
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-22)
 
 **Core value:** Drawdown protection via thesis-aware, regime-aware multi-agent signals — catching when a held position no longer matches the reason it was bought.
-**Current focus:** Phase 6 — Calibration & Weights UI
+**Current focus:** Phase 7 — Digest + Analytics Completeness
 
 ## Current Position
 
-Phase: 6
-Plan: Not started
+Phase: 7 (Digest + Analytics Completeness) — EXECUTING
+Plan: 2 of 3
 Status: Ready to execute
-Last activity: 2026-04-25 -- Phase 7 planning complete
+Last activity: 2026-04-25
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -54,6 +54,7 @@ Full record: `.planning/milestones/v1.0-ROADMAP.md`, `.planning/milestones/v1.0-
 | Phase 06-calibration-weights-ui P06-01 | 600 | 3 tasks | 6 files |
 | Phase 06-calibration-weights-ui P06-02 | 1446 | 3 tasks | 19 files |
 | Phase 06-calibration-weights-ui P06-03 | 420 | 3 tasks | 10 files |
+| Phase 07 P07-01 | 615 | 3 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -92,6 +93,9 @@ Key decisions carrying forward into v1.1:
 - [Phase 06-calibration-weights-ui]: data-testid cal-weights-editor on wrapper div (not Card) because Card component does not forward arbitrary DOM props
 - [Phase 06-calibration-weights-ui]: invalidateCache() in beforeEach for snapshot test isolation: useApi in-memory cache persists between Vitest tests — must clear cache key before each test that sets up different mock data
 - [Phase 06-calibration-weights-ui]: Frontend UAT closure pattern: Vitest toMatchSnapshot() + operator script + UAT doc flip (mirrors Phase 5 pytest-skipif + operator script + doc flip for backend UATs)
+- [Phase 07]: DividendCache uses 24h TTL Parquet (data/cache/dividends/) — consistent with FOUND-02 ParquetOHLCVCache pattern; survives restarts
+- [Phase 07]: Pipeline wiring: load_weights_from_db in analyze_ticker else-branch only; adaptive-weights legacy path left intact for backward compat
+- [Phase 07]: Never-zero-all guard checks total_new <= 0 across all asset_type agents after scaling, not just the target agent
 
 ### Pending Todos
 
@@ -103,6 +107,6 @@ Key decisions carrying forward into v1.1:
 
 ## Session Continuity
 
-Last session: 2026-04-24T06:49:55.312Z
-Stopped at: Completed 06-03-PLAN.md (CLOSE-04, CLOSE-05, CLOSE-06 UAT closeout — Phase 6 complete)
+Last session: 2026-04-25T05:12:48.976Z
+Stopped at: Completed 07-01-PLAN.md (AN-01 dividend IRR, AN-02 drift detector + pipeline wiring)
 Resume: Run `/gsd-plan-phase 5`
