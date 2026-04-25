@@ -24,6 +24,7 @@ from daemon.jobs import (
     run_daily_check,
     run_drift_detector,
     run_regime_detection,
+    run_weekly_digest,
     run_weekly_revaluation,
     reconcile_aborted_jobs,
     prune_signal_history,
@@ -163,6 +164,22 @@ class MonitoringDaemon:
             misfire_grace_time=3600,
         )
 
+        # LIVE-04 (Phase 7): weekly Markdown digest — Sunday 18:00 (after drift detector).
+        # Fires 30 minutes after drift_detector so section (c) reads fresh drift_log rows.
+        # misfire_grace_time=3600: within 1h late → fire; after that → skip to next Sunday.
+        self._scheduler.add_job(
+            self._job_digest_weekly,
+            CronTrigger(
+                day_of_week="sun",
+                hour=18,
+                minute=0,
+                timezone=self._config.timezone,
+            ),
+            id="digest_weekly",
+            name="Weekly Portfolio Digest",
+            misfire_grace_time=3600,
+        )
+
     async def _job_daily(self) -> None:
         """Scheduler wrapper for run_daily_check."""
         await run_daily_check(self._config.db_path, self._logger)
@@ -184,6 +201,10 @@ class MonitoringDaemon:
     async def _job_drift_detector(self) -> None:
         """Scheduler wrapper for run_drift_detector (AN-02)."""
         await run_drift_detector(self._config.db_path, self._logger)
+
+    async def _job_digest_weekly(self) -> None:
+        """Scheduler wrapper for run_weekly_digest (Sunday 18:00, LIVE-04)."""
+        await run_weekly_digest(self._config.db_path, self._logger)
 
     async def start(self) -> None:
         """Start daemon (blocks until shutdown signal).
@@ -317,6 +338,8 @@ class MonitoringDaemon:
             return await prune_signal_history(
                 self._config.db_path, retention_days=90, logger=self._logger
             )
+        elif job_name == "digest":
+            return await run_weekly_digest(self._config.db_path, self._logger)
         else:
             raise ValueError(f"Unknown job: {job_name!r}")
 
@@ -328,7 +351,7 @@ class MonitoringDaemon:
         Returns:
             {"daily_check": {...}, "weekly_revaluation": {...}, "catalyst_scan": {...}}
         """
-        job_names = ["daily_check", "weekly_revaluation", "catalyst_scan", "regime_detection", "watchlist_scan"]
+        job_names = ["daily_check", "weekly_revaluation", "catalyst_scan", "regime_detection", "watchlist_scan", "digest_weekly"]
         result: dict[str, Any] = {}
 
         try:

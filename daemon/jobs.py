@@ -1332,6 +1332,167 @@ async def run_drift_detector(
 
 
 # ---------------------------------------------------------------------------
+# LIVE-04: Weekly digest job (Sunday 18:00 US/Eastern — after drift detector)
+# ---------------------------------------------------------------------------
+
+async def run_weekly_digest(
+    db_path: str = str(DEFAULT_DB_PATH),
+    logger: logging.Logger | None = None,
+) -> dict[str, Any]:
+    """Sunday 18:00 weekly digest job (LIVE-04 — Phase 7).
+
+    Runs AFTER the 17:30 drift detector so section (c) reads fresh
+    drift_log rows. FOUND-07 two-connection pattern. Never raises.
+
+    Dispatch:
+    - Email: EmailDispatcher.send_markdown_email (gracefully no-op if SMTP unset)
+    - Telegram: TelegramDispatcher.send_alert_digest with 3900-char truncation
+      (T-07-02-04: Telegram 4096-char hard limit)
+
+    Returns summary dict with body_chars, email_sent, telegram_sent.
+    """
+    from engine.digest import render_weekly_digest  # noqa: PLC0415
+
+    if logger is None:
+        logger = logging.getLogger("investment_daemon")
+
+    started_at = datetime.now(timezone.utc).isoformat()
+    t0 = time.monotonic()
+
+    # FOUND-07: Write start-of-run log row on its own connection.
+    row_id: int | None = None
+    try:
+        async with aiosqlite.connect(db_path) as log_conn:
+            row_id = await _begin_job_run_log(log_conn, "digest_weekly", started_at)
+    except Exception as log_exc:
+        logger.warning("_begin_job_run_log failed (non-fatal): %s", log_exc)
+
+    try:
+        markdown_body = await render_weekly_digest(db_path)
+
+        email_sent = False
+        telegram_sent = False
+        subject = (
+            f"Investment Agent \u2014 Weekly Digest "
+            f"({datetime.now(timezone.utc).strftime('%Y-%m-%d')})"
+        )
+
+        # --- Email dispatch (gracefully no-op if not configured) ---
+        try:
+            from notifications.email_dispatcher import EmailDispatcher  # noqa: PLC0415
+
+            dispatcher = EmailDispatcher()
+            if dispatcher.is_configured:
+                email_sent = await dispatcher.send_markdown_email(subject, markdown_body)
+                if email_sent:
+                    logger.info("Weekly digest email sent")
+                else:
+                    logger.warning("Weekly digest email dispatch returned False")
+            else:
+                logger.info("Email not configured, skipping digest email")
+        except Exception as email_exc:
+            logger.warning("Digest email dispatch failed: %s", email_exc)
+
+        # --- Telegram dispatch (4096-char truncation per RESEARCH Pitfall 6) ---
+        try:
+            from notifications.telegram_dispatcher import TelegramDispatcher  # noqa: PLC0415
+
+            tg = TelegramDispatcher()
+            if tg.is_configured:
+                tg_text = markdown_body
+                if len(tg_text) > 3900:
+                    tg_text = tg_text[:3900] + "\n\n...(truncated \u2014 full digest in email)"
+                telegram_sent = await tg.send_alert_digest(
+                    [
+                        {
+                            "alert_type": "WEEKLY_DIGEST",
+                            "severity": "INFO",
+                            "ticker": "PORTFOLIO",
+                            "message": tg_text,
+                        }
+                    ]
+                )
+        except Exception as tg_exc:
+            logger.warning("Digest Telegram dispatch failed: %s", tg_exc)
+
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        logger.info(
+            "Weekly digest complete -- email=%s telegram=%s body_len=%d",
+            email_sent,
+            telegram_sent,
+            len(markdown_body),
+        )
+
+        await _record_daemon_run(
+            db_path=db_path,
+            job_name="digest_weekly",
+            status="success",
+            started_at=started_at,
+            duration_ms=duration_ms,
+            result_json=json.dumps(
+                {
+                    "body_chars": len(markdown_body),
+                    "email_sent": email_sent,
+                    "telegram_sent": telegram_sent,
+                }
+            ),
+        )
+        # FOUND-07: Update job_run_log to 'success'.
+        if row_id is not None:
+            try:
+                async with aiosqlite.connect(db_path) as log_conn:
+                    await _end_job_run_log(
+                        log_conn, row_id, "success", duration_ms=duration_ms
+                    )
+            except Exception as log_exc:
+                logger.warning(
+                    "_end_job_run_log (success) failed (non-fatal): %s", log_exc
+                )
+
+        return {
+            "body_chars": len(markdown_body),
+            "email_sent": email_sent,
+            "telegram_sent": telegram_sent,
+        }
+
+    except Exception as exc:
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        err_msg = str(exc)
+        logger.error("Weekly digest failed: %s", err_msg, exc_info=True)
+
+        await _record_daemon_run(
+            db_path=db_path,
+            job_name="digest_weekly",
+            status="error",
+            started_at=started_at,
+            duration_ms=duration_ms,
+            error_message=err_msg,
+        )
+        # FOUND-07: Update job_run_log to 'error'.
+        if row_id is not None:
+            try:
+                async with aiosqlite.connect(db_path) as log_conn:
+                    await _end_job_run_log(
+                        log_conn,
+                        row_id,
+                        "error",
+                        error_message=err_msg,
+                        duration_ms=duration_ms,
+                    )
+            except Exception as log_exc:
+                logger.warning(
+                    "_end_job_run_log (error) failed (non-fatal): %s", log_exc
+                )
+
+        return {
+            "error": err_msg,
+            "body_chars": 0,
+            "email_sent": False,
+            "telegram_sent": False,
+        }
+
+
+# ---------------------------------------------------------------------------
 # Internal helper
 # ---------------------------------------------------------------------------
 
