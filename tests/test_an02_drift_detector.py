@@ -397,6 +397,88 @@ async def test_never_zero_all_guard_with_multiple_agents(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# WR-02 regression: renorm denominator must exclude manual_override rows
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_renorm_denominator_excludes_manual_override_rows(tmp_path):
+    """WR-02: Non-manual weights must sum to ~1.0 after _apply_drift_scale when
+    manual_override=1 rows coexist.
+
+    Scenario:
+      TechnicalAgent  weight=0.4  manual_override=1  (NOT written by UPSERT)
+      FundamentalAgent weight=0.4 manual_override=0
+      MacroAgent       weight=0.2 manual_override=0  ← drifts, scale_factor=0.5
+
+    Before fix: denominator=0.4+0.4+0.2*0.5=0.9, renorm writes Fundamental=0.444,
+      Macro=0.111 → non-manual DB sum = 0.555 (wrong).
+    After fix: denominator=0.4+0.2*0.5=0.5, renorm writes Fundamental=0.8,
+      Macro=0.1 → non-manual DB sum = 1.0 (correct).
+    """
+    from engine.drift_detector import _apply_drift_scale, SCALE_DIVISOR
+
+    db_path = str(tmp_path / "test.db")
+    await init_db(db_path)
+
+    async with aiosqlite.connect(db_path) as conn:
+        await conn.execute("DELETE FROM agent_weights")
+        # manual_override=1 — must NOT be touched by drift scale
+        await conn.execute(
+            "INSERT INTO agent_weights "
+            "(agent_name, asset_type, weight, source, manual_override, excluded) "
+            "VALUES ('TechnicalAgent', 'stock', 0.4, 'manual', 1, 0)"
+        )
+        # auto rows — these will be renorm'd
+        await conn.execute(
+            "INSERT INTO agent_weights "
+            "(agent_name, asset_type, weight, source, manual_override, excluded) "
+            "VALUES ('FundamentalAgent', 'stock', 0.4, 'default', 0, 0)"
+        )
+        await conn.execute(
+            "INSERT INTO agent_weights "
+            "(agent_name, asset_type, weight, source, manual_override, excluded) "
+            "VALUES ('MacroAgent', 'stock', 0.2, 'default', 0, 0)"
+        )
+        await conn.commit()
+
+    # ic_ir=1.0 → scale_factor = 1.0 / SCALE_DIVISOR = 0.5
+    result = await _apply_drift_scale(
+        db_path, "MacroAgent", "stock", current_icir=1.0
+    )
+    assert result is not None, "_apply_drift_scale should return a weight, not None"
+
+    # Read back only non-manual rows
+    async with aiosqlite.connect(db_path) as conn:
+        rows = await (
+            await conn.execute(
+                "SELECT agent_name, weight FROM agent_weights "
+                "WHERE asset_type='stock' AND manual_override=0"
+            )
+        ).fetchall()
+
+    non_manual_weights = {r[0]: r[1] for r in rows}
+    total = sum(non_manual_weights.values())
+
+    assert abs(total - 1.0) < 1e-6, (
+        f"Non-manual weights must sum to 1.0 after renorm, got {total}. "
+        f"Weights: {non_manual_weights}"
+    )
+
+    # manual_override row must be untouched
+    async with aiosqlite.connect(db_path) as conn:
+        row = await (
+            await conn.execute(
+                "SELECT weight FROM agent_weights "
+                "WHERE agent_name='TechnicalAgent' AND asset_type='stock'"
+            )
+        ).fetchone()
+    assert row is not None
+    assert abs(row[0] - 0.4) < 1e-6, (
+        f"manual_override=1 weight must remain 0.4, got {row[0]}"
+    )
+
+
+# ---------------------------------------------------------------------------
 # evaluate_drift writes to drift_log
 # ---------------------------------------------------------------------------
 

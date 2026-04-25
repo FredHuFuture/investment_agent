@@ -236,12 +236,15 @@ async def _apply_drift_scale(
     async with aiosqlite.connect(db_path) as conn:
         conn.row_factory = aiosqlite.Row
 
-        # Load all non-excluded, non-manual-override weights for this asset_type
+        # Load only non-excluded, non-manual-override weights for this asset_type.
+        # manual_override=1 rows are skipped by the UPSERT WHERE clause below, so
+        # excluding them here keeps the renorm denominator consistent with what is
+        # actually written to the DB (WR-02 fix).
         rows = await (
             await conn.execute(
                 """
                 SELECT agent_name, weight FROM agent_weights
-                WHERE asset_type = ? AND excluded = 0
+                WHERE asset_type = ? AND excluded = 0 AND manual_override = 0
                 """,
                 (asset_type,),
             )
