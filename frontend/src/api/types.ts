@@ -902,7 +902,7 @@ export interface DriftLogEntry {
   current_icir: number | null;
   avg_icir_60d: number | null;
   delta_pct: number | null;
-  threshold_type: "pct_drop" | "absolute_floor" | "none" | null;
+  threshold_type: "drop_pct" | "absolute_low" | "preliminary" | "none" | null;
   triggered: boolean;
   preliminary_threshold: boolean;
   weight_before: number | null;

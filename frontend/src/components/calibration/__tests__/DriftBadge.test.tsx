@@ -13,7 +13,7 @@ function makeEntry(overrides: Partial<DriftLogEntry>): DriftLogEntry {
     current_icir: 0.42,
     avg_icir_60d: 0.55,
     delta_pct: -23.6,
-    threshold_type: "pct_drop",
+    threshold_type: "drop_pct",
     triggered: false,
     preliminary_threshold: false,
     weight_before: 0.25,
@@ -80,17 +80,33 @@ describe("DriftBadge", () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it("uses absolute_floor tooltip when threshold_type=absolute_floor", () => {
+  it("uses absolute_low tooltip when threshold_type=absolute_low", () => {
     const entry = makeEntry({
       triggered: true,
       preliminary_threshold: false,
-      threshold_type: "absolute_floor",
+      threshold_type: "absolute_low",
     });
     const { getByTestId } = render(
       <DriftBadge entry={entry} agentName="FloorAgent" />,
     );
     const badge = getByTestId("cal-drift-badge-FloorAgent");
     expect(badge.title).toMatch(/floor.*0\.5.*2 consecutive/i);
+  });
+
+  it("tooltip text for threshold_type=absolute_low matches backend canonical string", () => {
+    const entry = makeEntry({
+      triggered: true,
+      preliminary_threshold: false,
+      threshold_type: "absolute_low",
+      delta_pct: null,
+    });
+    const { getByTestId } = render(
+      <DriftBadge entry={entry} agentName="AbsLowAgent" />,
+    );
+    const badge = getByTestId("cal-drift-badge-AbsLowAgent");
+    expect(badge.title).toBe(
+      "IC-IR floor (<0.5) breached for 2 consecutive weeks",
+    );
   });
 
   it("snapshot: preliminary state", () => {

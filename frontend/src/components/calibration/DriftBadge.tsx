@@ -56,7 +56,7 @@ export default function DriftBadge({ entry, agentName }: Props) {
     if (ageMs <= RECENT_DRIFT_WINDOW_MS) {
       const deltaText = fmtDelta(entry.delta_pct);
       const tooltip =
-        entry.threshold_type === "absolute_floor"
+        entry.threshold_type === "absolute_low"
           ? `IC-IR floor (<0.5) breached for 2 consecutive weeks`
           : `IC-IR dropped ${deltaText} below 60-day avg ${
               entry.avg_icir_60d !== null ? entry.avg_icir_60d.toFixed(2) : "—"
