@@ -56,8 +56,8 @@ An "investment journal that fights back" — a personal investing system that tr
 **LIVE** — Live data & calibration
 - [x] **LIVE-01**: `POST /analytics/calibration/rebuild-corpus` endpoint + `corpus_rebuild_jobs` table + `_run_batch_rebuild` background task (per-ticker FOUND-07 delegation, outer exception guard, error_message on all non-success paths) — Phase 5
 - [x] **LIVE-02**: `/calibration` route + `CalibrationPage.tsx` + 5 new components (CalibrationTable, AgentCalibrationRow, ICSparkline, AssetTypeTabs, WeightsEditor) with `rolling_ic` sparkline + empty-corpus CTA to Phase 5 rebuild endpoint — Phase 6
-- [x] **LIVE-03**: `agent_weights` table + `GET /weights` + `POST /weights/apply-ic-ir` (preserves manual_override) + `PATCH /weights/override` (KNOWN_AGENTS allowlist, 5 signal agents) + WeightsEditor UI. Pipeline wiring to `load_weights_from_db` deferred to Phase 7 AN-02 drift detector — Phase 6
-- [ ] **LIVE-04**: Weekly digest (scheduled Sundays 18:00, Markdown render, email opt-in)
+- [x] **LIVE-03**: `agent_weights` table + `GET /weights` + `POST /weights/apply-ic-ir` (preserves manual_override) + `PATCH /weights/override` (KNOWN_AGENTS allowlist, 5 signal agents) + WeightsEditor UI. Pipeline wiring to `load_weights_from_db` CLOSED in Phase 7 (`engine/pipeline.py::analyze_ticker` reads from DB) — Phase 6+7
+- [x] **LIVE-04**: Weekly Markdown digest (`POST /api/v1/digest/weekly` with 5 H2 sections — perf vs benchmark, signal flips, IC-IR movers, thesis drift, action items) + Sunday 18:00 APScheduler cron + `EmailDispatcher.send_markdown_email` (HTML-escaped + `<pre>`-wrapped) + Telegram 4096 truncation + PII clamp (no $ amounts, no thesis text) — Phase 7
 
 **CLOSE** — v1.0 human-UAT closeout
 - [x] **CLOSE-01**: FinBERT live test on real headlines — `tests/test_close_01_finbert_live.py` with `importlib.util.find_spec` lazy guard + operator script; `03-HUMAN-UAT.md` flipped to `resolved` — Phase 5
@@ -68,8 +68,8 @@ An "investment journal that fights back" — a personal investing system that tr
 - [x] **CLOSE-06**: DailyPnlHeatmap tooltip — heatmap snapshot (3 scenarios) + operator script + `04-HUMAN-UAT.md` resolved — Phase 6
 
 **AN** — Analytics completeness
-- [ ] **AN-01**: Dividend-aware IRR
-- [ ] **AN-02**: Signal drift detector (alert + auto weight scale when IC-IR drops)
+- [x] **AN-01**: Dividend-aware IRR — `compute_irr_multi(dividends=[(date, amount)])` extended; `YFinanceProvider.get_dividends` + `DividendCache` Parquet sibling at `data/cache/dividends/{ticker}.parquet` (FOUND-02 pattern, 24h TTL); strict-inequality test verified MSFT/KO IRR ≥0.5pp higher with dividends — Phase 7
+- [x] **AN-02**: Signal drift detector — `engine/drift_detector.py` evaluates per-agent IC-IR weekly with `preliminary_threshold` flag (mirroring Phase 2 preliminary_calibration when <60 samples); >20% drop or <0.5 absolute floor triggers + auto-scale via `agent_weights` UPSERT (preserves `manual_override=1`, NEVER-zero-all guard); Sunday 17:30 APScheduler cron; `drift_log` table; `GET /api/v1/drift/log` endpoint; `DriftBadge.tsx` 3-state UI (null/amber-preliminary/red-triggered) integrated into CalibrationPage — Phase 7
 
 ## Current Milestone: v1.1 Live Validation
 
@@ -170,4 +170,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-24 after v1.1 Phase 6 (Calibration & Weights UI) completion — LIVE-02, LIVE-03, CLOSE-04..06 shipped; 9/12 v1.1 reqs done; Phase 7 remains (LIVE-04 digest + AN-01 dividend IRR + AN-02 drift detector + pipeline wiring)*
+*Last updated: 2026-04-25 after v1.1 Phase 7 (Digest + Analytics Completeness) completion — LIVE-04, AN-01, AN-02 shipped; Phase 6 deferred pipeline wiring closed; **12/12 v1.1 requirements complete** — milestone ready for `/gsd-complete-milestone v1.1`*

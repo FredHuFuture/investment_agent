@@ -91,7 +91,7 @@ All 4 phases complete. Full snapshot in `.planning/milestones/v1.0-ROADMAP.md`.
 |-------|----------------|--------|-----------|
 | 5. Corpus Population + Live Data Closeout | 2/2 | Complete    | 2026-04-23 |
 | 6. Calibration & Weights UI | 3/3 | Complete    | 2026-04-24 |
-| 7. Digest + Analytics Completeness | 3/3 | Complete   | 2026-04-25 |
+| 7. Digest + Analytics Completeness | 3/3 | Complete    | 2026-04-25 |
 
 ---
 
