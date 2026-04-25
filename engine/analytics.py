@@ -69,27 +69,52 @@ def compute_irr_closed_form(
 
 def compute_irr_multi(
     cash_flows: list[tuple[int, float]],
+    dividends: list[tuple[datetime, float]] | None = None,
+    entry_date: datetime | None = None,
 ) -> float | None:
     """Annualized IRR for multiple cashflows via ``scipy.optimize.brentq``.
 
     Args:
         cash_flows: ``[(day_offset, amount)]`` — negative for outflows
             (investments), positive for inflows (returns).
+        dividends: Optional list of ``(ex_date, amount_per_share)`` pairs from
+            ``YFinanceProvider.get_dividends(ticker)``. Dividend amounts on or
+            after ``entry_date`` are added as positive inflows (AN-01).
+        entry_date: Position open date used to convert dividend ex-dates to
+            day-offsets. Required when ``dividends`` is non-empty.
 
     Returns:
         Annualized IRR as decimal, or None if no root exists in [-0.99, 10.0].
 
-    # Known limitation: does not model dividend cashflows; IRR understates true
-    # return for dividend stocks (A1 per 04-RESEARCH.md Assumptions Log).
+    Backward-compat: ``dividends=None`` and ``dividends=[]`` are equivalent to
+    the pre-AN-01 behavior (no dividend cash flows).
     """
+    from datetime import date as _date
     from scipy.optimize import brentq
 
     if len(cash_flows) < 2:
         return None
 
+    # Build augmented cash flow list (AN-01: merge dividend inflows)
+    all_flows: list[tuple[int, float]] = list(cash_flows)
+    if dividends and entry_date:
+        # Normalize entry_date to a date for offset arithmetic
+        entry_d: _date = (
+            entry_date.date() if isinstance(entry_date, datetime) else entry_date
+        )
+        for div_date, div_amount in dividends:
+            # Normalize div_date to a date object
+            div_d: _date = (
+                div_date.date() if isinstance(div_date, datetime) else div_date
+            )
+            if div_d < entry_d:
+                continue  # dividend before position open — ignore
+            day_offset = (div_d - entry_d).days
+            all_flows.append((day_offset, +float(div_amount)))
+
     def _npv(r: float) -> float:
         total = 0.0
-        for day, amount in cash_flows:
+        for day, amount in all_flows:
             try:
                 total += amount / ((1.0 + r) ** (day / 365.0))
             except (ValueError, ZeroDivisionError, OverflowError):

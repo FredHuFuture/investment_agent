@@ -221,6 +221,41 @@ class YFinanceProvider(DataProvider):
             result[t] = result[t].dropna(how="all")
         return result
 
+    async def get_dividends(self, ticker: str) -> list[tuple]:
+        """Fetch historical dividend payments as (ex_date, amount_per_share) pairs (AN-01).
+
+        Returns a list of ``(datetime.date, float)`` tuples sorted by date ascending.
+        Returns ``[]`` for non-dividend-paying tickers or on fetch error.
+
+        Uses ``yfinance.Ticker.dividends`` which returns split-adjusted amounts.
+        Wrapped in ``_yfinance_lock`` (thread-safety) and ``_limiter`` (rate limit).
+        """
+        from datetime import date as _date
+
+        def _fetch() -> pd.Series:
+            with _yfinance_lock:
+                t = yf.Ticker(ticker)
+                return t.dividends  # DatetimeIndex series, float values
+
+        try:
+            async with self._limiter:
+                series = await asyncio.to_thread(_fetch)
+        except Exception:
+            return []
+
+        if series is None or series.empty:
+            return []
+
+        result: list[tuple] = []
+        for idx, amount in series.items():
+            try:
+                ex_date: _date = idx.date() if hasattr(idx, "date") else idx
+                result.append((ex_date, float(amount)))
+            except (AttributeError, ValueError, TypeError):
+                continue
+
+        return sorted(result, key=lambda x: x[0])
+
     def is_point_in_time(self) -> bool:
         return False
 
