@@ -245,7 +245,7 @@ describe("CalibrationPage", () => {
             current_icir: 0.42,
             avg_icir_60d: 0.55,
             delta_pct: -23.6,
-            threshold_type: "pct_drop",
+            threshold_type: "drop_pct",
             triggered: true,
             preliminary_threshold: false,
             weight_before: 0.25,
