@@ -139,6 +139,10 @@ def create_app(db_path: str = str(DEFAULT_DB_PATH)) -> FastAPI:
     from api.routes.drift import router as drift_router
     app.include_router(drift_router, prefix="/drift", tags=["drift"])
 
+    # LIVE-04 (Phase 7): weekly digest endpoint — POST /digest/weekly
+    from api.routes.digest import router as digest_router
+    app.include_router(digest_router, prefix="/digest", tags=["digest"])
+
     return app
 
 
