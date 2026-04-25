@@ -77,7 +77,7 @@ All 4 phases complete. Full snapshot in `.planning/milestones/v1.0-ROADMAP.md`.
   5. The CalibrationPage shows a "drift detected" warning badge on any agent row where the drift detector has flagged degradation within the last 7 days — verifiable by triggering a drift condition (via test fixture or manual threshold injection) and loading `/calibration`.
 **Plans**: 3 plans
   - [x] 07-01-PLAN.md (wave 1) — AN-01 dividend IRR + AN-02 drift detector + drift_log table + Phase 6 deferred pipeline wiring + GET /drift/log endpoint + Sunday 17:30 cron
-  - [ ] 07-02-PLAN.md (wave 2, depends_on: [07-01]) — LIVE-04 weekly digest: engine/digest.py renderer + POST /digest/weekly + EmailDispatcher.send_markdown_email extension + Sunday 18:00 cron
+  - [x] 07-02-PLAN.md (wave 2, depends_on: [07-01]) — LIVE-04 weekly digest: engine/digest.py renderer + POST /digest/weekly + EmailDispatcher.send_markdown_email extension + Sunday 18:00 cron
   - [ ] 07-03-PLAN.md (wave 2, depends_on: [07-01]) — AN-02 frontend: DriftBadge component (3 states) + AgentCalibrationRow integration + CalibrationPage useApi wiring
 **UI hint**: yes
 
@@ -91,7 +91,7 @@ All 4 phases complete. Full snapshot in `.planning/milestones/v1.0-ROADMAP.md`.
 |-------|----------------|--------|-----------|
 | 5. Corpus Population + Live Data Closeout | 2/2 | Complete    | 2026-04-23 |
 | 6. Calibration & Weights UI | 3/3 | Complete    | 2026-04-24 |
-| 7. Digest + Analytics Completeness | 1/3 | In Progress|  |
+| 7. Digest + Analytics Completeness | 2/3 | In Progress|  |
 
 ---
 
