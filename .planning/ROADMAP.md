@@ -29,7 +29,8 @@ All 4 phases complete. Full snapshot in `.planning/milestones/v1.0-ROADMAP.md`.
 
 - [x] **Phase 5: Corpus Population + Live Data Closeout** - Populate the real signal corpus for user's tickers and verify all three v1.0 live-environment UAT items that could not be automated
  (completed 2026-04-23)
-- [x] **Phase 6: Calibration & Weights UI** - Surface per-agent signal quality visually and give the user a one-click path to apply IC-IR-derived weights; close out v1.0 browser UAT items (completed 2026-04-24)
+- [x] **Phase 6: Calibration & Weights UI** - Surface per-agent signal quality visually and give the user a one-click path to apply IC-IR-derived weights; close out v1.0 browser UAT items
+ (completed 2026-04-24)
 - [ ] **Phase 7: Digest + Analytics Completeness** - Weekly review artifact, dividend-accurate IRR, and a drift detector that auto-scales weights when an agent loses edge
 
 ## Phase Details
@@ -74,7 +75,10 @@ All 4 phases complete. Full snapshot in `.planning/milestones/v1.0-ROADMAP.md`.
   3. `compute_irr_multi` called with a `dividends` parameter containing at least one `(date, amount)` tuple returns a strictly higher IRR than the same call with an empty list for a test position in a dividend-paying stock (MSFT or KO) — verifiable by the test suite and inspecting the `GET /analytics/returns` response for a portfolio containing such a position.
   4. `engine/drift_detector.py` evaluates per-agent IC-IR weekly; when IC-IR drops more than 20% below its 60-day rolling average OR falls below 0.5 for two consecutive weekly runs, it emits an alert via the existing notification channel AND writes a scaled-down weight to the `agent_weights` table via WeightAdapter — verifiable by inspecting `agent_weights` rows before and after a simulated IC-IR drop.
   5. The CalibrationPage shows a "drift detected" warning badge on any agent row where the drift detector has flagged degradation within the last 7 days — verifiable by triggering a drift condition (via test fixture or manual threshold injection) and loading `/calibration`.
-**Plans**: TBD
+**Plans**: 3 plans
+  - [ ] 07-01-PLAN.md (wave 1) — AN-01 dividend IRR + AN-02 drift detector + drift_log table + Phase 6 deferred pipeline wiring + GET /drift/log endpoint + Sunday 17:30 cron
+  - [ ] 07-02-PLAN.md (wave 2, depends_on: [07-01]) — LIVE-04 weekly digest: engine/digest.py renderer + POST /digest/weekly + EmailDispatcher.send_markdown_email extension + Sunday 18:00 cron
+  - [ ] 07-03-PLAN.md (wave 2, depends_on: [07-01]) — AN-02 frontend: DriftBadge component (3 states) + AgentCalibrationRow integration + CalibrationPage useApi wiring
 **UI hint**: yes
 
 ---
@@ -87,7 +91,7 @@ All 4 phases complete. Full snapshot in `.planning/milestones/v1.0-ROADMAP.md`.
 |-------|----------------|--------|-----------|
 | 5. Corpus Population + Live Data Closeout | 2/2 | Complete    | 2026-04-23 |
 | 6. Calibration & Weights UI | 3/3 | Complete    | 2026-04-24 |
-| 7. Digest + Analytics Completeness | 0/TBD | Not started | - |
+| 7. Digest + Analytics Completeness | 0/3 | Not started | - |
 
 ---
 
