@@ -22,6 +22,7 @@ from scripts.ensure_pid import (
 from daemon.jobs import (
     run_catalyst_scan,
     run_daily_check,
+    run_drift_detector,
     run_regime_detection,
     run_weekly_revaluation,
     reconcile_aborted_jobs,
@@ -147,6 +148,21 @@ class MonitoringDaemon:
             name="Signal History Pruning",
         )
 
+        # AN-02 (Phase 7): IC-IR drift detector — Sunday 17:30 (before digest at 18:00)
+        # misfire_grace_time=3600: if daemon was down at 17:30, fires within 1h window.
+        self._scheduler.add_job(
+            self._job_drift_detector,
+            CronTrigger(
+                day_of_week="sun",
+                hour=17,
+                minute=30,
+                timezone=self._config.timezone,
+            ),
+            id="drift_detector",
+            name="Signal Drift Detector",
+            misfire_grace_time=3600,
+        )
+
     async def _job_daily(self) -> None:
         """Scheduler wrapper for run_daily_check."""
         await run_daily_check(self._config.db_path, self._logger)
@@ -164,6 +180,10 @@ class MonitoringDaemon:
         await prune_signal_history(
             self._config.db_path, retention_days=90, logger=self._logger
         )
+
+    async def _job_drift_detector(self) -> None:
+        """Scheduler wrapper for run_drift_detector (AN-02)."""
+        await run_drift_detector(self._config.db_path, self._logger)
 
     async def start(self) -> None:
         """Start daemon (blocks until shutdown signal).

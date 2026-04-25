@@ -135,6 +135,10 @@ def create_app(db_path: str = str(DEFAULT_DB_PATH)) -> FastAPI:
     from api.routes.notifications import router as notifications_router
     app.include_router(notifications_router, prefix="/notifications", tags=["notifications"])
 
+    # AN-02 (Phase 7): drift log endpoint — GET /api/v1/drift/log
+    from api.routes.drift import router as drift_router
+    app.include_router(drift_router, prefix="/drift", tags=["drift"])
+
     return app
 
 

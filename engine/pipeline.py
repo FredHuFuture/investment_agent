@@ -275,7 +275,17 @@ class AnalysisPipeline:
             except Exception:
                 pass  # fall back to default thresholds
             buy_t, sell_t = compute_dynamic_thresholds(vix_current)
-            aggregator = SignalAggregator(buy_threshold=buy_t, sell_threshold=sell_t)
+            # AN-02 (Phase 7): load DB-backed agent weights so live runs honour
+            # user calibration and drift-detector auto-scaling.
+            # load_weights_from_db returns None when the table is empty/missing
+            # — SignalAggregator.__init__ falls back to DEFAULT_WEIGHTS in that case.
+            from engine.aggregator import load_weights_from_db
+            db_weights = await load_weights_from_db(self._db_path)
+            aggregator = SignalAggregator(
+                weights=db_weights,
+                buy_threshold=buy_t,
+                sell_threshold=sell_t,
+            )
 
         signal = await self._run_pipeline(
             ticker=ticker,

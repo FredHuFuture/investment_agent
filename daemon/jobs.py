@@ -1152,6 +1152,186 @@ async def rebuild_signal_corpus(
 
 
 # ---------------------------------------------------------------------------
+# AN-02: Drift detector job (Sunday 17:30 US/Eastern)
+# ---------------------------------------------------------------------------
+
+async def run_drift_detector(
+    db_path: str = str(DEFAULT_DB_PATH),
+    logger: logging.Logger | None = None,
+) -> dict[str, Any]:
+    """Run per-agent IC-IR drift detection and auto-weight scaling (AN-02).
+
+    Uses FOUND-07 two-connection pattern:
+    - log_conn (separate aiosqlite connection) for job_run_log start/end rows
+    - Main work uses engine/drift_detector.evaluate_drift which opens its own
+      connection internally for drift_log writes and weight updates.
+
+    Emits notifications via PortfolioMonitor alert channels:
+    - CRITICAL severity: never-zero-all guard triggered (weight_after=None)
+    - WARN severity: normal drift trigger (triggered=True)
+    - INFO severity: preliminary_threshold rows (informational only)
+
+    Never raises — all exceptions are caught, logged, and recorded.
+    Returns summary dict.
+    """
+    from engine.drift_detector import evaluate_drift
+
+    if logger is None:
+        logger = logging.getLogger("investment_daemon")
+
+    started_at = datetime.now(timezone.utc).isoformat()
+    t0 = time.monotonic()
+
+    # FOUND-07: Write start-of-run log row on its own connection.
+    row_id: int | None = None
+    try:
+        async with aiosqlite.connect(db_path) as log_conn:
+            row_id = await _begin_job_run_log(log_conn, "drift_detector", started_at)
+    except Exception as log_exc:
+        logger.warning("_begin_job_run_log failed (non-fatal): %s", log_exc)
+
+    try:
+        entries = await evaluate_drift(db_path)
+        duration_ms = int((time.monotonic() - t0) * 1000)
+
+        n_triggered = sum(1 for e in entries if e.get("triggered"))
+        n_preliminary = sum(1 for e in entries if e.get("preliminary_threshold"))
+        n_critical = sum(
+            1 for e in entries
+            if e.get("triggered") and e.get("weight_after") is None
+        )
+
+        logger.info(
+            "Drift detector complete -- %d agents evaluated, %d triggered, "
+            "%d preliminary, %d never-zero-all aborted",
+            len(entries), n_triggered, n_preliminary, n_critical,
+        )
+
+        # --- Notification dispatch ---
+        try:
+            from monitoring.models import Alert
+            from monitoring.store import AlertStore
+            import aiosqlite as _aio
+
+            async with _aio.connect(db_path) as alert_conn:
+                alert_store = AlertStore(alert_conn)
+
+                for entry in entries:
+                    agent = entry["agent_name"]
+                    asset_type = entry["asset_type"]
+
+                    if entry.get("triggered") and entry.get("weight_after") is None:
+                        # CRITICAL: never-zero-all guard was triggered
+                        msg = (
+                            f"Drift detector: all-zero-weight guard triggered for "
+                            f"{agent}/{asset_type} (ic_ir={entry.get('current_icir')}). "
+                            f"Weights NOT updated — manual review required."
+                        )
+                        logger.critical(msg)
+                        try:
+                            alert = Alert(
+                                ticker="SYSTEM",
+                                alert_type="SIGNAL_REVERSAL",
+                                severity="CRITICAL",
+                                message=msg,
+                                recommended_action="Review agent weights manually via CalibrationPage.",
+                            )
+                            await alert_store.save_alert(alert)
+                        except Exception as alert_exc:
+                            logger.warning("Alert save failed (non-fatal): %s", alert_exc)
+
+                    elif entry.get("triggered"):
+                        # WARN: normal drift trigger
+                        delta = entry.get("delta_pct")
+                        w_before = entry.get("weight_before")
+                        w_after = entry.get("weight_after")
+                        if delta is not None and w_before is not None and w_after is not None:
+                            msg = (
+                                f"Drift detected: {agent}/{asset_type} "
+                                f"IC-IR delta={delta:.1f}% "
+                                f"(weight {w_before:.4f} -> {w_after:.4f})"
+                            )
+                        else:
+                            msg = (
+                                f"Drift detected: {agent}/{asset_type} "
+                                f"(threshold: {entry.get('threshold_type')})"
+                            )
+                        logger.warning(msg)
+                        try:
+                            alert = Alert(
+                                ticker="SYSTEM",
+                                alert_type="SIGNAL_REVERSAL",
+                                severity="HIGH",
+                                message=msg,
+                                recommended_action="Review IC-IR trend on CalibrationPage.",
+                            )
+                            await alert_store.save_alert(alert)
+                        except Exception as alert_exc:
+                            logger.warning("Alert save failed (non-fatal): %s", alert_exc)
+
+                    elif entry.get("preliminary_threshold"):
+                        logger.info(
+                            "Drift preliminary: %s/%s — needs %d+ IC samples "
+                            "(corpus thin, amber badge only)",
+                            agent, asset_type, 60,
+                        )
+        except Exception as notify_exc:
+            logger.warning("Drift notification dispatch failed (non-fatal): %s", notify_exc)
+
+        await _record_daemon_run(
+            db_path=db_path,
+            job_name="drift_detector",
+            status="success",
+            started_at=started_at,
+            duration_ms=duration_ms,
+            result_json=json.dumps({
+                "agents_evaluated": len(entries),
+                "triggered": n_triggered,
+                "preliminary": n_preliminary,
+                "critical_aborts": n_critical,
+            }),
+        )
+        # FOUND-07: Update job_run_log to 'success'.
+        if row_id is not None:
+            try:
+                async with aiosqlite.connect(db_path) as log_conn:
+                    await _end_job_run_log(log_conn, row_id, "success", duration_ms=duration_ms)
+            except Exception as log_exc:
+                logger.warning("_end_job_run_log (success) failed (non-fatal): %s", log_exc)
+        return {
+            "status": "success",
+            "agents_evaluated": len(entries),
+            "triggered": n_triggered,
+            "preliminary": n_preliminary,
+            "critical_aborts": n_critical,
+        }
+
+    except Exception as exc:
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        err_msg = str(exc)
+        logger.error("Drift detector failed: %s", err_msg, exc_info=True)
+        await _record_daemon_run(
+            db_path=db_path,
+            job_name="drift_detector",
+            status="error",
+            started_at=started_at,
+            duration_ms=duration_ms,
+            error_message=err_msg,
+        )
+        # FOUND-07: Update job_run_log to 'error'.
+        if row_id is not None:
+            try:
+                async with aiosqlite.connect(db_path) as log_conn:
+                    await _end_job_run_log(
+                        log_conn, row_id, "error",
+                        error_message=err_msg, duration_ms=duration_ms,
+                    )
+            except Exception as log_exc:
+                logger.warning("_end_job_run_log (error) failed (non-fatal): %s", log_exc)
+        return {"status": "error", "error": err_msg, "agents_evaluated": 0, "triggered": 0}
+
+
+# ---------------------------------------------------------------------------
 # Internal helper
 # ---------------------------------------------------------------------------
 

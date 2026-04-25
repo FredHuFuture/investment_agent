@@ -722,6 +722,38 @@ async def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
                         (agent_name, asset_type, float(weight)),
                     )
 
+        # AN-02 (Phase 7): per-agent IC-IR drift log.
+        # Records weekly drift detector runs per (agent_name, asset_type).
+        # preliminary_threshold=1 when < 60 weekly IC observations exist (corpus thin).
+        # threshold_type CHECK matches plan spec: 'drop_pct' | 'absolute_low' | 'preliminary' | 'none'
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS drift_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                agent_name TEXT NOT NULL,
+                asset_type TEXT NOT NULL,
+                evaluated_at TEXT NOT NULL,
+                current_icir REAL,
+                avg_icir_60d REAL,
+                delta_pct REAL,
+                threshold_type TEXT CHECK (
+                    threshold_type IN ('drop_pct', 'absolute_low', 'preliminary', 'none')
+                ),
+                triggered INTEGER NOT NULL DEFAULT 0,
+                preliminary_threshold INTEGER NOT NULL DEFAULT 1,
+                weight_before REAL,
+                weight_after REAL,
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+            """
+        )
+        await conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_drift_log_agent_asset_evaluated
+            ON drift_log (agent_name, asset_type, evaluated_at DESC);
+            """
+        )
+
         await conn.commit()
 
     return path
