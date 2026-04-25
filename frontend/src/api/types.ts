@@ -891,3 +891,24 @@ export interface OverrideResponse {
   renormalized_weights: Record<string, number>;
   source: string;
 }
+
+// ---------------------------------------------------------------------------
+// AN-02 / Phase 7 — drift_log
+// ---------------------------------------------------------------------------
+export interface DriftLogEntry {
+  agent_name: string;
+  asset_type: "stock" | "btc" | "eth";
+  evaluated_at: string; // ISO 8601
+  current_icir: number | null;
+  avg_icir_60d: number | null;
+  delta_pct: number | null;
+  threshold_type: "pct_drop" | "absolute_floor" | "none" | null;
+  triggered: boolean;
+  preliminary_threshold: boolean;
+  weight_before: number | null;
+  weight_after: number | null;
+}
+
+export interface DriftLogResponse {
+  drifts: DriftLogEntry[];
+}

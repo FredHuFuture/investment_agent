@@ -72,6 +72,7 @@ import type {
   WeightsOverviewResponse,
   ApplyIcIrResponse,
   OverrideResponse,
+  DriftLogResponse,
 } from "./types";
 
 // Portfolio
@@ -578,3 +579,9 @@ export const getCalibrationRebuildJob = (jobId: string) =>
     completed_at: string | null;
     error_message: string | null;
   }>(`/analytics/calibration/rebuild-corpus/${jobId}`);
+
+// ---------------------------------------------------------------------------
+// Phase 07 (AN-02): drift detector log — feeds CalibrationPage drift badges.
+// ---------------------------------------------------------------------------
+export const getDriftLog = () =>
+  apiGet<DriftLogResponse>("/drift/log");

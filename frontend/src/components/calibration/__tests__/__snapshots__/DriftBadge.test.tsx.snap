@@ -1,0 +1,32 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`DriftBadge > snapshot: null state 1`] = `null`;
+
+exports[`DriftBadge > snapshot: preliminary state 1`] = `
+<span
+  class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide bg-amber-500/15 text-amber-300 border border-amber-500/30 ml-2"
+  data-testid="cal-drift-badge-SnapAgent"
+  title="Preliminary threshold — needs 60+ weekly IC samples (run corpus rebuild)"
+>
+  <span
+    aria-hidden="true"
+    class="w-1.5 h-1.5 rounded-full bg-amber-400"
+  />
+  Preliminary
+</span>
+`;
+
+exports[`DriftBadge > snapshot: triggered state 1`] = `
+<span
+  class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide bg-red-500/15 text-red-300 border border-red-500/30 ml-2"
+  data-testid="cal-drift-badge-SnapAgent"
+  title="IC-IR dropped -23.6% below 60-day avg 0.55"
+>
+  <span
+    aria-hidden="true"
+    class="w-1.5 h-1.5 rounded-full bg-red-400"
+  />
+  Drift Detected
+   (-23.6%)
+</span>
+`;
