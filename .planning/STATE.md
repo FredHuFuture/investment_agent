@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Trustworthy Signals
-status: scoping
-stopped_at: Milestone scoping started — research + requirements + roadmap pending
+status: planning
+stopped_at: Roadmap complete — Phases 8-10 defined; ready for /gsd-plan-phase 8
 last_updated: "2026-04-27T00:00:00.000Z"
 last_activity: 2026-04-27
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-27 for v1.2 milestone)
 
 **Core value:** Drawdown protection via thesis-aware, regime-aware multi-agent signals — catching when a held position no longer matches the reason it was bought.
-**Current focus:** v1.2 Trustworthy Signals — scoping (research + requirements + roadmap pending)
+**Current focus:** v1.2 Trustworthy Signals — Phase 8 planning (research → plan → execute pending)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 8 — Not started (planning)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-04-27 — Milestone v1.2 Trustworthy Signals started
+Status: Ready for `/gsd-plan-phase 8`
+Last activity: 2026-04-27 — Roadmap created (Phases 8-10 / 10 reqs / 100% coverage)
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -69,7 +69,15 @@ Full record: `.planning/milestones/v1.1-ROADMAP.md`, `.planning/milestones/v1.1-
 
 Decisions are logged in PROJECT.md Key Decisions table.
 
-Key decisions carrying forward into v1.1:
+Key decisions carrying forward into v1.2:
+
+- [v1.2 scope] Tight (~3 phases / 10 reqs) combining Signal Quality v2 (reliability plots) + Data Coverage v2 (SimFin + CoinGecko) + v1.1 carry-forward drift-threshold validation
+- [v1.2 phase ordering] Phase 8 → 9 → 10 mandatory due to corpus contamination risk (Cross-1/2/3/4 pitfalls) — Phase 8 bundles SimFin + Reliability Plots so the `fundamentals_provider` schema migration ships in one PR; Phase 9's `asyncio.wait_for(10s)` primitive lands before Phase 10 validates against the rebuilt corpus
+- [v1.2 honesty] v1.2 ships *capability to validate*, NOT *validated thresholds* — corpus is ~13 weeks at ship vs 60-week floor; Phase 10 success criterion = panel landing with "needs N more weeks" text, not flipped `validated` flag
+- [v1.2 anti-feature] Auto-tuning drift thresholds on every weekly run is explicitly out-of-scope (DRIFT-v2-05 deferred) — threshold thrashing defeats the validation purpose
+- [v1.2 anti-feature] Switching the *entire* fundamental pipeline to SimFin is out-of-scope — single-provider failure surface; SimFin free tier ~5y history; layered routing via opt-in `use_pit_fundamentals` field on `AgentInput` instead
+
+Key decisions carrying forward from v1.1:
 
 - [v1.1 scope] Weekly cadence + 5-10 US equities only; signal noise is top rough edge; calibration visibility is north star
 - [v1.1 scope] 6 v1.0 human-UAT items promoted to CLOSE-01..06 as first-class requirements — folded into Phase 5 (infra UATs) and Phase 6 (browser UATs) rather than a standalone UAT phase
@@ -109,18 +117,22 @@ Key decisions carrying forward into v1.1:
 
 ### Pending Todos
 
-- Run 4 parallel `gsd-project-researcher` agents to populate `.planning/research/{STACK,FEATURES,ARCHITECTURE,PITFALLS}.md`
-- Synthesize → `.planning/research/SUMMARY.md` via `gsd-research-synthesizer`
-- Define v1.2 requirements with REQ-IDs (interactive scoping with user)
-- Spawn `gsd-roadmapper` to create v1.2 phase plan starting at Phase 8
+- `/gsd-plan-phase 8` — decompose Phase 8 (PIT Fundamentals + Reliability Plots) into plans; expect SimFin provider + simfin_cache, `fundamentals_provider` schema migration, FOUND-04 tripwire test, reliability bin computation, Murphy decomposition, ReliabilityPlot.tsx + MurphyDecompositionCard.tsx, restated-vs-as-filed delta badge
+- Phase 8 research (highly recommended per SUMMARY.md) — open questions: SimFin filing-date filtering for amended 10-Q/A, Murphy decomposition exact-bin vs PAV, `use_pit_fundamentals` opt-in scope (per-analyze vs per-portfolio vs global)
+- Phase 9 research — CryptoAgent factor weights: how to z-score `commit_count_4_weeks` against asset-specific baselines (BTC vs ETH vs altcoins have different commit rhythms)
+- Phase 10 research — multi-comparison correction (Bonferroni vs FDR) for 16-point grid Wilcoxon tests; resolve before Phase 10 implementation
 
 ### Blockers/Concerns
 
-- v1.2 carry-forward research: drift-detector thresholds (`>20%` IC-IR drop / `<0.5` floor) ship with `preliminary_threshold` flag. v1.2 must validate these against the corpus produced by v1.1 LIVE-01 rebuild + ongoing daemon runs, OR design a methodology for validating them as soon as ≥60 weekly IC samples per agent accumulate.
-- v1.1 Phase 7 residual: drift-detector threshold calibration was the open research question carried forward — same question reframed for v1.2.
+- v1.2 ships *capability to validate*, NOT *validated thresholds* — operator-facing communication needed at Phase 10 closeout so a future contributor doesn't see "preliminary" still flying and conclude v1.2 failed (must be documented as Key Decision in PROJECT.md at v1.2 completion)
+- Phase 8 must include `fundamentals_provider` schema migration in the SAME PR as SimFin provider (Pitfall 4 — provider mixing in `signal_history`/`backtest_signal_history`/`drift_log` is silent IC contamination)
+- Phase 9 must include `asyncio.wait_for(timeout=10s)` per-agent timeout primitive (Pitfall 3 — CoinGecko 5-15/min rate limit blocks `asyncio.gather` for 60s); reusable defensive primitive for any future rate-limited provider
+- Phase 10 prerequisite check: assert `corpus_rebuild_jobs.completed_at >= max(SimFin/CoinGecko enable timestamp)` — without this, Phase 10 validates against a half-rebuilt corpus and produces garbage (Cross-4)
+- SimFin free-tier exact daily cap not published — Phase 8 research must verify with real rebuild against operator's portfolio; ship `AsyncRateLimiter(2/sec, 60s sliding window)` conservatively
+- CoinGecko `community_data` Twitter follower discontinuation (2024) — Reddit + Telegram are the only social signals on Demo tier; Phase 9 must confirm Reddit + Telegram coverage for BTC/ETH on operator's actual portfolio
 
 ## Session Continuity
 
 Last session: 2026-04-27T00:00:00.000Z
-Stopped at: Milestone v1.2 scoping started — PROJECT.md + STATE.md updated; research wave next
-Resume: Continue `/gsd-new-milestone` workflow (research → requirements → roadmap)
+Stopped at: Roadmap created — Phases 8-10 defined / 10 reqs / 100% coverage; STATE updated to planning
+Resume: Run `/gsd-plan-phase 8` to begin Phase 8 (PIT Fundamentals + Reliability Plots)

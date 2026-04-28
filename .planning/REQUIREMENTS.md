@@ -88,22 +88,22 @@ Which phases cover which requirements. Updated by `gsd-roadmapper` in Step 10 of
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SIG-v2-01 | Phase [N] | Pending |
-| SIG-v2-02 | Phase [N] | Pending |
-| DATA-v2-02 | Phase [N] | Pending |
-| DATA-v2-03 | Phase [N] | Pending |
-| DATA-v2-04 | Phase [N] | Pending |
-| DATA-v2-05 | Phase [N] | Pending |
-| DRIFT-v2-01 | Phase [N] | Pending |
-| DRIFT-v2-02 | Phase [N] | Pending |
-| DRIFT-v2-03 | Phase [N] | Pending |
-| DRIFT-v2-04 | Phase [N] | Pending |
+| SIG-v2-01 | Phase 8 | Pending |
+| SIG-v2-02 | Phase 8 | Pending |
+| DATA-v2-02 | Phase 8 | Pending |
+| DATA-v2-03 | Phase 9 | Pending |
+| DATA-v2-04 | Phase 8 | Pending |
+| DATA-v2-05 | Phase 8 | Pending |
+| DRIFT-v2-01 | Phase 10 | Pending |
+| DRIFT-v2-02 | Phase 10 | Pending |
+| DRIFT-v2-03 | Phase 10 | Pending |
+| DRIFT-v2-04 | Phase 10 | Pending |
 
 **Coverage:**
 - v1.2 requirements: 10 total
-- Mapped to phases: 0 (filled by roadmapper)
-- Unmapped: 10 ⚠️ (will be 0 after roadmap creation)
+- Mapped to phases: 10 ✓
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-04-27*
-*Last updated: 2026-04-27 after initial definition during `/gsd-new-milestone` Step 9 scoping*
+*Last updated: 2026-04-27 — traceability filled by gsd-roadmapper (Phases 8/9/10 mapping)*
