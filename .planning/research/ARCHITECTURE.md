@@ -1,692 +1,822 @@
-# Competitive Product/UX Analysis: Portfolio/Thesis Tracking + UI Dimension
+# Architecture Research — v1.2 Trustworthy Signals
 
-**Domain:** OSS investment agents, portfolio trackers, trading dashboards, AI-finance tools
-**Researched:** 2026-04-21
-**Analysis Type:** Comparative product/UX (not system architecture)
-**Overall Confidence:** MEDIUM — all OSS project features verified against GitHub repos and official docs; UX claims cited; confidence noted per section.
+**Domain:** Brownfield integration into existing Investment Agent (FastAPI + APScheduler + aiosqlite + React/TS)
+**Researched:** 2026-04-27
+**Confidence:** HIGH — derived from direct file reads of existing modules; no external assumptions.
 
----
+## Scope
 
-## Projects Surveyed
+This is **integration research, not greenfield architecture**. The Investment Agent is a mature codebase (889 tests, 15 frontend pages, 3 milestones shipped). This document answers ONE question: **how do the 4 v1.2 features slot into the existing system?**
 
-| # | Project | GitHub | Stars (approx) | Primary Domain | Relevance |
-|---|---------|--------|----------------|----------------|-----------|
-| 1 | **Ghostfolio** | [ghostfolio/ghostfolio](https://github.com/ghostfolio/ghostfolio) | 15k+ | Wealth management | HIGH — closest OSS portfolio tracker with rules engine |
-| 2 | **Wealthfolio** | [afadil/wealthfolio](https://github.com/afadil/wealthfolio) | 3k+ | Private portfolio tracking | HIGH — desktop-first, SQLite, similar deployment story |
-| 3 | **Portfolio Performance** | [portfolio-performance/portfolio](https://github.com/portfolio-performance/portfolio) | 3.8k | Performance calculation | HIGH — deep analytics, Java desktop app |
-| 4 | **rotki** | [rotki/rotki](https://github.com/rotki/rotki) | 3k+ | Crypto+equity tracking, tax | MEDIUM — privacy-first, strong tax/accounting |
-| 5 | **TradeNote** | [Eleven-Trading/TradeNote](https://github.com/Eleven-Trading/TradeNote) | 2k+ | Day-trading journal | HIGH — closest OSS analog to our journal concept |
-| 6 | **InvestBrain** | [investbrainapp/investbrain](https://github.com/investbrainapp/investbrain) | ~500 | Multi-brokerage tracker + AI | MEDIUM — Laravel, AI chat grounded in positions |
-| 7 | **OpenBB** | [OpenBB-finance/OpenBB](https://github.com/OpenBB-finance/OpenBB) | 35k+ | Financial data platform | MEDIUM — data infra + workspace UI, Open Portfolio suite |
-| 8 | **TradingAgents** | [TauricResearch/TradingAgents](https://github.com/TauricResearch/TradingAgents) | 5k+ | Multi-agent LLM trading framework | MEDIUM — agent architecture parallel, no portfolio UI |
-| 9 | **FinRobot** | [AI4Finance-Foundation/FinRobot](https://github.com/AI4Finance-Foundation/FinRobot) | 3k+ | AI equity research reports | LOW — report generation, not tracking/monitoring |
-| 10 | **Riskfolio-Lib** | [dcajasn/Riskfolio-Lib](https://github.com/dcajasn/Riskfolio-Lib) | 4k+ | Portfolio optimization | MEDIUM — math library, no UI, pluggable |
-| 11 | **Quant Lab Alpha** | [husainm97/quant-lab-alpha](https://github.com/husainm97/quant-lab-alpha) | ~100 | Factor analytics + Monte Carlo | MEDIUM — FF5 risk decomposition, Tkinter UI |
-| 12 | **FinanceToolkit** | [JerBouma/FinanceToolkit](https://github.com/JerBouma/FinanceToolkit) | 4k+ | 150+ financial ratios, portfolio module | MEDIUM — Python library, no standalone UI |
-| 13 | **Maybe Finance** | [maybe-finance/maybe](https://github.com/maybe-finance/maybe) | 40k+ | Personal finance (archived Jul 2025) | LOW — archived; patterns only |
-| 14 | **Beancount/Fava** | [beancount/fava](https://github.com/beancount/fava) | 3k+ | Plain-text double-entry accounting | LOW for trading; HIGH for export/journal patterns |
-| 15 | **TradingView Lightweight Charts** | [tradingview/lightweight-charts](https://github.com/tradingview/lightweight-charts) | 10k+ | Chart library | HIGH for UI — embeddable, MIT licensed |
-| 16 | **Pinnacle** | [F4pl0/pinnacle](https://github.com/F4pl0/pinnacle) | ~100 | OSS portfolio analysis | LOW — microservices demo, limited features |
+Four target capabilities:
+
+1. **SIG-v2-01** — Calibration reliability plots on `/calibration` page
+2. **DATA-v2-02** — SimFin point-in-time fundamentals provider
+3. **DATA-v2-03** — CoinGecko on-chain provider for CryptoAgent
+4. **SIG-v2-04 / carry-forward** — Drift-threshold validation against live corpus
 
 ---
 
-## Section 1: Thesis / Journal / Commit-at-Entry Patterns
+## Existing Architecture (load-bearing context)
 
-**This is our central differentiator. The question: does any OSS competitor track WHY a position was opened, not just what?**
+### Layer Map
 
-### What Competitors Do
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                  React + TS frontend (15 pages)                   │
+│   /calibration, /weights→Navigate, /portfolio, /backtest, ...    │
+│   Recharts (sparklines, analytics) + LightweightCharts + SVG     │
+└──────────────────────────────┬───────────────────────────────────┘
+                               │  /api/v1/...  (HTTP, ApiError envelope)
+┌──────────────────────────────▼───────────────────────────────────┐
+│                       api/ — FastAPI routers                      │
+│   analytics, calibration, drift, digest, weights, analyze, ...   │
+│   30+ endpoints, dependency-injected db_path, Pydantic v2 models │
+└──────────────────────────────┬───────────────────────────────────┘
+                               │
+┌──────────────────────────────▼───────────────────────────────────┐
+│         engine/  + tracking/ + portfolio/ + monitoring/           │
+│   pipeline.py (orchestrator), aggregator.py (weighted vote),     │
+│   drift_detector.py (Sun 17:30), llm_synthesis (opt-in),         │
+│   tracker.py (Brier/IC/IC-IR), analytics.py (TTWROR/CVaR)        │
+└──────────────────────────────┬───────────────────────────────────┘
+                               │
+┌──────────────────────────────▼───────────────────────────────────┐
+│                       agents/ — BaseAgent ABC                     │
+│   technical, fundamental, macro, sentiment, crypto, summary      │
+│   Each: async analyze(AgentInput) -> AgentOutput                 │
+└──────────────────────────────┬───────────────────────────────────┘
+                               │
+┌──────────────────────────────▼───────────────────────────────────┐
+│                  data_providers/ — DataProvider ABC               │
+│   yfinance, fred, ccxt, finnhub, edgar, news, web_news           │
+│   CachedProvider (TTLCache + ParquetOHLCVCache + thundering-herd)│
+│   AsyncRateLimiter (token bucket), DividendCache (24h Parquet)   │
+└──────────────────────────────┬───────────────────────────────────┘
+                               │
+┌──────────────────────────────▼───────────────────────────────────┐
+│      SQLite (aiosqlite, WAL, connection pool)                     │
+│   signal_history, backtest_signal_history, agent_weights,        │
+│   drift_log, corpus_rebuild_jobs, job_run_log, alert_rules,      │
+│   active_positions, trade_records, portfolio_snapshots, ...      │
+└───────────────────────────────────────────────────────────────────┘
+```
 
-**TradeNote** ([tradenote.co](https://tradenote.co)) is the closest OSS analog to a trade journal. It allows:
-- Adding a per-trade note, pattern tag, mistake tag, and satisfaction rating (thumbs up/down)
-- Uploading annotated screenshots of the entry setup
-- A daily diary for "trader psychology" tracking
-- A "yearly playbook" document
-- Filtering by patterns and mistakes after the fact
-- Source: [TradeNote README](https://github.com/Eleven-Trading/TradeNote/blob/main/README.md)
+### Background scheduler (APScheduler — `daemon/scheduler.py`)
 
-**Verdict:** TradeNote captures the "what I was thinking" for day-traders via notes + tags, but it is designed for day-trading (stock/futures/forex import from brokers) rather than thesis-driven, long-term investing. It has no concept of a hypothesis that should be validated over time — there is no drift detection, no signal comparison, no "did this thesis play out?" loop.
+| Cron slot | Job | Source |
+|-----------|-----|--------|
+| Mon-Fri 17:00 ET | `run_daily_check` | `daemon/jobs.py` |
+| Sat 10:00 ET | `run_weekly_revaluation` | `daemon/jobs.py` |
+| Sun 17:30 ET | `run_drift_detector` (AN-02) | `daemon/jobs.py` → `engine/drift_detector.py` |
+| Sun 18:00 ET | `run_weekly_digest` (LIVE-04) | `daemon/jobs.py` |
 
-**Portfolio Performance** (Java desktop) allows:
-- A note field per security (security-level, not trade-level)
-- Individual buy/sell transactions can have a comment field
-- Events (notes tied to specific dates on a security) for splits, dividends, ad-hoc notes
-- Source: [PP Trades docs](https://help.portfolio-performance.info/en/reference/view/reports/performance/trades/)
+### Provider pattern (mandatory mirror)
 
-**Verdict:** Notes exist but are cosmetic — there is no structured hypothesis capture (target price, stop loss, time horizon, thesis statement), no monitoring hook, and no drift comparison. Per the forum: "you cannot have a separate note for each trade" in the standard trades view — a known user frustration.
+Every existing provider obeys the same skeleton (verified across `finnhub_provider.py`, `edgar_provider.py`, `fred_provider.py`):
 
-**Ghostfolio**: Supports custom tags on holdings (added 2024-2025). Has a note/comment field on activities (buy/sell transactions). No structured thesis fields; notes are free-text, not machine-readable.
-- Source: [Ghostfolio changelog](https://ghostfol.io/en/about/changelog)
+1. Class-level `AsyncRateLimiter` with vendor-specific budget (`_limiter = AsyncRateLimiter(max_calls=N, period_seconds=60.0)`)
+2. `__init__(api_key=None, timeout=10.0)` — fall back to `os.getenv()`, warn (not raise) on missing key
+3. `httpx.AsyncClient` with `params={"token": resolved_key}` so the secret is never in log lines
+4. `_rate_limited_get(path, params)` → returns `{}` on 429, raises on other HTTP errors
+5. Inherits from `data_providers/base.py::DataProvider` (abstract `get_price_history`, `get_current_price`, optional `get_financials`/`get_key_stats`)
+6. Implements `is_point_in_time()` and `supported_asset_types()`
+7. Optional `aclose()` for graceful httpx shutdown
 
-**Wealthfolio**: No documented journal or thesis tracking. The "beautiful and boring" design philosophy prioritizes clean performance views over annotation.
+### Cache pattern (mandatory mirror)
 
-**InvestBrain**: Captures position data across brokerages but does not document structured thesis capture. The AI chat assistant can discuss holdings but the data model does not include hypothesis fields.
+| Cache | Scope | TTL | File |
+|-------|-------|-----|------|
+| `TTLCache` (in-memory async) | Per-process, per-method | 5 min default, 15 min macro | `data_providers/cache.py` |
+| `ParquetOHLCVCache` (disk) | Cross-process | 24h default, ticker × period × interval keyed | `data_providers/parquet_cache.py` |
+| `DividendCache` (disk) | Cross-process | 24h, per-ticker | `data_providers/dividend_cache.py` |
+| `sector_pe_cache` (disk JSON) | Cross-process | 24h | `data_providers/sector_pe_cache.py` |
 
-**OpenBB**: The Open Portfolio suite ingests transactions and produces performance attribution, but does not have a thesis layer — it operates on what happened, not why a position was opened.
+CR-02 thundering-herd dedup is implemented in `CachedProvider.get_price_history` (`_inflight: dict[key, asyncio.Event]`). New providers writing to expensive endpoints should mirror this pattern.
 
-**Beancount/Fava**: Supports narration fields (free-text per transaction), tags, and links between transactions. The plain-text format means thesis metadata could be embedded in narration. No UI for structured hypothesis tracking or monitoring.
+### Frontend calibration mount point
 
-### What We Do Today
+`frontend/src/pages/CalibrationPage.tsx` already loads three APIs in parallel:
+- `getCalibrationAnalytics()` → `/api/v1/analytics/calibration`
+- `getWeightsV2()` → `/api/v1/weights`
+- `getDriftLog()` → `/api/v1/drift/log`
 
-We have the most comprehensive OSS implementation of thesis-at-entry tracking found in this survey:
-- Structured `thesis` fields on `active_positions`: target price, stop loss, time horizon, thesis statement text
-- `engine/drift_analyzer.py`: compares current signal vs. original thesis parameters
-- `monitoring/monitor.py` + `monitoring/checker.py`: PortfolioMonitor fires alerts when thesis drift detected
-- `monitoring/` tables: `thesis_drift` tracked per job run
-- `JournalPage.tsx` + `journal/` components: UI surface for journal insights
-- `engine/journal_analytics.py`: analytics derived from journal data
-- Source: `.planning/codebase/ARCHITECTURE.md` (Portfolio Layer), `STRUCTURE.md`
-
-### Who Wins
-
-**We win here.** No OSS competitor combines: (a) structured thesis capture at entry, (b) continuous machine monitoring of drift, (c) signal comparison vs. original thesis, and (d) a dashboard surface showing thesis validity over time. TradeNote comes closest on the journaling UX side; Portfolio Performance comes closest on the trades-view analytics side. Neither closes the loop.
-
-### What to Borrow
-
-| From | Borrow | Integration Point |
-|------|--------|-------------------|
-| TradeNote | Per-trade annotated screenshot upload | `PositionDetailPage.tsx` — add media attachment to thesis capture form |
-| TradeNote | Pattern/mistake tag taxonomy + post-trade review filter | `JournalPage.tsx` — structured tag taxonomy (entry_reason, exit_reason, mistake_type) |
-| TradeNote | Annual "playbook" document (free-text long-form review) | New `JournalPage` section or dedicated `PlaybookPage.tsx` |
-| Portfolio Performance | Trade-level IRR and holding-period display per position | `PositionDetailPage.tsx` — add IRR field alongside P&L |
-
-### UX Anti-Patterns to Avoid
-
-- **Ghostfolio's free-text-only notes**: Machine-unreadable, can't trigger monitoring or analytics. Keep thesis fields structured (target_price, stop_loss, horizon, thesis_text) — do not collapse to a single textarea.
-- **Portfolio Performance's security-level notes**: Notes attached to the instrument, not the trade. Breaks when same ticker is reopened. Our per-position model (with position_id FK) is correct.
-
-### Roadmap Priority: HIGH (preserve and extend — this is our moat)
-
----
-
-## Section 2: Drift Detection and Alerting
-
-**How do competitors signal when reality diverges from the plan?**
-
-### What Competitors Do
-
-**Ghostfolio X-ray** is the closest commercial-OSS analog to thesis drift:
-- Static portfolio analysis rules (e.g., "emergency fund too low," "regional cluster risk," "currency concentration")
-- Customizable rule thresholds (experimental, added ~2024)
-- Rules fire when a portfolio metric breaches a static threshold
-- No per-position thesis awareness — rules operate on portfolio-level allocations
-- Source: [Ghostfolio GitHub issues #3247, #4477](https://github.com/ghostfolio/ghostfolio/issues/3247)
-
-**Wealthfolio**: No drift detection found. Goal tracking shows progress toward savings targets but no investment thesis monitoring.
-
-**Portfolio Performance**: Rebalancing viewer shows deviation from target allocation (not thesis). When actual allocation drifts beyond the user-defined target weight, the viewer highlights it. This is allocation drift, not thesis drift.
-
-**OpenBB**: Workspace offers real-time dashboard monitoring; Open Portfolio tracks ex-post metrics (VaR, tracking error). No thesis-level alerting — no concept of "this position should be sold if X condition diverges from the original plan."
-
-**rotki**: No documented drift detection. Privacy-first tracker with P&L and tax focus.
-
-**TradingAgents**: The Risk Management agent evaluates portfolio risk continuously, but it generates signals for new trades — it does not compare current conditions to a stored entry thesis.
-
-**Commercial comparators (non-OSS)**: Addepar Trading (drift monitoring widget), Guardfolio (allocation drift alerts), Investipal (policy misalignment detection) — these exist in wealth management SaaS but are not open source.
-
-### What We Do Today
-
-- `engine/drift_analyzer.py`: Compares current agent signal vs. original thesis parameters (target price, stop loss, time horizon)
-- `monitoring/checker.py`: Alert condition checker — fires when thesis drift detected
-- `monitoring/monitor.py` (PortfolioMonitor): Orchestrates monitoring per position
-- `daemon/jobs.py` (run_daily_check): Scheduled drift computation
-- `alerts` table + `api/routes/alerts.py`: Alert storage, retrieval, and UI surface
-- `MonitoringPage.tsx`: Frontend view of active alerts
-- Delivery: Email (`notifications/email_dispatcher.py`) + Telegram (`notifications/telegram_dispatcher.py`)
-- Source: `.planning/codebase/ARCHITECTURE.md` (Portfolio Layer), `STRUCTURE.md`
-
-### Who Wins
-
-**We win on thesis-aware drift.** Ghostfolio's X-ray rules are the only comparable OSS feature, but they operate on portfolio-level allocation rules (static thresholds), not per-position thesis validation. Our drift detection is signal-aware and per-position — meaningfully deeper.
-
-**Ghostfolio wins on rule discoverability**: Their X-ray rules are named, listed, and selectable in a UI. Our alert rule system exists but the rules are code-defined and not browsable/editable by the user in a rules-builder UI.
-
-### What to Borrow
-
-| From | Borrow | Integration Point |
-|------|--------|-------------------|
-| Ghostfolio X-ray | Named, browsable rules list with enable/disable toggles | `MonitoringPage.tsx` — rules inventory panel above active alerts list |
-| Ghostfolio X-ray | Threshold customization per rule in UI (not just config file) | `api/routes/monitoring.py` — expose rule threshold as editable field |
-| Portfolio Performance | Allocation drift visualization (actual vs. target weight bar chart) | `PortfolioPage.tsx` — add target-weight column + deviation indicator |
-
-### UX Anti-Patterns to Avoid
-
-- **Silent alert swallowing** (our own risk per `CONCERNS.md`): Daemon jobs catch all exceptions; alerts may be generated but not delivered. Implement alert delivery status tracking (sent/failed/acknowledged).
-- **Ghostfolio's non-delivery**: No email/webhook alerts as of 2025; monitoring is purely in-app. Our multi-channel delivery (email, Telegram) is a genuine advantage — preserve it.
-
-### Roadmap Priority: HIGH (rules-builder UI to expose existing logic)
+Components:
+- `CalibrationTable` (renders rows with empty-corpus CTA)
+- `AgentCalibrationRow` (single row: agent | Brier | IC | IC-IR + DriftBadge | sparkline)
+- `ICSparkline` (60×20px Recharts LineChart)
+- `WeightsEditor` (Apply IC-IR + per-agent override toggle)
+- `AssetTypeTabs` (stock | btc | eth)
+- `DriftBadge` (3-state: null | amber-preliminary | red-triggered)
 
 ---
 
-## Section 3: Portfolio-Level Analytics
+## Question-by-question integration analysis
 
-**Health score, factor exposures, risk decomposition, sector/region allocation, performance attribution, benchmarking.**
+### Q1 — Reliability plots (SIG-v2-01)
 
-### What Competitors Do
+**Current state.** The codebase has TWO calibration-flavored functions in `tracking/tracker.py`:
 
-**Ghostfolio**:
-- Portfolio summary: total value, invested amount, performance (TWR and IRR variants)
-- Allocation breakdown by asset class, sector, currency, country/region (proportion charts)
-- Benchmark comparison (vs. S&P 500, custom benchmark)
-- Return on Average Investment (ROAI) across multiple timeframes (Today, WTD, MTD, YTD, 1Y, 5Y, Max)
-- No portfolio health score; X-ray rules serve as health indicators
-- Source: [Ghostfolio DeepWiki](https://deepwiki.com/ghostfolio/ghostfolio/4-portfolio-management), [Ghostfolio GitHub](https://github.com/ghostfolio/ghostfolio)
+| Function | Source corpus | Bins on | Purpose | Used by |
+|----------|---------------|---------|---------|---------|
+| `compute_calibration_data()` | live `signal_history` (resolved WIN/LOSS) | confidence midpoint vs win-rate | LIVE win-rate calibration | `/signals/*` accuracy display (older) |
+| `compute_brier_score()` + `compute_rolling_ic()` + `compute_icir()` | `backtest_signal_history` | per-agent | Phase 2 calibration metrics | `/api/v1/analytics/calibration` |
 
-**Wealthfolio**:
-- Portfolio composition, performance analytics, benchmark comparison (vs. S&P 500 or any ETF)
-- Account-side-by-side comparison
-- Goal tracking with progress visualization
-- Net worth tracking (v3.0+: properties, vehicles, precious metals)
-- No factor exposure, no risk decomposition
-- Source: [Wealthfolio website](https://wealthfolio.app/), [GitHub](https://github.com/afadil/wealthfolio)
+Reliability plots = **Brier-score decomposition into bins** (predicted-prob vs realized-frequency). Already implemented for confidence/win-rate in `compute_calibration_data` but ONLY against live `signal_history`.
 
-**Portfolio Performance** (Java desktop):
-- True Time-Weighted Return (TTWROR) and IRR per position and portfolio
-- Benchmark comparison via reference portfolio
-- Asset classification hierarchy (user-defined taxonomy for sector, region, etc.)
-- Rebalancing viewer: actual vs. target allocation bar/pie charts
-- No health score concept; no factor model
-- Source: [PP Manual](https://help.portfolio-performance.info/en/)
+#### Recommendation
 
-**OpenBB Open Portfolio**:
-- Brinson performance attribution (asset allocation effect + security selection effect)
-- Ex-post risk analytics: standard deviation, VaR (95%/99%), tracking error
-- Daily holdings snapshots with P&L, market value, weight, P/E enrichment
-- Carino linking for compounded attribution
-- No health score, but most rigorous attribution of any OSS tool found
-- Source: [OpenBB blog](https://openbb.co/blog/open-portfolio-a-suite-for-asset-managers-on-openbb/)
+**Where bin computation lives:** Extend `tracking/tracker.py` with a new method `compute_reliability_bins(agent_name, horizon, n_bins=10, min_bucket_size=20)`. **Do NOT create a new module** — `tracker.py` already owns the parallel methods (Brier, IC, IC-IR) over the same corpus and shares the `SignalStore.get_backtest_signals_by_agent` reader.
 
-**Quant Lab Alpha**:
-- Fama-French Five-Factor risk decomposition (FF5)
-- Rolling factor exposure with configurable 3y/5y/10y windows
-- CVaR/VaR at 95% confidence, historical drawdown
-- Correlation heatmaps, efficient frontier visualization
-- Ledoit-Wolf covariance shrinkage
-- No dashboard; Tkinter GUI is rudimentary
-- Source: [GitHub](https://github.com/husainm97/quant-lab-alpha)
+```python
+# tracking/tracker.py — new method
+async def compute_reliability_bins(
+    self,
+    agent_name: str,
+    horizon: str = "5d",
+    n_bins: int = 10,
+    min_bucket_size: int = 20,
+) -> list[dict[str, Any]] | None:
+    """Reliability diagram bins for one agent.
 
-**Riskfolio-Lib** (Python library, no UI):
-- 20 convex risk measures for optimization
-- Kelly criterion, risk parity, HRP, HERC, NCO
-- Black-Litterman with Bayesian update
-- Factor attribution and risk contribution per factor
-- Source: [GitHub](https://github.com/dcajasn/Riskfolio-Lib)
+    Bins predicted probability (confidence/100 normalized via Brier convention,
+    HOLD excluded — reuses the AP-05 contract from compute_brier_score) and
+    returns observed frequency of correct directional moves per bin.
 
-**FinanceToolkit**:
-- 150+ financial ratios computed transparently
-- Portfolio module: invested amount, current value, return, benchmark return, alpha, beta per position
-- Source: [GitHub](https://github.com/JerBouma/FinanceToolkit)
+    Returns [{bin_lo, bin_hi, n, predicted, observed, ece_contrib}, ...]
+    or None if N < min_bucket_size globally.
+    """
+```
 
-### What We Do Today
+**Source corpus.** Use `backtest_signal_history` (NOT live `signal_history`). Rationale:
+- Reliability plots need >= 200 directional samples per agent per bin to be meaningful — live corpus has ~10 rows as of 2026-04-21 (per CONCERNS.md)
+- Existing Brier/IC/IC-IR pipeline already reads from `backtest_signal_history` via `SignalStore.get_backtest_signals_by_agent(agent_name, horizon)`
+- Same N>=20 / N>=30 thresholds already in place; no new sparsity logic needed
+- CalibrationPage already has the corpus-empty CTA + `Rebuild corpus` button — we get this UX for free
 
-- `engine/analytics.py`: Sharpe ratio, drawdown, performance metrics
-- `engine/monte_carlo.py`: Monte Carlo risk simulation (block bootstrap, 10k iterations)
-- `engine/stress_test.py`: Stress testing scenarios
-- `engine/correlation.py`: Cross-asset correlation analysis
-- `engine/sector.py`: Sector modifier application
-- `engine/regime.py`: Regime detection (bull/bear/sideways)
-- Portfolio health score: EXISTS (`PortfolioPage.tsx` + relevant backend)
-- `PerformancePage.tsx`: Performance analytics display
-- `RiskPage.tsx`: Risk metrics display
-- `api/routes/analytics.py`: Portfolio analytics endpoints
-- Source: `.planning/codebase/STRUCTURE.md`
+**API endpoint shape.** Two options analyzed; recommend **option B** (extend existing endpoint):
 
-**What we lack relative to competitors:**
-- Brinson-style performance attribution (what we got from alpha vs. allocation vs. selection?)
-- Factor exposure (Fama-French beta decomposition)
-- Benchmark comparison (TWR vs. SPY or user-defined benchmark)
-- True Time-Weighted Return calculation (our current analytics focus on P&L, not TTWROR)
-- Geographic/region allocation visualization (we have sector, not country-level)
+```
+Option A (NEW endpoint):  GET /api/v1/analytics/reliability?agent={name}&horizon=5d
+Option B (EXTEND):        GET /api/v1/analytics/calibration?include_reliability=true
+```
 
-### What to Borrow
+**Pick option B.** Reasoning:
+- CalibrationPage already calls `/analytics/calibration` and renders agents in a single table; reliability is "another column per agent", not a separate page
+- Adds one optional query param, zero new routes, zero new types in `frontend/src/api/types.ts` other than appending `reliability_bins?: ReliabilityBin[]` to `AgentCalibrationEntry`
+- Keeps the corpus_metadata `total_observations` flag relevant to both metrics — one network call surfaces empty-corpus state
 
-| From | Borrow | Priority | Integration Point |
-|------|--------|----------|-------------------|
-| Ghostfolio | Multi-timeframe return breakdown (Today/WTD/MTD/YTD/1Y/5Y) | HIGH | `PerformancePage.tsx` — time-range selector with cached metrics |
-| Portfolio Performance | TTWROR and IRR per-position and aggregate | HIGH | `engine/analytics.py` — add TTWROR implementation; expose via `api/routes/analytics.py` |
-| Ghostfolio | Allocation breakdown by currency, country, asset class (proportion charts) | MEDIUM | `PortfolioPage.tsx` — add pie/donut breakdown widgets |
-| OpenBB Open Portfolio | Brinson attribution (allocation effect + selection effect vs. benchmark) | MEDIUM | New `api/routes/attribution.py` + `PerformancePage.tsx` section |
-| Quant Lab Alpha | Factor exposure (at minimum: market beta, possibly FF3) | LOW | `engine/analytics.py` extension — compute rolling beta vs. benchmark |
-| Riskfolio-Lib | Import as library for position-sizing recommendations | LOW | New `api/routes/sizing.py` — wrap Riskfolio optimization |
+Response shape (additive — preserves WARNING 11 stable-key contract):
 
-### UX Anti-Patterns to Avoid
+```json
+{
+  "data": {
+    "agents": {
+      "TechnicalAgent": {
+        "brier_score": 0.234,
+        "ic_5d": 0.043,
+        "ic_horizon": "5d",
+        "ic_ir": 0.612,
+        "sample_size": 142,
+        "rolling_ic": [...],
+        "reliability_bins": [
+          {"bin_lo": 0.30, "bin_hi": 0.40, "n": 22, "predicted": 0.35, "observed": 0.41, "ece_contrib": 0.013}
+        ],
+        "ece": 0.087
+      }
+    },
+    "horizon": "5d",
+    "window_days": 60
+  }
+}
+```
 
-- **Quant Lab Alpha's Tkinter UI**: Factor analytics buried in a desktop GUI nobody installs. Expose analytics in the web dashboard with clear labeling.
-- **Portfolio Performance's flat table view for allocation**: Long tables of percentages are hard to scan. Ghostfolio's proportion charts (donut, treemap) are more legible at a glance.
-- **Metric overload without hierarchy**: Don't put Sharpe, Sortino, VaR, CVaR, beta, alpha, TTWROR, IRR all at the same visual weight. Ghostfolio correctly leads with simple P&L then expands to advanced metrics.
+**Frontend mount point.** Add a NEW small component, not extend `AgentCalibrationRow`. Reasoning:
+- The row is already 5 columns wide and tight; adding a histogram cell crowds it
+- Reliability is most useful as a **drill-down**, not a constantly-visible micro-viz
+- Other dashboards (e.g., qlib, Optuna) put reliability behind an expandable cell
 
-### Roadmap Priority: HIGH for TTWROR + benchmark; MEDIUM for attribution; LOW for factor models
+```
+frontend/src/components/calibration/
+  ├── AgentCalibrationRow.tsx    [MODIFIED — add expandable triangle]
+  ├── ReliabilityChart.tsx       [NEW — Recharts ScatterChart with diagonal y=x]
+  └── ReliabilityModal.tsx       [NEW — optional, if expansion grows complex]
+```
 
----
+`ReliabilityChart` uses Recharts `ScatterChart` (already in `package.json`) with:
+- X-axis: predicted probability bin midpoint (0.0–1.0)
+- Y-axis: observed frequency (0.0–1.0)
+- Reference line `y = x` (perfect calibration)
+- Point size: bin sample count (n)
+- Color: from `sparklineColor()` reuse (green/amber/red by ECE)
 
-## Section 4: Alert Rules Engines
+**ECE (Expected Calibration Error).** Add as a row-level metric next to IC-IR. Single number summarizing reliability:
+```
+ECE = sum_b ( |predicted_b - observed_b| × n_b / N_total )
+```
+This goes in `AgentCalibrationEntry.ece` and renders as a fourth metric column alongside Brier, IC, IC-IR.
 
-**Rule DSL, declarative vs. imperative, delivery channels.**
+**Files touched (Q1 summary):**
 
-### What Competitors Do
-
-**Ghostfolio X-ray rules** (closest OSS analog):
-- Named rules (e.g., "Emergency fund coverage," "Currency cluster risk," "Regional cluster risk")
-- Rules have configurable thresholds (experimental feature, 2024)
-- Enable/disable per rule in UI
-- Rules are hardcoded in application logic (NestJS service), not user-definable DSL
-- Delivery: in-app notifications only; no email or webhook as of 2025
-- Source: [Ghostfolio issues #3247](https://github.com/ghostfolio/ghostfolio/issues/3247), [#4477](https://github.com/ghostfolio/ghostfolio/issues/4477)
-
-**Portfolio Performance**: No alert rules engine. The rebalancing viewer highlights deviation but does not alert.
-
-**Wealthfolio**: No alert rules engine found. Goal tracking shows visual progress.
-
-**rotki**: No documented alert rules engine.
-
-**TradeNote**: No alert rules — it is a retrospective journal, not a monitoring system.
-
-**OpenBB**: AI copilot can analyze conditions on request but is not a rules engine. No persistent alerting loop.
-
-**Commercial context**: Addepar, Guardfolio, and Investipal all have threshold-based drift monitoring, but none are open source.
-
-### What We Do Today
-
-We have the most complete OSS alert rules engine found in this survey:
-- `monitoring/checker.py`: Alert condition checker with multiple rule types
-- `monitoring/monitor.py`: PortfolioMonitor orchestrates rules evaluation
-- `api/routes/alerts.py`: Alert management API
-- `api/routes/monitoring.py`: Alert condition tracking
-- `MonitoringPage.tsx`: Alert rules display and management
-- Alert delivery: Email (SMTP) + Telegram bot
-- Rule conditions include: thesis drift, price targets, stop loss violations
-- Daemon scheduling: rules run daily via APScheduler
-- Source: `.planning/codebase/ARCHITECTURE.md`, `STRUCTURE.md`
-
-**What we lack relative to best practices:**
-- User-definable rule builder UI (rules are currently code-defined in Python, not editable in UI)
-- Named/listed rules inventory visible to the user (Ghostfolio's X-ray style)
-- Rule enable/disable toggles in UI
-- Alert acknowledgment / dismiss workflow (are alerts marked as read/actioned?)
-- Webhook delivery (no webhook outbound from our system)
-- Alert history / archive
-
-### What to Borrow
-
-| From | Borrow | Priority | Integration Point |
-|------|--------|----------|-------------------|
-| Ghostfolio | Named rules inventory panel with enable/disable toggles | HIGH | `MonitoringPage.tsx` — add rules list above alert feed |
-| Ghostfolio | Threshold customization via UI (not config file) | HIGH | `api/routes/monitoring.py` + new alert rule settings form |
-| Generic pattern | Alert acknowledge/dismiss + alert history archive | MEDIUM | `api/routes/alerts.py` — add status field; `MonitoringPage.tsx` — mark-as-read UX |
-| Generic pattern | Webhook delivery channel (Slack, Discord, generic HTTP) | LOW | `notifications/` — add webhook dispatcher alongside email/Telegram |
-
-### UX Anti-Patterns to Avoid
-
-- **Ghostfolio's in-app-only delivery**: Our email + Telegram delivery is a real advantage. Don't remove channels to simplify.
-- **Alert flood without prioritization**: If every agent signal change generates an alert, users mute everything. Add severity levels (Critical/Warning/Info) and aggregation (don't fire the same rule twice in 24h unless condition worsens).
-- **Rules as code only**: If threshold changes require a code deploy, adoption is zero. Rules must be editable from the UI.
-
-### Roadmap Priority: HIGH (rules-builder UI); MEDIUM (webhook + alert history)
+| Action | File |
+|--------|------|
+| MODIFY | `tracking/tracker.py` (+ `compute_reliability_bins`, + `compute_ece`) |
+| MODIFY | `tracking/store.py` (no changes — uses existing `get_backtest_signals_by_agent`) |
+| MODIFY | `api/routes/calibration.py` (+ `include_reliability` query param, + ECE field) |
+| MODIFY | `api/models.py` (+ Pydantic models for `ReliabilityBin`) |
+| MODIFY | `frontend/src/api/types.ts` (+ `reliability_bins`, + `ece`) |
+| MODIFY | `frontend/src/components/calibration/AgentCalibrationRow.tsx` (+ expandable + ECE column) |
+| MODIFY | `frontend/src/components/calibration/CalibrationTable.tsx` (+ ECE header) |
+| NEW | `frontend/src/components/calibration/ReliabilityChart.tsx` |
+| NEW | `tests/test_tracker_reliability.py` (Brier-decomposition correctness) |
+| NEW | `frontend/src/components/calibration/__tests__/ReliabilityChart.test.tsx` |
 
 ---
 
-## Section 5: Dashboard UX Patterns
+### Q2 — SimFin provider (DATA-v2-02)
 
-**Layout, visualizations — what charts, what data density, what hierarchies.**
+**Current state.**
+- `agents/fundamental.py` calls `self._provider.get_key_stats(ticker)` and `self._provider.get_financials(ticker)` — provider is **injected**, not hardcoded
+- The injected provider in production is a `CachedProvider(YFinanceProvider())` (from `data_providers/factory.py::get_provider("stock")`)
+- `agents/fundamental.py` is the ONLY production call site for these methods (Tech/Macro/Crypto don't read fundamentals)
+- The agent has a `NON_PIT_WARNING` constant emitting "Data sourced from yfinance (non-point-in-time)" — already self-documenting that PIT is the gap
+- `FOUND-04` short-circuits FundamentalAgent in `backtest_mode` because yfinance returns restated financials — this is precisely the gap SimFin fills
 
-### What Competitors Do
+#### Recommendation
 
-**Ghostfolio** (Angular + Angular Material + Bootstrap utilities):
-- Mobile-first PWA layout; sidebar navigation
-- Homepage: net worth number + sparkline + performance band (Today/WTD/MTD/YTD)
-- Portfolio view: holdings table + proportion chart breakdown by asset class, sector, currency
-- Activity list: chronological buy/sell/dividend log
-- X-ray page: rule cards with status indicators
-- Chart types: line charts (performance over time), proportion/donut charts (allocation), bar charts (rebalancing deviation)
-- Data density: LOW-MEDIUM — clean, minimal, prioritizes legibility over information density
-- Source: [Ghostfolio GitHub](https://github.com/ghostfolio/ghostfolio), [XDA Developers review](https://www.xda-developers.com/this-self-hosted-app-changed-the-way-track-investments/)
+**Module placement.** Mirror Finnhub exactly: `data_providers/simfin_provider.py`. New class `SimfinProvider(DataProvider)`. Implements `get_financials(ticker, period)` and `get_key_stats(ticker)`. **Does NOT implement `get_price_history`** (raise `NotImplementedError`, same as Finnhub).
 
-**Wealthfolio** (Tauri + React 19 + Vite):
-- Desktop-first (Tauri native window) with PWA option
-- "Beautiful and boring" design philosophy — deliberately understated
-- Performance dashboard: cumulative return line chart, account comparison table
-- Holdings breakdown: sector/country pie charts, allocation table
-- Goal progress: visual target bars
-- Chart types: line charts (performance), pie/donut (allocation), bar charts (goals)
-- Data density: LOW — intentionally minimal
-- Source: [Wealthfolio website](https://wealthfolio.app/), [GitHub](https://github.com/afadil/wealthfolio), [HN thread](https://news.ycombinator.com/item?id=46006016)
+**Cache strategy.** SimFin distributes data primarily as bulk Parquet/CSV files (free tier: ~quarterly bulk download). Two-layer cache:
 
-**Portfolio Performance** (Java SWT desktop):
-- Multi-pane dashboard with configurable widgets
-- Dashboard widgets include: securities reaching price levels, rebalancing status bars, performance charts
-- Chart types: line charts (portfolio value over time), bar/pie charts (allocation vs. target), waterfall charts (contribution breakdown), candlestick (security price history)
-- High data density — tables everywhere, desktop paradigm
-- Source: [PP Manual](https://help.portfolio-performance.info/en/)
+1. **On-disk Parquet cache** at `data/cache/simfin/` — bulk CSV downloaded once per ~quarter, parsed lazily by ticker. Mirror `ParquetOHLCVCache` skeleton + Windows atomic-rename + 3-retry pattern.
+   - File: `data_providers/simfin_cache.py` (NEW — parallels `parquet_cache.py` and `dividend_cache.py`)
+   - TTL: 90 days (quarterly bulk drops) — but invalidate manually via SimFin's date-stamped bulk file
+2. **In-memory `TTLCache`** via `CachedProvider` wrapper — same 5-minute TTL applies for repeated `get_key_stats` calls within a request
 
-**TradeNote** (VueJS SPA):
-- Dashboard view: daily P&L, trade calendar, progress tracking
-- Daily view: trade list with pattern/mistake/note per trade
-- Calendar view: month-level P&L heatmap (calendar cells colored by daily profit/loss)
-- Screenshot gallery: annotated entry screenshots
-- Chart types: P&L bar charts, calendar heatmap, running balance line
-- Data density: MEDIUM — oriented toward pattern recognition
-- Source: [TradeNote GitHub](https://github.com/Eleven-Trading/TradeNote)
+**Cost assumption verification.** SimFin's free tier: API requires registration + free key, bulk CSV downloads available without auth. No paid tier required for v1.2 scope per Constraints. Verify before Phase 8 implementation by checking `https://simfin.com/data/access/api`.
 
-**OpenBB Workspace** (proprietary web UI):
-- Widget-based customizable dashboard canvas
-- Drag-drop widget placement
-- Chart types: tables, bar, pie, area charts as configurable widget types
-- Data density: HIGH — designed for professional analysts
-- Source: [OpenBB Workspace docs](https://docs.openbb.co/workspace)
+**Routing logic.** Three options — recommend **option C** (config flag + automatic fallback):
 
-### What We Do Today
+| Option | Pros | Cons |
+|--------|------|------|
+| A. Always use SimFin when `SIMFIN_API_KEY` set | Simple | Locks user out of yfinance fast path; 24h Parquet cache hides sparse-coverage gaps |
+| B. New routing layer in `factory.py` | Centralized | Adds another factory; routing logic spreads across factory + cached_provider |
+| C. **Config flag (`SIMFIN_FOR_FUNDAMENTALS=true`) + automatic ticker-coverage fallback** | Single switch; graceful degradation per-ticker | Slightly more code in `fundamental.py` |
 
-15-page React/TS dashboard with "Modern Craft" editorial design system:
-- `DashboardPage.tsx`: Overview cards + status
-- `PortfolioPage.tsx`: Holdings table, portfolio health score
-- `PositionDetailPage.tsx`: Per-position analytics, thesis display
-- `PerformancePage.tsx`: Performance metrics and charts
-- `RiskPage.tsx`: Risk analysis display
-- `JournalPage.tsx`: Journal insights
-- `MonitoringPage.tsx`: Alert display
-- `BacktestPage.tsx`: Backtest results
-- `SignalsPage.tsx`: Signal history
-- `WatchlistPage.tsx`: Watchlist management
-- `AnalysisHistoryPage.tsx`: Historical analysis
-- `WeightsPage.tsx`: Agent weight configuration
-- Chart library: Not specified in docs (likely Recharts or similar given React/TS stack)
-- Source: `.planning/codebase/STRUCTURE.md` (frontend/src/pages/)
+**Pick option C.** Reasoning:
+- SimFin coverage is solid for US equities but thin for ADRs / small caps — automatic fallback is safer than hard switch
+- Config flag respects existing project pattern (`ENABLE_LLM_SYNTHESIS`, `INVESTMENT_AGENT_CACHE_DISABLED`)
+- One change to `agents/fundamental.py` (try-SimFin → catch-and-fallback-to-yfinance) plus one provider injection in `engine/pipeline.py` — bounded blast radius
 
-**What we likely lack** (inferred — no visual screenshots available to this researcher):
-- Calendar heatmap for P&L history (TradeNote pattern — highly legible for trend spotting)
-- Proportion/donut charts for allocation breakdown (Ghostfolio pattern)
-- Multi-timeframe return selector (TWD/MTD/YTD/1Y toggle on dashboard summary card)
-- Spark lines on holdings table (mini-chart per row showing price trend)
+```python
+# engine/pipeline.py — modified section
+if asset_type == "stock":
+    fundamental_agent = FundamentalAgent(primary_provider)  # yfinance for prices/key_stats fallback
+    # NEW: if SimFin enabled, attach as PIT-preferred provider for fundamentals
+    if os.getenv("SIMFIN_FOR_FUNDAMENTALS") == "true":
+        try:
+            from data_providers.simfin_provider import SimfinProvider
+            fundamental_agent.set_pit_provider(SimfinProvider())
+        except Exception as exc:
+            pipeline_warnings.append(f"SimFin disabled: {exc}")
+    agents.append(fundamental_agent)
+```
 
-### What to Borrow
+```python
+# agents/fundamental.py — modified call site
+async def analyze(self, agent_input: AgentInput) -> AgentOutput:
+    # ... backtest_mode short-circuit ...
 
-| From | Pattern | Priority | Integration Point |
-|------|---------|----------|-------------------|
-| TradeNote | Calendar heatmap (daily P&L colored cells) | HIGH | `PerformancePage.tsx` or `DashboardPage.tsx` — add calendar widget using Recharts or a heatmap component |
-| Ghostfolio | Time-range toggle on summary metrics (Today/WTD/MTD/YTD/1Y/5Y) | HIGH | `DashboardPage.tsx` — performance band with toggle selector |
-| Ghostfolio | Proportion charts (donut) for sector/currency/asset class allocation | MEDIUM | `PortfolioPage.tsx` — add allocation donut alongside holdings table |
-| Portfolio Performance | Rebalancing deviation bars (actual vs. target weight side-by-side) | MEDIUM | `PortfolioPage.tsx` — add target weight column with deviation indicator |
-| Wealthfolio | Benchmark overlay on cumulative return chart | MEDIUM | `PerformancePage.tsx` — add benchmark line (SPY or configurable) |
-| TradeNote | Annotated screenshot attachment per position | LOW | `PositionDetailPage.tsx` — add media upload to thesis form |
+    # PIT-preferred provider when available, else yfinance
+    if self._pit_provider is not None and not agent_input.backtest_mode:
+        # SimFin path
+        try:
+            key_stats = await self._pit_provider.get_key_stats(agent_input.ticker)
+            financials = await self._pit_provider.get_financials(agent_input.ticker)
+            warnings.append("PIT data sourced from SimFin.")  # supersedes NON_PIT_WARNING
+        except Exception as exc:
+            self._logger.warning("SimFin lookup failed for %s, falling back to yfinance: %s", ...)
+            key_stats = await self._provider.get_key_stats(...)
+            financials = await self._provider.get_financials(...)
+            warnings.append(NON_PIT_WARNING)
+    else:
+        # Existing yfinance path
+        key_stats = await self._provider.get_key_stats(...)
+        ...
+```
 
-### Chart Type Inventory (what competitors use and why)
+**Critical detail — backtest_mode + SimFin.** If SimFin truly delivers point-in-time data, the FOUND-04 backtest_mode short-circuit could be **conditionally lifted** when SimFin is the active provider. This is a **separate REQ** (let's call it DATA-v2-02b) and should NOT be bundled with the basic provider work — it changes contract semantics for the FOUND-04 regression test (`test_synthesis_skipped_in_backtest_mode` analog).
 
-| Chart Type | Used By | When to Use |
-|------------|---------|-------------|
-| Line chart (cumulative return) | All | Portfolio performance over time — mandatory |
-| Proportion/donut chart | Ghostfolio, Wealthfolio | Allocation breakdown — better than pie for small slices |
-| Bar chart (deviation) | Portfolio Performance, Ghostfolio | Rebalancing: actual vs. target weight — highlights imbalances |
-| Calendar heatmap | TradeNote | Daily P&L pattern recognition — shows volatility clusters |
-| Candlestick/OHLC | Portfolio Performance, TV Lightweight | Price history for individual securities |
-| Waterfall/attribution | OpenBB | Return decomposition (allocation effect, selection effect) |
-| Spark lines | Wealthfolio (implied) | Holdings table — micro price trend per row |
-| Correlation heatmap | Quant Lab Alpha | Cross-asset correlation — useful in RiskPage |
-| Scatter (efficient frontier) | Quant Lab Alpha | Risk/return tradeoff — niche but valuable |
+**Files touched (Q2 summary):**
 
-### UX Anti-Patterns to Avoid
-
-- **Portfolio Performance's table density**: Java desktop paradigm (20-column tables, nested pane layouts) is hostile in a web context. Our "Modern Craft" direction is correct — maintain editorial hierarchy.
-- **OpenBB's drag-drop dashboard**: Powerful for analysts but overwhelms individual investors. Widget configurability is a complexity sink — defer it.
-- **Ghostfolio's mobile-first at cost of data density**: Their homepage is too sparse for a power user who wants all signals visible. Our 15-page structure gives appropriate depth — don't collapse it into a single overview screen.
-- **Heatmaps without tooltip**: Calendar heatmaps are useless without hover-tooltip showing exact date/value. Always pair heatmap cells with interactive tooltip.
-
-### Recommended Chart Library: TradingView Lightweight Charts + Recharts
-
-**TradingView Lightweight Charts** ([GitHub](https://github.com/tradingview/lightweight-charts), MIT, 10k stars):
-- Best-in-class candlestick, area, line charts for financial time series
-- 45KB bundle, performant on large datasets, HTML5 canvas
-- Vanilla JS/TS — requires React wrapper (community wrappers exist)
-- Use for: price history, signal overlays, backtest result charts
-- Confidence: HIGH (verified current, widely used in OSS finance tools)
-
-**Recharts** (current chart library pattern for React finance dashboards):
-- Declarative JSX API, ~1.8M weekly downloads, TypeScript support
-- Use for: allocation donuts, bar charts, performance lines, calendar heatmap (via custom cell)
-- Confidence: HIGH
-
-### Roadmap Priority: HIGH for calendar heatmap + time-range selector; MEDIUM for allocation donuts + benchmark overlay
+| Action | File |
+|--------|------|
+| NEW | `data_providers/simfin_provider.py` |
+| NEW | `data_providers/simfin_cache.py` (mirrors `parquet_cache.py`) |
+| MODIFY | `data_providers/__init__.py` (export `SimfinProvider`) |
+| MODIFY | `agents/fundamental.py` (+ `set_pit_provider`, + dual-path branch) |
+| MODIFY | `engine/pipeline.py` (+ inject SimfinProvider when env flag set) |
+| MODIFY | `pyproject.toml` (+ `simfin` optional dep — likely add to `[all]` extra; consider new `[fundamentals-pit]` extra) |
+| NEW | `tests/test_simfin_provider.py` |
+| NEW | `tests/test_fundamental_agent_simfin_routing.py` |
 
 ---
 
-## Section 6: Export and Reporting
+### Q3 — CoinGecko provider (DATA-v2-03)
 
-**PDF, CSV, Markdown, tax reports.**
+**Current state.**
+- `agents/crypto.py` is a 7-factor model — Factor 6 (`_score_network_adoption`) currently uses **STATIC constants** loaded from `config/crypto_adoption.yaml` (age_years, ETF status, regulatory, bear_survivals)
+- The agent emits a warning: `"Network adoption uses static constants (not live chain data). Factor weight reduced to 5%."`
+- CONCERNS.md flags this as a **"Missing Critical Feature"**: "On-chain metrics for crypto analysis... CryptoAgent uses price-based metrics only. No access to on-chain data (MVRV ratio, SOPR, exchange flows)"
+- Existing CCXT provider handles exchange-specific endpoints (funding rate, order book) but NOT on-chain data
+- Crypto factor weight `network_adoption: 0.05` is currently the lowest weighted factor — this is the lever to grow
 
-### What Competitors Do
+#### Recommendation
 
-**Portfolio Performance**: All data stored as XML; export to CSV and JSON available. PDF generation not documented; community uses third-party print-to-PDF.
+**Module placement.** New file `data_providers/coingecko_provider.py`. Class `CoinGeckoProvider(DataProvider)`. Mirrors Finnhub exactly. Free tier: 10-30 req/min on demo API (no key required for `/coins/markets` etc.); paid tier `/coins/{id}/community_data` and `/coins/{id}/developer_data` also accessible without key on demo throttle.
 
-**Ghostfolio**: JSON export of accounts, activities, custom asset profiles, market data. CSV import/export for activities. No PDF report generation.
+```python
+class CoinGeckoProvider(DataProvider):
+    _limiter = AsyncRateLimiter(
+        max_calls=int(os.getenv("COINGECKO_RATE_LIMIT", "10")),
+        period_seconds=60.0,
+    )
 
-**Wealthfolio**: CSV import from brokerages. Export capabilities not prominently documented.
+    async def get_on_chain_metrics(self, asset: str) -> dict:
+        """Returns {community_score, dev_score, watchlist_count, sentiment_pct, ...}.
 
-**rotki**: The strongest export story of any OSS tool — specifically designed for tax reporting. Generates profit/loss reports across any time period using customizable accounting settings (FIFO, LIFO, etc.). CSV and report exports.
-- Source: [rotki GitHub](https://github.com/rotki/rotki)
+        Maps asset string ('btc' / 'eth') to CoinGecko coin_id ('bitcoin' / 'ethereum').
+        """
+```
 
-**Beancount/Fava**: Plain-text ledger format is the export. Fava provides CSV export, balance sheet, income statement, and portfolio summary exports. Tax-period filtering built in.
+**Methods needed for v1.2:**
+- `get_on_chain_metrics(asset)` — community_data + developer_data + market_data subset
+- `get_price_history(...)` → `NotImplementedError` (yfinance/CCXT keeps OHLCV ownership; we want on-chain only)
+- `get_current_price(...)` → optional fallback (CoinGecko `/simple/price`); skip in v1.2 to keep scope tight
 
-**TradeNote**: Basic export implied; not a reporting-first tool.
+**On-chain signal integration into CryptoAgent.** Three options:
 
-**FinanceToolkit**: Python library outputs DataFrames; export is caller's responsibility.
+| Option | Description | Pros | Cons |
+|--------|-------------|------|------|
+| A. New 8th factor | Add `_score_on_chain_activity` factor with new weight | Clean addition; ranks alongside others | Forces re-balancing of all 7 weights — every existing test in `test_crypto_agent.py` must update |
+| B. **Replace `_score_network_adoption` from static → live data** | Same factor, same 5% weight, just real numbers | No weight rebalancing; warning string drops | Naming drift — "adoption" semantics change |
+| C. Sub-method merged into existing factor | Mix on-chain into Factor 7 (cycle_timing) | No new code paths | Conflates cycle vs adoption signals |
 
-### What We Do Today
+**Pick option B.** Reasoning:
+- Factor 6 was REDUCED from 10% → 5% in commit aaeb90b precisely because it was "a fixed bias rather than a dynamic signal". CoinGecko data restores it to dynamic.
+- Aligns with CONCERNS.md's "On-chain metrics" missing feature without re-architecting weights
+- No regression test churn — existing `_score_network_adoption` tests just need new mock fixtures
+- After validation, reliability plots (Q1) tell us whether to bump the 5% weight back up
 
-- `export/portfolio_report.py`: PDF/HTML report generation
-- `api/routes/export.py`: Export endpoints
-- Export Hub: EXISTS in frontend (mentioned in PROJECT.md as "export hub")
-- Source: `.planning/codebase/STRUCTURE.md`
+**Optional weight rebalance (deferred).** If reliability plots show `network_adoption_score` IC > 0.05, propose option A in v1.3 with empirical justification. Don't do this in v1.2.
 
-**What we lack relative to competitors:**
-- Tax-lot accounting (FIFO/LIFO cost basis tracking for capital gains) — rotki excels here
-- Markdown export for journal/thesis records (Beancount pattern — text-first)
-- Broker CSV import for auto-populating trades (Ghostfolio, Portfolio Performance, Wealthfolio all have this)
-- Scheduled report delivery (e.g., weekly email digest of portfolio state)
+**Confidence weighting.** On-chain signals share the existing Factor 6 weight (5%) — they don't get an independent confidence weight. The composite score → confidence formula at `agents/crypto.py:147` (`confidence = 50 + (abs(composite) - 20) * (40/80)`) already absorbs them via the weighted sum.
 
-### What to Borrow
+**Caching.** Mirror Finnhub: `_limiter` shared at class level + httpx async client. CoinGecko data updates frequently (5-min cadence) so use a **shorter TTL** than the macro 15-min default — recommend 1 hour for community/dev scores, 5 min for market data subset (matches `_DEFAULT_TTL`). Wrap in `CachedProvider`.
 
-| From | Borrow | Priority | Integration Point |
-|------|--------|----------|-------------------|
-| rotki | Tax-lot (FIFO/LIFO) capital gains report | MEDIUM | `export/` — new tax report generator; `api/routes/export.py` |
-| Ghostfolio/Portfolio Performance | CSV import of broker transactions | MEDIUM | `api/routes/portfolio.py` — bulk import endpoint (skeleton exists per `manager.py`) |
-| Beancount | Markdown export of journal/thesis history | LOW | `export/` — journal_to_markdown exporter |
-| Generic | Scheduled weekly digest email | LOW | `daemon/jobs.py` — add weekly_digest job |
+**Files touched (Q3 summary):**
 
-### Roadmap Priority: MEDIUM (tax-lot + CSV import); LOW (Markdown + digest)
-
----
-
-## Section 7: Rebalancing and Position-Sizing Guidance
-
-**Kelly, risk parity, mean-variance, target-weight deviation alerts.**
-
-### What Competitors Do
-
-**Portfolio Performance**:
-- Rebalancing viewer: user defines target weights per asset class; viewer shows actual vs. target
-- Rebalancing solutions when securities span multiple classifications
-- No position-sizing formula (no Kelly, no risk parity math) — purely visual
-- Source: [PP Manual](https://help.portfolio-performance.info/en/)
-
-**Ghostfolio**: Portfolio X-ray includes an experimental rebalancing suggestion. Shows which assets are over/underweight relative to target. No mathematical optimization.
-
-**Riskfolio-Lib** (Python library):
-- Full implementation: Kelly criterion, mean-variance (Markowitz, Ledoit-Wolf), risk parity (equal risk contribution), HRP, HERC, Black-Litterman
-- No UI — library only
-- Requires a frontend to expose recommendations
-- Source: [GitHub](https://github.com/dcajasn/Riskfolio-Lib)
-
-**Quant Lab Alpha**: Efficient frontier display with Ledoit-Wolf shrinkage; Markowitz optimization for allocation suggestions.
-
-**Wealthfolio**: Goal-based planning with allocation management. No mathematical optimization documented.
-
-**FinanceToolkit**: Portfolio module shows alpha, beta, performance but no sizing guidance.
-
-### What We Do Today
-
-- `backtesting/metrics.py`: Sharpe, Sortino, max drawdown — analytical metrics that inform sizing but no explicit sizing output
-- `engine/monte_carlo.py`: Block bootstrap Monte Carlo — risk simulation, not sizing
-- `engine/weight_adapter.py`: Adaptive agent weights (meta-level, not position sizing)
-- No Kelly criterion implementation found
-- No risk parity implementation found
-- No target-weight rebalancing visualization found
-- Source: `.planning/codebase/STRUCTURE.md`
-
-**We are behind competitors here.** Portfolio Performance and Ghostfolio both have visual rebalancing (target vs. actual weight display). We have no equivalent.
-
-### What to Borrow
-
-| From | Borrow | Priority | Integration Point |
-|------|--------|----------|-------------------|
-| Portfolio Performance / Ghostfolio | Target-weight vs. actual-weight visualization per position | HIGH | `PortfolioPage.tsx` — add target_weight field to positions; deviation displayed in table |
-| Riskfolio-Lib | Import as Python dependency for Kelly/risk parity calculations | MEDIUM | New `engine/sizing.py` wrapping Riskfolio; `api/routes/sizing.py` endpoint |
-| Quant Lab Alpha | Efficient frontier chart for current portfolio | LOW | `RiskPage.tsx` — add scatter plot showing portfolio point on risk/return frontier |
-
-### UX Anti-Patterns to Avoid
-
-- **Recommending rebalancing without friction**: Automated "rebalance now" suggestions lead to over-trading. Show deviation and recommendation, but require user confirmation (we don't execute orders anyway, but the UX framing matters).
-- **Kelly as default**: Full Kelly is known to be too aggressive (2x leverage implied). If adding Kelly, present as fractional Kelly (1/4 or 1/2) and label it clearly.
-
-### Roadmap Priority: HIGH for target-weight visualization; MEDIUM for Riskfolio integration; LOW for efficient frontier UI
+| Action | File |
+|--------|------|
+| NEW | `data_providers/coingecko_provider.py` |
+| MODIFY | `data_providers/__init__.py` (export `CoinGeckoProvider`) |
+| MODIFY | `agents/crypto.py` (replace `_score_network_adoption` static path with live data; keep static fallback when provider missing/429s) |
+| MODIFY | `engine/pipeline.py` (inject `CoinGeckoProvider` into CryptoAgent when COINGECKO env active — likely auto-enabled, no flag, since free tier doesn't require key) |
+| MODIFY | `agents/__init__.py` if CryptoAgent's constructor signature changes |
+| NEW | `tests/test_coingecko_provider.py` |
+| MODIFY | `tests/test_crypto_agent.py` (Factor 6 mock fixtures: live → static fallback) |
+| MODIFY | `config/crypto_adoption.yaml` (becomes the **fallback** values, not primary; rename comment) |
 
 ---
 
-## Section 8: Mobile / Responsive Story
+### Q4 — Drift-threshold validation (carry-forward from v1.1 Phase 7)
 
-**Even though we deprioritized mobile, this section documents where competitors land.**
+**Current state.**
+- `engine/drift_detector.py` ships with hardcoded thresholds: `DRIFT_THRESHOLD_PCT = 20.0` and `ICIR_FLOOR = 0.5`
+- These are flagged with `preliminary_threshold=True` whenever `MIN_SAMPLES_FOR_REAL_THRESHOLD=60` weekly observations haven't accumulated
+- `drift_log` table records every weekly evaluation (Sunday 17:30 cron) — this is the corpus for validation
+- v1.1 Key Decision (line 183): _"Revisit in v1.2 once 60+ weeks of weekly drift_detector runs accumulate"_
+- The corpus is `drift_log` itself, NOT `backtest_signal_history` — the validation question is "did the 20%/0.5 threshold catch real degradation?", which only makes sense against accumulated live drift evaluations
+- HOWEVER — at most 13 weeks of drift_log will exist by v1.2 ship (cron started 2026-04-25 with v1.1; v1.2 ships ~2026-05-15). The 60-week target is **not achievable in this milestone**.
 
-### What Competitors Do
+#### Recommendation — three sub-paths
 
-**Ghostfolio**: PWA, mobile-first design. Described as "mobile-first" with responsive layout. Works on phone browsers.
-- Source: [GitHub](https://github.com/ghostfolio/ghostfolio)
+**Sub-path A: Productized validation panel (UI + endpoint).** This is what the user wants in the long run. **Do this** in v1.2.
 
-**Wealthfolio**: Tauri desktop app with PWA option. iOS app released in v2.0+ (2025). Docker self-hosted option.
-- Source: [HN thread](https://news.ycombinator.com/item?id=46006016), [Wealthfolio website](https://wealthfolio.app/)
+- New API: `GET /api/v1/drift/validation` returns metrics on threshold accuracy: precision (true triggers / all triggers), recall (caught degradation / all degradation), false-positive rate against hindsight ground truth from `backtest_signal_history` IC-IR over the same windows
+- New page: `/drift-validation` (or panel embedded in `/calibration`)
+- Validation logic in NEW module `engine/drift_validation.py` (parallel to `engine/drift_detector.py` — same domain, different concern)
+- `drift_log` rows joined against `backtest_signal_history` rolling IC-IR (computed via existing `tracker.compute_rolling_ic`) for ground truth — does the threshold trigger correlate with subsequent IC-IR collapse?
 
-**Portfolio Performance**: Java desktop application. No mobile story whatsoever.
+**Sub-path B: Persisted validated thresholds.** Keep current hardcoded values, but **add a `drift_thresholds` table** — minimal schema:
 
-**rotki**: Desktop app (Electron). No mobile story.
+```sql
+CREATE TABLE drift_thresholds (
+    asset_type TEXT NOT NULL,
+    agent_name TEXT,                    -- NULL = applies to all agents
+    threshold_pct REAL NOT NULL,         -- e.g. 20.0
+    icir_floor REAL NOT NULL,            -- e.g. 0.5
+    source TEXT NOT NULL,                -- 'preliminary' | 'validated' | 'manual'
+    sample_size INTEGER,                 -- weeks of drift_log used
+    validated_at TEXT,
+    PRIMARY KEY (asset_type, agent_name)
+);
+```
 
-**TradeNote**: Responsive website (VueJS). Works on mobile for viewing; data entry primarily desktop.
+`engine/drift_detector.py` reads this table at runtime, falling back to hardcoded `DRIFT_THRESHOLD_PCT = 20.0` if the table is empty (back-compat). The validation panel (sub-path A) can WRITE to this table once enough corpus accumulates — bridging the gap from preliminary → validated.
 
-**Beancount/Fava**: Web UI, responsive. Plain-text files not ideal for mobile.
+**Sub-path C: Promote `preliminary_threshold` flag to `validated`.** Once sub-path A's validation panel runs and >= MIN_SAMPLES_FOR_REAL_THRESHOLD samples exist with reasonable precision/recall, the panel flips a per-(agent, asset_type) row in `drift_thresholds.source = 'validated'`. The drift detector reads this and stops emitting `preliminary_threshold=True` for that pair.
 
-### What We Do Today
+**Recommendation: do all three.** They're tightly coupled — A is the framework, B is the persistence, C is the lifecycle. Skipping any one creates carrying tech debt.
 
-Web-first (Vite + React + Tailwind). No PWA manifest, no mobile-specific layout work. Explicitly out of scope for this milestone per `PROJECT.md`.
+**Critical caveat (must be in PROJECT.md).** Even with v1.2's full validation framework, the cron-week corpus is 13 weeks at ship time. **The `validated` flag will not flip during v1.2 phase execution.** The deliverable is *capability to validate*, not *validated thresholds*. The validation panel will display "needs N more weeks of data" until 2026-07-XX or so. This is acceptable — the carry-forward closes when capability is shipped, not when threshold flips.
 
-### What to Borrow (Future Milestones Only)
+**Files touched (Q4 summary):**
 
-- Ghostfolio's PWA manifest + service worker pattern for installable web app — low effort, high perceived quality
-- Wealthfolio v3.0's "stale-valuation warnings" on mobile dashboard — useful pattern when values are > N hours old
-
-### Roadmap Priority: LOW (out of scope this milestone; PWA manifest is future quick-win)
-
----
-
-## Consolidated Comparison: Our Project vs. Competitors
-
-| Dimension | Our Project | Best OSS Competitor | Gap? |
-|-----------|-------------|---------------------|------|
-| **Thesis capture at entry** | Structured fields (target, stop, horizon, thesis text) | TradeNote (notes + tags, no structure) | WE WIN — unique in OSS |
-| **Continuous thesis drift monitoring** | Daily daemon + PortfolioMonitor | Ghostfolio X-ray (allocation rules, not thesis) | WE WIN — unique in OSS |
-| **Agent-based signal generation** | 6 parallel agents, regime-aware | TradingAgents (multi-agent LLM), FinRobot (research reports) | WE WIN on integration with portfolio tracking |
-| **Alert delivery channels** | Email + Telegram | Ghostfolio (in-app only) | WE WIN |
-| **Rules discoverability in UI** | Partial (MonitoringPage exists) | Ghostfolio (named rules list, toggles) | COMPETITOR WINS — borrow X-ray panel |
-| **TTWROR / IRR analytics** | Not found | Portfolio Performance, FinanceToolkit | COMPETITOR WINS — must add |
-| **Benchmark comparison** | Not found | Ghostfolio, Wealthfolio, Portfolio Performance | COMPETITOR WINS — must add |
-| **Performance attribution (Brinson)** | Not found | OpenBB Open Portfolio | COMPETITOR WINS — medium priority |
-| **Factor exposure (FF3/FF5)** | Not found | Quant Lab Alpha, Riskfolio-Lib | COMPETITOR WINS — low priority |
-| **Rebalancing (target-weight UI)** | Not found | Portfolio Performance, Ghostfolio | COMPETITOR WINS — must add |
-| **Position-sizing (Kelly / risk parity)** | Monte Carlo only | Riskfolio-Lib (library) | COMPETITOR WINS — medium priority |
-| **Export (PDF/HTML)** | export/portfolio_report.py | rotki (tax-focused), Ghostfolio (JSON/CSV) | PARTIAL — add tax-lot CSV |
-| **Tax-lot accounting** | Not found | rotki | COMPETITOR WINS — medium priority |
-| **Calendar heatmap (P&L)** | Not found | TradeNote | COMPETITOR WINS — borrow pattern |
-| **Allocation donut charts** | Not confirmed | Ghostfolio, Wealthfolio | LIKELY GAP — add to PortfolioPage |
-| **Mobile / PWA** | Not implemented | Ghostfolio, Wealthfolio | Out of scope this milestone |
-| **Trade journal annotations** | JournalPage + journal_analytics | TradeNote (richer: screenshots, psychology diary) | PARTIAL — borrow screenshot attachment |
-| **Backtesting** | Full backtester + Monte Carlo + regime | Riskfolio-Lib (math), Quant Lab Alpha (math) | WE WIN on integration |
-
----
-
-## Priority Summary for Roadmap
-
-### Must-Borrow (address within next milestone)
-
-1. **TTWROR + IRR per-position and aggregate** (Portfolio Performance / FinanceToolkit pattern): Our analytics page is missing the industry-standard performance metric. Every competitor has it. Add to `engine/analytics.py` and expose in `PerformancePage.tsx`.
-
-2. **Benchmark comparison overlay** (Ghostfolio / Wealthfolio pattern): Allow user to configure a benchmark ticker (SPY default); overlay on cumulative return chart. This is the most-requested missing feature type in self-hosted portfolio tools. Add to `PerformancePage.tsx`.
-
-3. **Target-weight rebalancing visualization** (Portfolio Performance / Ghostfolio pattern): Add a `target_weight` field per position; display actual vs. target deviation in `PortfolioPage.tsx`. No math required yet — visual only.
-
-4. **Named rules inventory panel** (Ghostfolio X-ray pattern): Make our existing alert rules visible and toggleable in `MonitoringPage.tsx`. Currently rules live in Python code; expose them via `api/routes/monitoring.py` as named configurable items.
-
-5. **Calendar heatmap for daily P&L** (TradeNote pattern): Add to `PerformancePage.tsx` or `DashboardPage.tsx`. Highly legible for spotting drawdown clusters. Use Recharts custom cell or a heatmap lib (react-calendar-heatmap).
-
-### Should-Borrow (medium priority)
-
-6. **Riskfolio-Lib for position sizing** (Kelly fractional / risk parity): Import as Python dependency; wrap in `engine/sizing.py`; expose via `api/routes/sizing.py`. Present recommendations, not automated rebalancing.
-
-7. **Broker CSV import** (Ghostfolio / Portfolio Performance pattern): Skeleton exists in `portfolio/manager.py` bulk_import. Complete the import UI in frontend — critical for user onboarding.
-
-8. **Tax-lot capital gains report** (rotki pattern): Add FIFO/LIFO cost basis tracking to `export/` for tax season utility.
-
-9. **Alert threshold UI editing** (Ghostfolio X-ray pattern): Rules today require Python code changes. Add threshold fields to the monitoring settings UI.
-
-10. **Allocation donut charts** (Ghostfolio pattern): Add proportion charts (sector, currency, asset class) to `PortfolioPage.tsx`. Recharts PieChart component — low implementation cost.
-
-### Not-Worth-Borrowing (this milestone)
-
-- **Factor exposure (FF5)**: Quant Lab Alpha shows the math works but Tkinter UI shows the demand is niche. Defer until benchmark comparison is proven useful.
-- **Brinson attribution**: OpenBB Open Portfolio is impressive, but it requires reliable TTWROR as a prerequisite. Build sequentially.
-- **Drag-drop widget dashboard**: OpenBB Workspace pattern — high complexity sink, wrong for solo operator focus.
-- **Mobile / PWA**: Explicitly out of scope per `PROJECT.md`.
-- **Psychology diary / annual playbook**: TradeNote's full journaling workflow. Our `JournalPage.tsx` already covers the core; the playbook extension is low-leverage.
+| Action | File |
+|--------|------|
+| NEW | `engine/drift_validation.py` (precision/recall computation against backtest_signal_history) |
+| MODIFY | `api/routes/drift.py` (extend with `GET /api/v1/drift/validation`) |
+| MODIFY | `db/database.py` (add `drift_thresholds` table migration) |
+| MODIFY | `engine/drift_detector.py` (read `drift_thresholds` table, fall back to constants) |
+| MODIFY | `frontend/src/pages/CalibrationPage.tsx` (mount validation panel below CalibrationTable) |
+| NEW | `frontend/src/components/calibration/DriftValidationPanel.tsx` |
+| NEW | `tests/test_drift_validation.py` |
+| NEW | `tests/test_drift_thresholds_table.py` |
 
 ---
 
-## Integration Points Summary
+## Build order — phase decomposition
 
-| Feature | Files to Modify or Create |
-|---------|--------------------------|
-| TTWROR + IRR | `engine/analytics.py`, `api/routes/analytics.py`, `PerformancePage.tsx` |
-| Benchmark comparison | `engine/analytics.py`, `api/routes/analytics.py`, `PerformancePage.tsx`, position/portfolio settings |
-| Target-weight visualization | `db/database.py` (add target_weight column), `portfolio/manager.py`, `api/routes/portfolio.py`, `PortfolioPage.tsx` |
-| Rules inventory panel | `api/routes/monitoring.py` (expose named rules), `MonitoringPage.tsx` |
-| Calendar heatmap | `PerformancePage.tsx` or `DashboardPage.tsx`, new chart component |
-| Riskfolio-Lib integration | `pyproject.toml` (add riskfolio-lib), new `engine/sizing.py`, new `api/routes/sizing.py` |
-| Broker CSV import UI | `frontend/src/pages/` (import wizard), `api/routes/portfolio.py` |
-| Allocation donut charts | `PortfolioPage.tsx`, no backend changes needed |
-| Alert threshold editing | `api/routes/monitoring.py`, `MonitoringPage.tsx` settings panel |
+Five phases, ordered by dependency. Phases 8-10 are the v1.2 milestone; Phase 11 is reserved for closeout/UAT/v1.3 prep.
+
+### Phase 8 — Provider plumbing (DATA-v2-02 + DATA-v2-03)
+
+**Why first:** Provider work is independent of UI. Reliability plots (Q1) need broader/cleaner corpus; thresholds (Q4) need more data points. Both benefit from earlier provider integration so the corpus accumulating between Phase 8 ship and Phase 10 ship has higher signal/noise.
+
+**Scope:**
+- SimfinProvider + simfin_cache + agent routing
+- CoinGeckoProvider + Factor 6 swap (static → live)
+- pyproject extras (`[fundamentals-pit]`, `[crypto-onchain]` — or fold into `[all]`)
+- Tests: provider-level + agent-routing tests
+
+**Independence claim:** Phase 8 ships without ANY frontend changes. The pipeline silently picks up SimFin/CoinGecko data; FundamentalAgent/CryptoAgent existing tests + new routing tests assert correctness.
+
+**Estimated reqs:** 2 (DATA-v2-02, DATA-v2-03). Possibly 3 if SimFin backtest_mode integration is split (DATA-v2-02b).
+
+### Phase 9 — Reliability plots (SIG-v2-01)
+
+**Why second:** Depends on Phase 8 only weakly (reliability plots compute from `backtest_signal_history`, which exists today; Phase 8 broadens future corpus but doesn't gate Phase 9). Could parallel with Phase 8 if researcher wants — but tests are easier to write when fundamentals quality has stabilized (avoids "is it the new provider or the new metric?" ambiguity).
+
+**Scope:**
+- `tracker.compute_reliability_bins` + `compute_ece`
+- API `/analytics/calibration?include_reliability=true` extension
+- Frontend ReliabilityChart component + AgentCalibrationRow expand
+- Backend + frontend tests
+
+**Estimated reqs:** 1 (SIG-v2-01).
+
+### Phase 10 — Drift-threshold validation (carry-forward)
+
+**Why third:** Depends on Phase 9 conceptually. The validation framework (precision/recall against IC-IR ground truth) reuses the same `tracker.compute_rolling_ic` infrastructure that Q1 leans on. Doing Q1 first builds confidence that the metric framework is correct before validating it.
+
+**Scope:**
+- `drift_thresholds` table + DB migration
+- `engine/drift_validation.py` precision/recall logic
+- `/api/v1/drift/validation` endpoint
+- `DriftValidationPanel.tsx` mounted in `CalibrationPage`
+- Tests covering "preliminary corpus, no flip" + "synthetic full corpus, flips happen"
+
+**Estimated reqs:** 1 (SIG-v2-04 carry-forward).
+
+### Phase 11 — Polish + UAT
+
+Reserved for: documentation, operator scripts (mirror `tests/test_close_*.py` skipif pattern), HUMAN-UAT.md trackers, milestone retrospective. No new requirements.
+
+### Dependency graph
+
+```
+                 ┌─────────────────────────────────┐
+                 │ Phase 8: Providers               │
+                 │  - SimFin                        │
+                 │  - CoinGecko                     │
+                 └────────────┬────────────────────┘
+                              │
+                 ┌────────────▼────────────────────┐
+                 │ Phase 9: Reliability plots       │  <- can also happen in parallel
+                 │  - tracker.compute_reliability   │     with Phase 8 if desired;
+                 │  - ECE metric                    │     listed sequential for clarity
+                 │  - ReliabilityChart UI           │
+                 └────────────┬────────────────────┘
+                              │
+                 ┌────────────▼────────────────────┐
+                 │ Phase 10: Drift validation       │
+                 │  - drift_thresholds table        │
+                 │  - engine/drift_validation.py    │
+                 │  - DriftValidationPanel UI       │
+                 └────────────┬────────────────────┘
+                              │
+                 ┌────────────▼────────────────────┐
+                 │ Phase 11: Polish + UAT (no new   │
+                 │           reqs, just closeout)   │
+                 └──────────────────────────────────┘
+```
+
+**Why NOT parallelize Phases 8 and 9:** Phase 9 ECE column will be tested against current corpus — testing against a corpus that might shift (when SimFin lights up FundamentalAgent in non-backtest_mode) introduces noise in regression tests. Sequential keeps confidence in each phase's ship signal.
+
+**Why NOT do Phase 10 before reliability plots:** Phase 10's validation panel reports threshold accuracy. Without ECE/reliability already in the UI, operators cannot cross-check whether a "validated" threshold matches what they see in the calibration view. Showing both surfaces side-by-side (validation panel UNDER calibration table) requires the reliability work to land first.
+
+---
+
+## Data flow diagram — request through new pipeline
+
+### Live analyze request (POST /analyze/{ticker} for stock)
+
+```
+User clicks "Analyze AAPL"
+  -> POST /api/v1/analyze/AAPL?asset_type=stock
+  -> api/routes/analyze.py
+       AnalysisPipeline.analyze_ticker("AAPL", "stock", portfolio)
+         -> engine/pipeline.py::_run_pipeline
+             -> primary_provider = CachedProvider(YFinanceProvider())
+             -> agents:
+                 TechnicalAgent(primary_provider)
+                 FundamentalAgent(primary_provider)
+                   |- if SIMFIN_FOR_FUNDAMENTALS=true
+                   |    |- SimfinProvider.get_key_stats(AAPL)
+                   |    `- SimfinProvider.get_financials(AAPL, "annual")
+                   |      -> simfin_cache (Parquet) -> SimFin API (rate-limited)
+                   |      -> warning: "PIT data sourced from SimFin"
+                   |- else (or SimFin failed):
+                   |    `- yfinance via CachedProvider (existing path)
+                   |      -> warning: NON_PIT_WARNING
+                   `- existing scoring + insider tilt path unchanged
+                 MacroAgent(FredProvider, YFinanceProvider)  [unchanged]
+                 SentimentAgent(...)  [unchanged]
+             -> asyncio.gather(*agents)
+             -> SignalAggregator.aggregate (reads agent_weights from DB)
+             -> regime detection [unchanged]
+             -> portfolio_overlay [unchanged]
+             -> llm_synthesis (opt-in) [unchanged]
+         -> AggregatedSignal returned to frontend
+```
+
+### Live analyze request (BTC)
+
+```
+User clicks "Analyze BTC"
+  -> POST /api/v1/analyze/BTC?asset_type=btc
+  -> AnalysisPipeline.analyze_ticker
+       -> primary_provider = YFinanceProvider (BTC-USD mapping)
+       -> CryptoAgent(primary_provider, on_chain_provider=CoinGeckoProvider())
+            |- Factor 1-5 unchanged (price/momentum/volatility/liquidity/macro)
+            |- Factor 6: _score_network_adoption
+            |    |- try: CoinGeckoProvider.get_on_chain_metrics("btc")
+            |    |      -> community_score, dev_score, watchlist_count, sentiment_pct
+            |    |      -> derive score from live signals (vs static yaml today)
+            |    |- except: fall back to crypto_adoption.yaml constants
+            |    |   -> warning: "On-chain provider unavailable; using static fallback"
+            |    `- return _clamp(score), metrics
+            `- Factor 7 unchanged
+       -> composite score -> signal/confidence -> AggregatedSignal
+```
+
+### Sunday cron — drift detector + new validation
+
+```
+Sunday 17:30 ET
+  -> daemon/scheduler.py triggers run_drift_detector
+  -> engine/drift_detector.evaluate_drift(db_path)
+       FOR each (agent, asset_type) in KNOWN_AGENTS x KNOWN_ASSET_TYPES:
+           -> tracker.compute_rolling_ic from backtest_signal_history
+           -- NEW: read drift_thresholds table for this (agent, asset_type)
+           --   if row exists with source='validated': use those thresholds
+           --   else: use DRIFT_THRESHOLD_PCT=20.0 / ICIR_FLOOR=0.5 (current behavior)
+           -> check delta_pct vs threshold
+           -> check current_icir vs floor
+           -> if triggered: _apply_drift_scale (NEVER-zero-all guard, manual_override preserve)
+           -> write drift_log row (preliminary_threshold = source != 'validated')
+
+Saturday 09:00 ET (NEW — optional cron)
+  -> run_drift_validation
+  -> engine/drift_validation.compute_validation_metrics(db_path)
+       FOR each (agent, asset_type):
+           -> load drift_log entries (last N weeks)
+           -> load backtest_signal_history rolling IC-IR (ground truth)
+           -> compute precision = (drift_log.triggered AND IC-IR collapsed within N weeks) / triggered_total
+           -> compute recall = same / IC-IR collapses
+           -> if N >= MIN_SAMPLES_FOR_REAL_THRESHOLD:
+                -> write to drift_thresholds (source='validated', threshold_pct=X)
+           -> expose via GET /api/v1/drift/validation
+```
+
+### Frontend reliability plot drill-down
+
+```
+User opens /calibration page
+  -> CalibrationPage useApi(getCalibrationAnalytics) [unchanged endpoint, NEW reliability_bins field]
+  -> CalibrationTable renders rows [+ NEW ECE column]
+  -> User clicks expand triangle on TechnicalAgent row
+  -> AgentCalibrationRow.expanded state = true
+  -> ReliabilityChart renders:
+        ScatterChart with bin midpoints (X) vs observed frequency (Y)
+        + reference line y=x (perfect calibration)
+        + point size = bin sample count
+        + color = ECE band (green/amber/red)
+  -> Tooltip shows: "Bin 0.5-0.6: predicted 55%, observed 42%, n=78"
+```
+
+---
+
+## Integration points — file path index
+
+### New files (Phase 8 — Providers)
+
+```
+data_providers/
+├── simfin_provider.py            [NEW — Q2]
+├── simfin_cache.py               [NEW — Q2; mirrors parquet_cache.py]
+└── coingecko_provider.py         [NEW — Q3]
+
+tests/
+├── test_simfin_provider.py       [NEW]
+├── test_coingecko_provider.py    [NEW]
+└── test_fundamental_agent_simfin_routing.py  [NEW]
+```
+
+### New files (Phase 9 — Reliability plots)
+
+```
+frontend/src/components/calibration/
+└── ReliabilityChart.tsx          [NEW — Q1]
+
+tests/
+└── test_tracker_reliability.py   [NEW]
+
+frontend/src/components/calibration/__tests__/
+└── ReliabilityChart.test.tsx     [NEW]
+```
+
+### New files (Phase 10 — Drift validation)
+
+```
+engine/
+└── drift_validation.py           [NEW — Q4]
+
+frontend/src/components/calibration/
+└── DriftValidationPanel.tsx      [NEW — Q4]
+
+tests/
+├── test_drift_validation.py      [NEW]
+└── test_drift_thresholds_table.py [NEW]
+```
+
+### Modified files (cumulative across phases)
+
+```
+agents/
+├── crypto.py                     [MODIFIED — Q3, Phase 8]
+└── fundamental.py                [MODIFIED — Q2, Phase 8]
+
+api/
+├── app.py                        [MODIFIED — register new routers if any]
+├── models.py                     [MODIFIED — Q1 + Q4 Pydantic shapes]
+└── routes/
+    ├── calibration.py            [MODIFIED — Q1, Phase 9: include_reliability param]
+    └── drift.py                  [MODIFIED — Q4, Phase 10: GET /validation]
+
+config/
+└── crypto_adoption.yaml          [MODIFIED — Q3, Phase 8: becomes fallback]
+
+data_providers/
+└── __init__.py                   [MODIFIED — exports]
+
+db/
+└── database.py                   [MODIFIED — Q4, Phase 10: drift_thresholds migration]
+
+engine/
+├── drift_detector.py             [MODIFIED — Q4, Phase 10: read drift_thresholds]
+└── pipeline.py                   [MODIFIED — Q2 + Q3, Phase 8: inject providers]
+
+frontend/src/
+├── api/types.ts                  [MODIFIED — Q1 + Q4: new types]
+├── pages/CalibrationPage.tsx     [MODIFIED — Q4, Phase 10: mount validation panel]
+└── components/calibration/
+    ├── AgentCalibrationRow.tsx   [MODIFIED — Q1, Phase 9: expandable + ECE column]
+    └── CalibrationTable.tsx      [MODIFIED — Q1, Phase 9: ECE header]
+
+pyproject.toml                    [MODIFIED — Q2 + Q3: new optional extras]
+
+tests/
+└── test_crypto_agent.py          [MODIFIED — Q3, Phase 8: Factor 6 mock fixtures]
+```
+
+---
+
+## Risks and trade-offs
+
+### Risk 1: SimFin coverage gap
+
+**What might go wrong:** SimFin free tier covers ~3000 US stocks reliably; ADRs, small caps, recent IPOs are spotty. Operator portfolios may have 30%+ tickers fall through to yfinance.
+
+**Mitigation:** Automatic per-ticker fallback (option C in Q2). Log warning but continue. Surface coverage stat in `/health` endpoint.
+
+### Risk 2: CoinGecko free-tier rate limit
+
+**What might go wrong:** 10-30 req/min free tier. CryptoAgent runs once per analyze + once weekly per held position. With 5 BTC/ETH positions and weekly digest, potential burst of 10 calls in <1s.
+
+**Mitigation:** TTLCache 1-hour TTL for community/dev scores. Daemon job runs sequentially, not parallel. Existing `AsyncRateLimiter` token-bucket already serializes.
+
+### Risk 3: ECE binning sensitivity
+
+**What might go wrong:** Reliability plots with 10 bins on a 200-row corpus = 20 samples/bin average — bin variance is high; ECE numbers may be misleadingly precise (e.g., "ECE = 0.142" when ±0.05 is the real uncertainty).
+
+**Mitigation:** Apply N>=20 per-bin floor (matches existing `compute_calibration_data` pattern). Surface bin sample size in tooltip. Add "preliminary_calibration: true" flag when total N < 200, mirroring Phase 2 contract.
+
+### Risk 4: Drift validation depends on corpus that won't exist
+
+**What might go wrong:** As noted in Q4: 13 weeks of `drift_log` at v1.2 ship; 60 needed for `validated` flag. Validation panel ships with permanent "preliminary, need 47 more weeks" UI.
+
+**Mitigation:** Be transparent — call out in PROJECT.md "Key Decisions" that v1.2 ships *capability* not *validated thresholds*. The closeout for the carry-forward is the panel landing, not the flag flipping.
+
+### Risk 5: SimFin licensing for backtests
+
+**What might go wrong:** SimFin terms-of-service may restrict redistribution. Operator running historical backtests creates derived data — is that distributable?
+
+**Mitigation:** Verify SimFin TOS during Phase 8 research. If restrictive, document in `pyproject.toml` extra description ("non-commercial / personal use only — see SimFin TOS"). Mirror Finnhub's existing free-tier disclaimer pattern.
+
+---
+
+## Anti-patterns to avoid
+
+### Anti-pattern 1: Adding a new provider factory parallel to `data_providers/factory.py`
+
+**What people might do:** Create `factory_v2.py` with SimFin/CoinGecko-aware routing.
+
+**Why it's wrong:** Splits routing logic across two factories; future readers must check both.
+
+**Do this instead:** Inject providers explicitly at the agent construction point in `engine/pipeline.py` (just below where `MacroAgent`/`SentimentAgent` are conditionally appended). The `factory.get_provider()` stays single-source-of-truth for the primary provider.
+
+### Anti-pattern 2: Coupling reliability plots to live `signal_history`
+
+**What people might do:** Argue "reliability is a LIVE metric — should pull from `signal_history`".
+
+**Why it's wrong:** Live `signal_history` is sparse (10 rows as of 2026-04-21 per CONCERNS.md). Existing Brier/IC/IC-IR uses `backtest_signal_history` for the same reason. Splitting sources = drift across charts.
+
+**Do this instead:** Reuse `SignalStore.get_backtest_signals_by_agent`. When live `signal_history` accumulates 200+ rows, revisit in v1.3+ (and probably retire `backtest_signal_history` entirely as the calibration corpus).
+
+### Anti-pattern 3: Adding on-chain as a NEW factor in CryptoAgent
+
+**What people might do:** Add `_score_on_chain_activity` as an 8th factor with its own weight.
+
+**Why it's wrong:** Forces every weight in `FACTOR_WEIGHTS` dict to renormalize; every regression test in `test_crypto_agent.py` updates; introduces subjective weight choice with no empirical backing.
+
+**Do this instead:** Replace static path inside existing Factor 6 (`_score_network_adoption`). Same 5% weight. Defer weight rebalancing to v1.3 once reliability plots show whether on-chain signal merits more weight.
+
+### Anti-pattern 4: Hardcoding new `drift_thresholds` defaults
+
+**What people might do:** After validation, replace `DRIFT_THRESHOLD_PCT = 20.0` constant with `DRIFT_THRESHOLD_PCT = 18.0` (or whatever validation found).
+
+**Why it's wrong:** Constant changes ship as code, require deploys, can't differ per (agent, asset_type) — but real validated thresholds DO differ by combo (TechnicalAgent vs MacroAgent have different signal/noise profiles).
+
+**Do this instead:** Use the `drift_thresholds` table (sub-path B from Q4). Per-(agent, asset_type) row. Validation panel writes; detector reads. Constants stay as fallback for cold-start.
+
+---
+
+## Suggested phase boundaries (recap for roadmapper)
+
+| Phase | Title | Reqs | Frontend? | Backend-only? | Independent? |
+|-------|-------|------|-----------|---------------|--------------|
+| 8 | Providers (SimFin + CoinGecko) | DATA-v2-02 + DATA-v2-03 | NO | YES | YES — could ship without 9 or 10 |
+| 9 | Reliability plots | SIG-v2-01 | YES | NO | Weakly depends on 8 (corpus quality) |
+| 10 | Drift-threshold validation | SIG-v2-04 (carry-forward) | YES | YES | Depends on 9 (UI mounting) |
+| 11 | Polish + UAT closeout | none | mixed | mixed | Sequential after 10 |
+
+Total: ~4 reqs across ~4 phases (matches scoping note in PROJECT.md "~3 phases / ~12 reqs" — but the request hint of 12 reqs seems high for a 4-feature milestone; expect roadmapper to break each REQ into 2-3 sub-reqs to land at ~12).
 
 ---
 
 ## Sources
 
-- Ghostfolio GitHub: https://github.com/ghostfolio/ghostfolio
-- Ghostfolio DeepWiki portfolio management: https://deepwiki.com/ghostfolio/ghostfolio/4-portfolio-management
-- Ghostfolio X-ray issues: https://github.com/ghostfolio/ghostfolio/issues/3247, https://github.com/ghostfolio/ghostfolio/issues/4477
-- Wealthfolio GitHub: https://github.com/afadil/wealthfolio
-- Wealthfolio website: https://wealthfolio.app/
-- Wealthfolio HN thread (v2.0 launch): https://news.ycombinator.com/item?id=46006016
-- Portfolio Performance GitHub: https://github.com/portfolio-performance/portfolio
-- Portfolio Performance manual (trades view): https://help.portfolio-performance.info/en/reference/view/reports/performance/trades/
-- Portfolio Performance manual: https://help.portfolio-performance.info/en/
-- TradeNote GitHub: https://github.com/Eleven-Trading/TradeNote
-- InvestBrain GitHub: https://github.com/investbrainapp/investbrain
-- OpenBB GitHub: https://github.com/OpenBB-finance/OpenBB
-- OpenBB Open Portfolio blog: https://openbb.co/blog/open-portfolio-a-suite-for-asset-managers-on-openbb/
-- TradingAgents GitHub: https://github.com/TauricResearch/TradingAgents
-- FinRobot GitHub: https://github.com/AI4Finance-Foundation/FinRobot
-- Riskfolio-Lib GitHub: https://github.com/dcajasn/Riskfolio-Lib
-- Quant Lab Alpha GitHub: https://github.com/husainm97/quant-lab-alpha
-- FinanceToolkit GitHub: https://github.com/JerBouma/FinanceToolkit
-- rotki GitHub: https://github.com/rotki/rotki
-- Beancount/Fava GitHub: https://github.com/beancount/fava
-- TradingView Lightweight Charts GitHub: https://github.com/tradingview/lightweight-charts
-- Pinnacle GitHub: https://github.com/F4pl0/pinnacle
-- Beancount.io features: https://beancount.io/docs/Tips/ui-features
-- OpenBB Workspace docs: https://docs.openbb.co/workspace
+- `agents/fundamental.py` — FundamentalAgent integration point + FOUND-04 contract
+- `agents/crypto.py` — CryptoAgent 7-factor model + Factor 6 static path
+- `data_providers/finnhub_provider.py` — provider pattern template
+- `data_providers/cached_provider.py` + `parquet_cache.py` + `dividend_cache.py` — cache pattern templates
+- `data_providers/rate_limiter.py` — token-bucket pattern
+- `engine/pipeline.py` — agent construction + provider injection point
+- `engine/drift_detector.py` — drift detection scaffold; threshold constants
+- `tracking/tracker.py` — Brier/IC/IC-IR + existing `compute_calibration_data`
+- `tracking/store.py` — `get_backtest_signals_by_agent` reader
+- `api/routes/calibration.py` — current `/analytics/calibration` shape + WARNING 11 contract
+- `api/routes/drift.py` — current `/api/v1/drift/log` endpoint
+- `api/app.py` — router registration point
+- `frontend/src/pages/CalibrationPage.tsx` — frontend mount + tab structure
+- `frontend/src/components/calibration/*` — existing component family
+- `.planning/PROJECT.md` — milestone scope + Key Decisions
+- `.planning/codebase/CONCERNS.md` — pre-existing tech debt + missing-feature list
+
+Confidence: HIGH. All findings are grounded in direct file reads of the existing codebase. No external library research was needed (the question was integration, not greenfield design). External provider docs (SimFin/CoinGecko) carry MEDIUM confidence pending Phase 8 verification, but the integration *pattern* (mirror Finnhub) is HIGH confidence.
 
 ---
-
-*Analysis date: 2026-04-21*
-*Confidence: MEDIUM — GitHub READMEs and documentation verified; actual running UX not screen-tested against live instances. Feature absences are based on documentation review; some features may exist but are undocumented.*
+*Architecture research for: v1.2 Trustworthy Signals — brownfield integration into existing Investment Agent*
+*Researched: 2026-04-27*

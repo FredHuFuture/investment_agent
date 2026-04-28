@@ -1,505 +1,312 @@
-# Comparative Technology Stack: Agent Design & Signal Quality
+# Stack Research — v1.2 Trustworthy Signals
 
-**Project:** Investment Agent — Agent Design & Signal Quality Dimension
-**Research Date:** 2026-04-21
-**Mode:** Competitive gap analysis (brownfield)
-**Confidence:** MEDIUM–HIGH (GitHub metrics verified; feature depth varies by source quality)
-
----
-
-## Scope
-
-This document surveys 14 active OSS projects in the investment-agent / algorithmic-trading / AI-finance space and compares them against our system on five dimensions:
-
-1. Agent structure / LLM roles / tool use / memory / reflection
-2. Signal aggregation strategy
-3. Backtesting rigor
-4. Risk modeling
-5. Calibration and prediction-quality metrics
-
-For each area the gap classification key is:
-
-| Label | Meaning |
-|-------|---------|
-| **MUST** | High-value gap we are missing; concrete borrowable pattern exists |
-| **NICE** | Incremental improvement; real value but not blocking |
-| **NO** | Not worth the cost; low ROI or out of scope |
+**Project:** Investment Agent — v1.2 milestone (subsequent / brownfield)
+**Researched:** 2026-04-27
+**Mode:** Stack additions for 4 NEW capabilities only — `.planning/PROJECT.md` `## Validated` section already covers v1.0+v1.1 stack
+**Confidence:** HIGH (PyPI/GitHub release dates verified; SimFin SDK abandonment + CoinGecko Demo limits cross-checked against vendor docs)
 
 ---
 
-## OSS Project Registry
+## Executive Summary
 
-| # | Project | GitHub URL | Stars (Apr 2026) | Last Release | Domain Focus |
-|---|---------|-----------|-----------------|--------------|-------------|
-| 1 | ai-hedge-fund | https://github.com/virattt/ai-hedge-fund | 56.6k | Active (commits Mar 2026) | LLM multi-agent investing |
-| 2 | TradingAgents | https://github.com/TauricResearch/TradingAgents | 52k | v0.2.3 Mar 2026 | LLM multi-agent trading |
-| 3 | OpenBB | https://github.com/OpenBB-finance/OpenBB | 65.9k | Active 2026 | Financial data platform + AI agents |
-| 4 | qlib (Microsoft) | https://github.com/microsoft/qlib | 41.1k | v0.9.7 Aug 2025 | Quant ML / factor research |
-| 5 | FinRL | https://github.com/AI4Finance-Foundation/FinRL | 14.8k | v0.3.8 Mar 2026 | Deep RL trading |
-| 6 | FinGPT | https://github.com/AI4Finance-Foundation/FinGPT | 19.7k | Active 2025 | Financial LLM fine-tuning |
-| 7 | freqtrade | https://github.com/freqtrade/freqtrade | 49.1k | Active 2026 | Crypto algo trading + FreqAI |
-| 8 | nautilus_trader | https://github.com/nautechsystems/nautilus_trader | 22.1k | v1.208.0 Apr 2026 | Production trading engine (Rust/Python) |
-| 9 | vectorbt | https://github.com/polakowo/vectorbt | 7.2k | Active (master) | Vectorized backtesting + portfolio |
-| 10 | jesse | https://github.com/jesse-ai/jesse | 7.7k | Active 2025 | Crypto algo trading + Monte Carlo |
-| 11 | zipline-reloaded | https://github.com/stefan-jansen/zipline-reloaded | 1.7k | v3.1.1 Jul 2025 | Event-driven equity backtesting |
-| 12 | lumibot | https://github.com/Lumiwealth/lumibot | 1.4k | v4.5.1 Apr 2026 | AI agent backtesting + live trading |
-| 13 | Hummingbot | https://github.com/hummingbot/hummingbot | 18.2k | v2.13.0 Mar 2026 | Crypto market-making bots |
-| 14 | QuantStats | https://github.com/ranaroussi/quantstats | Active 2025 | Portfolio analytics | Risk/performance metrics library |
+Four v1.2 capabilities require stack changes. Three are **zero new heavy deps** by reusing what's already transitively installed (scipy, numpy, sklearn, recharts) or extending what's pinned (httpx). One requires **two small core deps** (`coingecko-sdk` + new HTTP client glue for SimFin v3 REST).
 
-**Additional academic / research frameworks reviewed (not full OSS projects):**
-- MarketSenseAI (arxiv:2502.00415) — 5-agent RAG+LLM architecture; 125.9% cumulative return on S&P 100 (2023–2024) vs 73.5% index
-- HedgeAgents (arxiv:2502.13165) — balanced-aware multi-agent system
-- FinRL-X / FinRL-Trading (AI4Finance-Foundation/FinRL-Trading) — next-gen modular infrastructure for quantitative trading
+**Bottom line:**
+
+| v1.2 Capability | New PyPI/npm Deps | Default-install Δ | Decision |
+|---|---|---|---|
+| SIG-v2-01 — Reliability plots | None — `scikit-learn>=1.6` already transitive via quantstats | 0 MB (already there) | **Promote `scikit-learn>=1.4` to direct dep** for explicit contract |
+| DATA-v2-02 — SimFin point-in-time | None — pure httpx client (SimFin SDK abandoned, see below) | 0 MB | **Build thin async wrapper using existing `httpx`**, not `simfin` PyPI |
+| DATA-v2-03 — CoinGecko on-chain | `coingecko-sdk>=1.14.2` (Apache-2.0, ~330 KB) | +0.3 MB | **Add to core deps** — official, async, Stainless-generated |
+| DRIFT-v2-04 — Threshold validation | None — extend existing `backtesting/walk_forward.py` + `tracking/tracker.py` | 0 MB | **No new lib** — new utility module `engine/drift_validator.py` |
+
+Total new install footprint: **~0.3 MB** (well under 50 MB threshold). No `[optional-extras]` needed.
+
+**Key NOT-recommendations:**
+- ❌ `simfin` PyPI SDK — last release 2024-04-03, project marked Inactive by Snyk, predates SimFin v3 API redesign
+- ❌ `pycoingecko` (community wrapper) — not async, official `coingecko-sdk` superseded it Nov 2024
+- ❌ `netcal` / `ReliabilityDiagram` PyPI packages — sklearn's `calibration_curve` is a single function call; pulling another lib for one binning operation is overkill
+- ❌ Migration to ApexCharts / Chart.js for reliability plot — Recharts `ScatterChart` + reference line covers the diagonal-vs-curve plot natively (Phase 4 already chose Recharts; Recharts handles scatter+line)
 
 ---
 
-## Dimension 1: Agent Structure / LLM Roles / Tool Use / Memory / Reflection
+## Recommended Stack
 
-### How OSS Projects Do It
+### Core Technologies (additions to `pyproject.toml [project] dependencies`)
 
-**ai-hedge-fund (56.6k stars):**
-Uses LangGraph for agent orchestration. 19 agents total: 14 persona agents modeling legendary investors (Buffett, Munger, Lynch, Damodaran, etc.), 4 analysis agents (Valuation, Sentiment, Fundamentals, Technicals), and 2 operational agents (Risk Manager, Portfolio Manager). Each persona agent is an LLM instance with a system prompt encoding that investor's philosophy. Signal aggregation: portfolio manager LLM agent reads all analyst signals and produces a final weighted decision via natural language. No formal memory or reflection loop documented in the public repo (`src/backtester.py`). No tool-use framework beyond LangGraph node routing. Educational POC only; no production backtesting rigor.
+| Technology | Version | Purpose | Why Recommended |
+|---|---|---|---|
+| `scikit-learn` | `>=1.4,<2.0` | `calibration_curve()` for reliability plot binning + `brier_score_loss` (cross-check against existing custom impl) | Already transitively installed (1.6.1 verified via `pip show`); promoting to direct dep makes the contract explicit and pins minimum required for `pos_label` kwarg (added in 1.1) and stable `strategy='quantile'` semantics. License BSD-3-Clause (compatible). Latest stable 1.8.0 (per scikit-learn.org). |
+| `coingecko-sdk` | `>=1.14.2,<2.0` | Official CoinGecko REST client for `/coins/{id}` developer_data + community_data + `/coins/{id}/market_chart` for CryptoAgent network signals | Apache-2.0; native httpx (matches our async pattern); type-safe (Stainless-generated); supports `x-cg-demo-api-key` header authentication; install size 330 KB wheel. Released 2026-04-21 (within last 6 days, actively maintained). Supersedes the unmaintained `pycoingecko` community wrapper. |
 
-**TradingAgents (52k stars):**
-Built on LangGraph. Five-phase sequential pipeline: Analyst Team (4 concurrent: Fundamentals, Sentiment, News, Technical) → Research Team (Bull Researcher + Bear Researcher in structured debate) → Trader Agent → Risk Management Team → Portfolio Manager. The Bull/Bear debate is the key architectural differentiator: two agents argue opposing positions before the Trader synthesizes. Supports 13+ LLM providers (OpenAI, Anthropic, Google, xAI, Ollama). No documented memory or reflection mechanism in the public README as of v0.2.3. No quantitative backtesting rigor (LLM output, not numerical signals).
+### Indirect / promotion-only (no new install, just direct-dep declaration)
 
-**OpenBB + openbb-agents:**
-OpenBB itself is a data platform ("connect once, consume everywhere") exposing market data via MCP servers, REST APIs, Python SDK. The experimental openbb-agents project (https://github.com/OpenBB-finance/openbb-agents) uses LLMs with function calling to autonomously query OpenBB data and answer financial research questions. No multi-agent debate or reflection; single LLM with tool access to a rich data layer.
+| Technology | Version | Purpose | Why Promote |
+|---|---|---|---|
+| `numpy` | `>=1.26,<3.0` | Reliability plot bin edges + drift validator percentile calcs (already used everywhere) | Currently transitively installed (2.2.6 verified). Promoting to direct dep prevents quantstats-driven version drift and makes the `np.histogram` / `np.percentile` contract explicit. License BSD-3-Clause. |
+| `scipy` | `>=1.10,<2.0` | `pearsonr` already used in `tracking/tracker.py:389`; drift validator will add `wilcoxon` for paired threshold significance | Currently transitively installed (1.15.3 verified) and lazy-imported in `tracking/tracker.py`. Promoting makes the explicit contract that we depend on it directly (drift-threshold validation needs paired hypothesis tests). License BSD-3-Clause. |
 
-**qlib (41.1k stars):**
-Not LLM-agent-based; factor/ML model pipeline. RD-Agent integration (LLM-driven automated factor mining and code generation). Agents here are ML model training loops, not LLM personas. The RD-Agent extension (https://github.com/microsoft/RD-Agent) uses LLMs to autonomously propose, implement, and evaluate new alpha factors. This is "LLM as research loop" rather than "LLM as analyst persona."
+### Supporting Libraries (no new installs — REUSE existing)
 
-**FreqAI (freqtrade):**
-ML signal generation within the Freqtrade strategy framework. Models are retrained on rolling windows (adaptive retraining). Supports classification and regression pipelines. No LLM or multi-agent design; purely ML pipeline feeding into strategy execution logic. Signal aggregation via user-defined strategy combining ML predictions with technical indicators.
+| Library | Version (existing) | Purpose | Integration Point |
+|---|---|---|---|
+| `httpx` | `>=0.27` | Async REST client for SimFin v3 API (`https://prod.simfin.com` / `/api/v3/companies/statements`) | Matches `data_providers/finnhub_provider.py` pattern (lines 79-90); same default_params auth approach; same `AsyncRateLimiter` decoration. **Build `data_providers/simfin_provider.py` as a thin httpx-only client — DO NOT install the abandoned `simfin` PyPI SDK.** |
+| `pyarrow` | `>=14.0` | Parquet disk cache for SimFin statements (24h TTL — fundamentals don't change intraday) | Reuse `data_providers/parquet_cache.py::ParquetOHLCVCache` pattern (lines 34-128). New file `data_providers/simfin_cache.py` keyed `(ticker, statement_type, period, fyear)` matching FOUND-02 sibling pattern (`data_providers/dividend_cache.py` already exists at 87-145 of yfinance_provider.py). |
+| `recharts` | `^2.13.0` | `ScatterChart` + `ReferenceLine` for reliability plot (predicted prob × realized win rate, with diagonal y=x reference) | Already in `frontend/package.json:18`. Already used in `ICSparkline.tsx`, `EquityCurveChart.tsx`, `LessonAnalytics.tsx`, `RegimeTimeline.tsx`, `BacktestComparison.tsx`. **Add new component `frontend/src/components/calibration/ReliabilityPlot.tsx` reusing the existing chart-color palette in `frontend/tailwind.config.ts`.** |
+| `aiosqlite` | `>=0.19` | Drift validator persistence — extend existing `drift_log` table with new columns OR add `drift_threshold_validation` table | Already core. New migration in `db/database.py` adds either `validation_run_at`, `wilcoxon_p_value`, `n_samples_used` columns to `drift_log` OR a separate one-row-per-validation-run table. |
 
-**MarketSenseAI (research):**
-Five specialized agents (News, Fundamentals, Dynamics, Macroeconomics, Signal Generation). Final signal agent uses CoT reasoning to fuse all other agents' outputs into a Buy/Hold/Sell decision with written rationale. RAG integration over SEC filings and earnings calls. S&P 100 backtest 2023–2024: +125.9% vs +73.5% index. This is the closest external analogue to our architecture.
+### Development Tools (no changes)
 
-### What We Do Today
+| Tool | Purpose | Notes |
+|---|---|---|
+| `pytest>=8.0` | Backend tests for new providers + reliability binning | Already in `[dev]` extra. Use existing `network` marker for live SimFin/CoinGecko round-trips (skipped in CI). |
+| `vitest>=2.1.8` | Frontend tests for `ReliabilityPlot.tsx` | Already configured. Use the existing snapshot pattern (mirroring `ICSparkline.test.tsx` / `WeightsEditor.test.tsx` from v1.1 Phase 6). |
 
-- 6 agents: Technical, Fundamental, Macro, Crypto, Sentiment, Summary (`agents/`)
-- No LLM personas; each agent runs deterministic Python logic (pandas_ta indicators, fundamental ratios, VIX normalization, etc.)
-- Sentiment agent optionally calls Claude API for news interpretation (`agents/sentiment.py`)
-- No structured debate between agents; no bull/bear researcher layer
-- No formal memory: each analysis is stateless (no agent sees its own history or corrects itself)
-- No reflection loop: agents do not critique each other's outputs
-- No tool-use framework (agents call data providers directly, not via LangGraph/CrewAI/AutoGen)
+---
 
-### Gap Analysis
+## Per-Capability Detailed Rationale
 
-| Gap | Classification | Rationale |
-|-----|---------------|-----------|
-| Bull/Bear researcher debate layer (TradingAgents pattern) | **MUST** | Forces explicit consideration of downside before aggregation. Our aggregator averages signals; a debate layer catches cases where one strongly-negative agent is drowned out by four neutral ones. Borrowable: add a `ResearchSynthesizer` step that runs a structured pro/con prompt over all agent outputs before producing final signal. Cost: 1 LLM call per analysis. Integration surface: `engine/pipeline.py` post-gather, pre-aggregation. |
-| Agent memory / historical context | **NICE** | Agents that remember their last 5 signals for a ticker can detect their own drift. Low priority vs other gaps but enables "self-aware" confidence dampening. Integration surface: pass signal history from `tracking/store.py` back into agent context. No new infrastructure needed. |
-| LangGraph / structured agent orchestration | **NICE** | LangGraph is mature (used by TradingAgents and ai-hedge-fund) but adds a dependency. Our current `asyncio.gather()` pipeline is simpler and faster for our deterministic Python agents. Worth evaluating only if we add true LLM-persona agents. |
-| LLM persona agents (Buffett, Munger style) | **NO** | Persona prompting is entertaining but not reliably calibrated. Our deterministic agent logic is more predictable and testable. Educational novelty, not signal quality. |
-| RAG over SEC filings / earnings calls | **NICE** | MarketSenseAI shows RAG materially improves fundamental analysis. We have no SEC filing ingestion. Would require a document store (Chroma, FAISS). Not blocking for this milestone. |
+### SIG-v2-01: Calibration Reliability Plots
 
-**Recommended borrowable pattern — Bull/Bear synthesis step:**
-```python
-# engine/pipeline.py (new step after asyncio.gather())
-async def _run_synthesis(agent_outputs: list[AgentOutput], ticker: str) -> SynthesisOutput:
-    bull_case = [a for a in agent_outputs if a.signal.value > 0.5]
-    bear_case = [a for a in agent_outputs if a.signal.value < -0.5]
-    prompt = f"Bull signals: {bull_case}\nBear signals: {bear_case}\nSynthesize..."
-    return await llm_client.complete(prompt)
+**Question:** Custom binning vs `scikit-learn.calibration_curve()` vs PyPI `netcal` / `ReliabilityDiagram` packages?
+
+**Recommendation:** **`sklearn.calibration.calibration_curve`** + **Recharts `ScatterChart`** for the frontend. No new PyPI/npm installs.
+
+**Rationale:**
+1. **scikit-learn is already installed** (1.6.1 verified via `pip show`, transitively via `quantstats>=0.0.81 → numpy → ...`). Pinning it as a direct dep `>=1.4` (a) makes the contract explicit, (b) ensures the `pos_label` kwarg is available (added 1.1), (c) ensures `strategy='quantile'` is stable.
+2. **`calibration_curve(y_true, y_prob, n_bins=10, strategy='quantile')`** is a 1-line replacement for the existing custom binning in `tracking/tracker.py::compute_calibration_data` (lines 96-135). Quantile binning prevents empty/sparse bins — important because our corpus is small (`MIN_SAMPLES_FOR_REAL_THRESHOLD=60` in `engine/drift_detector.py:32`).
+3. **NOT `netcal`** (~5 MB wheel + scipy/sklearn/torch optional deps; over-engineered — netcal is for ML calibration research, we just need binning).
+4. **NOT `ReliabilityDiagram`** PyPI package — last release 2020, abandoned, and trivially superseded by `calibration_curve`.
+5. **Frontend: stay on Recharts** — `ScatterChart` + `ReferenceLine` (with `segment` prop for the y=x diagonal) covers the standard reliability-plot visual in ~80 LOC. Phase 4 ROADMAP decision (`.planning/PROJECT.md` line 172) already locked Recharts for analytics.
+
+**Integration points:**
+- Backend: extend `tracking/tracker.py::compute_calibration_data` (lines 96-135) to optionally return reliability-plot bins (delegated to `sklearn.calibration.calibration_curve` when `n_bins>=5`); add new endpoint `GET /api/v1/analytics/calibration/reliability?agent_name=...&horizon=5d` in `api/routes/analytics.py`.
+- Frontend: new component `frontend/src/components/calibration/ReliabilityPlot.tsx` (sibling to `ICSparkline.tsx`); wire into `frontend/src/pages/CalibrationPage.tsx` next to the `CalibrationTable` (around line 17 of CalibrationPage.tsx).
+- DB: NO schema change — bin computation is on-the-fly from `backtest_signal_history`.
+
+**Cross-check:** Existing `compute_brier_score` in `tracking/tracker.py:320-350` already implements one-vs-rest Brier from scratch. v1.2 reliability-plot work should NOT migrate that to `sklearn.brier_score_loss` (would invalidate existing test fixtures); only the binning logic delegates to sklearn.
+
+---
+
+### DATA-v2-02: SimFin Point-in-Time Fundamentals
+
+**Question:** `simfin` PyPI SDK vs raw httpx? ToS, free-tier limits, attribution?
+
+**Recommendation:** **Raw `httpx` client (NEW file `data_providers/simfin_provider.py`).** Do NOT install the `simfin` PyPI SDK.
+
+**Rationale (SDK rejection):**
+1. **`simfin` PyPI SDK is abandoned.** Latest release **1.0.1 on 2024-04-03** (PyPI verified). [Snyk](https://snyk.io/advisor/python/simfin) explicitly classifies it as **Inactive** ("hasn't seen any new versions released to PyPI in the past 12 months, could be considered as a discontinued project"). The SDK predates SimFin's January 2024 backend migration to `https://prod.simfin.com` and the v3 REST API redesign documented at [simfin.com/en/technical-updates-to-api-v3-and-bulk-download](https://www.simfin.com/en/technical-updates-to-api-v3-and-bulk-download/).
+2. **The SDK targets bulk-CSV downloads, not REST.** It downloads multi-GB datasets to local disk (good for academic research, bad for our 5-10 ticker per-position lookups where we need targeted as-reported quarter fetches).
+3. **A 50-LOC httpx client is sufficient.** SimFin v3 REST is `GET https://prod.simfin.com/api/v3/companies/statements?ticker=AAPL&statement=pl&period=q1&fyear=2024&api-key=...` returning JSON. We already do this exact pattern in `data_providers/finnhub_provider.py:79-90`.
+
+**SimFin Free Tier Constraints (verified via [simfin.com/en/prices/](https://www.simfin.com/en/prices/) and [SimFin support docs](https://www.simfin.com/en/blog/find-good-fundamental-data/)):**
+- **Rate limit:** 2 calls/sec (Web-API) — 120/min — well within our existing `AsyncRateLimiter` capability
+- **Coverage:** 5,000 US stocks; 5 years of fundamentals history; bulk download "delayed" (12 months) on free tier
+- **Quota:** 500 high-speed credits/month — sufficient for solo-operator 5-10 positions × quarterly = 40 calls/quarter
+- **Point-in-time:** SimFin sources from SEC XBRL filings; **as-reported** (not restated). The point-in-time guarantee comes from the *filing date* being preserved in the response — your code must filter by filing-date ≤ analysis-date to avoid look-ahead. **The free tier delay (~12 months) is actually FINE for our `backtest_mode=False` use** because backtests already use `backtest_mode=True` with cached fundamentals (FOUND-04 contract); SimFin closes the gap for *live* fundamentals where YFinance currently returns restated values silently.
+- **Attribution:** SimFin ToS requires data not be redistributed; no on-screen attribution required for solo-operator use (verified against SimFin support FAQ — "use the data as long as you hold a valid subscription"). License: SDK MIT; *data redistribution prohibited*.
+
+**Integration points:**
+- New file: `data_providers/simfin_provider.py` — shape mirrors `finnhub_provider.py` (httpx.AsyncClient + AsyncRateLimiter class-level instance + lazy api_key warning).
+- New file: `data_providers/simfin_cache.py` — Parquet disk cache, 24h TTL (fundamentals don't change intraday), key = `(ticker, statement_type, period, fyear)`. Mirrors `data_providers/dividend_cache.py:87-145` shape.
+- Wire-in: `agents/fundamental.py` — when `agent_input.backtest_mode is False` AND `SIMFIN_API_KEY` is set, prefer SimFin over `YFinanceProvider.get_financials`. When key absent, log a warning and fall through to YFinance (graceful degradation, matches `MacroAgent` pattern for missing FRED_API_KEY).
+- Config: `pyproject.toml` — NO new dep (httpx already pinned). `.env.example` — add `SIMFIN_API_KEY=` line with link to free signup.
+
+**What NOT to do:** Do NOT use `simfin.load_income()` / `simfin.load_balance()` bulk APIs. Those download 200 MB+ Parquet datasets to `~/simfin_data/` per run. Wrong shape for our per-position async-await architecture.
+
+---
+
+### DATA-v2-03: CoinGecko On-Chain Provider
+
+**Question:** `coingecko-sdk` (official) vs `pycoingecko` (community) vs raw httpx? Free-tier limits?
+
+**Recommendation:** **`coingecko-sdk>=1.14.2,<2.0` as a core dep.**
+
+**Rationale:**
+1. **`coingecko-sdk` is the official, actively-maintained SDK.** Latest release **1.14.2 on 2026-04-21** (6 days old as of 2026-04-27). License Apache-2.0. Wheel size 330 KB. Generated by Stainless (CoinGecko's chosen SDK platform — see [github.com/coingecko/coingecko-python](https://github.com/coingecko/coingecko-python)).
+2. **Native httpx, native async.** Direct match with our `httpx>=0.27` core dep — uses `AsyncCoingecko(...)` client that returns awaitables. No thread-pool wrappers needed (unlike yfinance).
+3. **Native Demo API support.** The SDK accepts `demo_api_key=...` and `environment="demo"` constructor kwargs; SDK internally sets the `x-cg-demo-api-key` header (per CoinGecko docs at [docs.coingecko.com/v3.0.1/reference/authentication](https://docs.coingecko.com/v3.0.1/reference/authentication)).
+4. **NOT `pycoingecko`** — community wrapper, sync-only (uses `requests`), supports demo key but lags official feature parity. Still maintained (3.2.0 on 2024-11-13) but the official SDK now exists.
+5. **NOT raw httpx** — coingecko-sdk gives us type-safe response models (`CoinGet200Response`, `CoinDeveloperData`, `CoinCommunityData`) for free; rolling our own is busywork.
+
+**CoinGecko Free Tier Constraints (verified via [docs.coingecko.com/docs/common-errors-rate-limit](https://docs.coingecko.com/docs/common-errors-rate-limit) and [coingecko.com/en/api/pricing](https://www.coingecko.com/en/api/pricing)):**
+- **Demo API:** 30 calls/min (NOT 50 as the question hypothesized — the public unkeyed limit is 5-15/min and the Demo limit with API key is **30/min**)
+- **Monthly quota:** 10,000 calls/month (sufficient for daily refresh × 50 cryptos)
+- **Attribution:** REQUIRED — must "prominently display 'Data provided by CoinGecko' with a hyperlink" per ToS. **This means a one-line credit in the frontend `Footer` component or `CryptoAgent` reasoning text.**
+- **Redistribution:** Prohibited — "cannot sell, rent, lease, sub-license, re-distribute or syndicate access to the CoinGecko API" — fine for solo-operator local-first use
+- **Endpoints we'll use:** `/coins/{id}` returns `developer_data` (forks, stars, subscribers, commit_count_4_weeks, pull_requests_merged, contributors) AND `community_data` (telegram_channel_user_count, reddit_subscribers — Twitter discontinued per CoinGecko 2024 notice)
+- **NOT Pro-only:** Developer activity + community metrics are on Demo tier (verified 2026-04-27 in coins-id reference)
+
+**Integration points:**
+- New file: `data_providers/coingecko_provider.py` — class `CoinGeckoProvider(DataProvider)`. Class-level `AsyncRateLimiter(max_calls=30, period_seconds=60.0)` matching the Demo limit (configurable via `COINGECKO_RATE_LIMIT` env var, mirroring `FinnhubProvider._limiter` pattern at `data_providers/finnhub_provider.py:61-64`).
+- TTL cache: 24h for `developer_data` + `community_data` (slow-moving — daily refresh is plenty). Reuse in-memory `TTLCache` from `data_providers/cache.py` via `CachedProvider` wrapper, NOT Parquet (these are small JSON blobs, not OHLCV).
+- Wire-in: `agents/crypto.py` — new factor in factor weights (`network_health` — currently `network_adoption` placeholder at line 50). Composite of (a) commit_count_4_weeks z-score vs trailing-90d, (b) reddit_subscribers MoM growth, (c) telegram_channel_user_count MoM growth. Add to `_DEFAULT_ADOPTION` dict so backtest_mode falls back gracefully.
+- Config: `pyproject.toml` — add `coingecko-sdk>=1.14.2,<2.0` to core `[project] dependencies`. `.env.example` — add `COINGECKO_DEMO_API_KEY=` line.
+- Frontend: footer attribution `<p>On-chain data provided by <a href="https://coingecko.com">CoinGecko</a></p>` in `frontend/src/components/layout/Footer.tsx` (or wherever existing Finnhub attribution lives).
+
+**Caveat:** CoinGecko's `community_data` does NOT include Twitter follower counts since 2024 (confirmed in API docs). Reddit + Telegram are the only social signals available on Demo. This is OK — those are the higher-signal datapoints for crypto research anyway.
+
+---
+
+### DRIFT-v2-04: Drift-Threshold Validation Methodology
+
+**Question:** Use existing `backtesting/walk_forward.py` + `corpus_rebuild_jobs` table or build a new utility?
+
+**Recommendation:** **NEW utility `engine/drift_validator.py` extending existing infra.** Zero new dependencies.
+
+**Rationale:**
+1. **The thresholds in `engine/drift_detector.py:30-32` (`DRIFT_THRESHOLD_PCT=20.0`, `ICIR_FLOOR=0.5`) lack empirical backing.** Per `.planning/PROJECT.md` Key Decisions row 25 ("v1.1 Phase 7 drift-detector thresholds shipped as `preliminary_threshold` until 60+ weekly IC samples accumulate"), these were defensible defaults but not validated against the live corpus.
+2. **The required validation is statistical, not architectural.** Given the corpus already exists (`backtest_signal_history` table — FOUND-04 + SIG-05) and IC-IR is computed via `tracking/tracker.py::compute_rolling_ic` (lines 356-424), the missing piece is a *retrospective grid search* over `(threshold_drop_pct, icir_floor)` ∈ {15, 20, 25, 30} × {0.3, 0.4, 0.5, 0.6} measuring (a) precision (% of trigger weeks followed by ≥10% IC-IR decline next 4 weeks) and (b) recall (% of decline weeks correctly flagged).
+3. **`scipy.stats.wilcoxon`** (already lazy-imported via `scipy>=1.10`) gives us paired-sample significance testing for "is the IC-IR delta after a triggered week statistically lower than after a non-triggered week."
+4. **Reuse `backtesting/walk_forward.py::generate_walk_forward_windows`** (lines 51-100) — its (train_end, oos_start) gap with `purge_days=5` is exactly the no-leakage boundary the drift validator needs.
+5. **NOT a separate library** — `statsmodels` would add ~30 MB for `wilcoxon` we already have in scipy; `pingouin` is overkill.
+
+**Integration points:**
+- New file: `engine/drift_validator.py` — function `validate_drift_thresholds(db_path, candidate_grid: list[tuple[float, float]]) -> ValidationReport` returning per-(drop_pct, floor) precision/recall/Wilcoxon-p-value.
+- Existing: imports `tracking.tracker.SignalTracker.compute_rolling_ic` directly; queries `backtest_signal_history` via `tracking.store.SignalStore`.
+- DB: ALTER TABLE `drift_log` ADD COLUMN `validation_run_at` TEXT NULL (records the validation run that promoted this threshold). Migration in `db/database.py` mirroring the existing portfolio/agent_weights pattern.
+- New endpoint: `POST /api/v1/drift/validate-thresholds` (long-running, returns 202 + job_id, consumes the `corpus_rebuild_jobs` async-job pattern from `api/routes/analytics.py::rebuild_corpus`).
+- Frontend: extend `DriftBadge.tsx` (existing — `frontend/src/components/calibration/DriftBadge.tsx`) with a 4th state — `validated` (green badge replacing the amber `preliminary` once `validation_run_at` is non-null).
+- The existing `corpus_rebuild_jobs` table can be **reused as-is** — same async-job semantics work for validation runs.
+
+**What NOT to do:** Do NOT add `mlflow` or `optuna` for hyperparameter logging — the candidate grid is 16 points, exhaustive sweep takes seconds; logging to a JSON file under `data/drift_validation/runs/{timestamp}.json` is sufficient.
+
+---
+
+## Alternatives Considered (and Rejected)
+
+### Reliability plot tooling
+
+| Considered | Why Rejected |
+|---|---|
+| `netcal` (PyPI 1.3.0) | ~5 MB + transformers/torch optional deps; designed for ML model calibration research, not single-binning use case |
+| `ReliabilityDiagram` (PyPI 0.0.6) | Last release 2020-12; abandoned; `calibration_curve` does the same thing in 1 sklearn function |
+| Apple `relplot` (`apple/ml-calibration`) | Not on PyPI as of 2026-04; would require git+ install; uses kernel smoothing (overkill for ~60-sample corpus) |
+| Custom binning in pandas | Already implemented in `tracking/tracker.py:96-135` for `compute_calibration_data`; sklearn is more battle-tested for the new reliability-plot endpoint |
+| Migrate frontend to ApexCharts / Chart.js | Would invalidate ~600 lines of existing Recharts test fixtures (Phase 4 decision row 12 — `.planning/PROJECT.md`); Recharts ScatterChart + ReferenceLine handles diagonal-vs-curve adequately |
+
+### SimFin clients
+
+| Considered | Why Rejected |
+|---|---|
+| `simfin` PyPI SDK 1.0.1 | Last release 2024-04-03; Snyk classifies as Inactive; predates SimFin v3 API; bulk-download model wrong shape for per-position async lookups |
+| `simfin-python` PyPI | Not the official package (third-party); adds dependency without value over httpx |
+| `dlt-simfin` (dltHub) | ETL pipeline framework — wrong abstraction level; ~20 MB + sqlalchemy + duckdb deps |
+| `pandas-datareader` | Doesn't support SimFin; would only help for FRED (already using `fredapi`) |
+
+### CoinGecko clients
+
+| Considered | Why Rejected |
+|---|---|
+| `pycoingecko` 3.2.0 | Sync-only (uses `requests`, not httpx); community wrapper supplanted by official SDK Nov 2024 |
+| `coingecko-api` PyPI | Third-party; minimal coverage of `/coins/{id}` developer_data + community_data fields |
+| `pycgapi` | Unofficial wrapper; less maintained than official SDK |
+| `pycoingeckoasync` | Async port of pycoingecko; superseded by official `coingecko-sdk` async client |
+| Raw httpx | Loses type safety; have to maintain JSON-shape contracts manually; 330 KB SDK saves ~200 LOC |
+
+### Drift validator
+
+| Considered | Why Rejected |
+|---|---|
+| `mlflow` | ~50 MB + S3/sklearn deps; overkill for 16-point candidate grid |
+| `optuna` | ~10 MB; designed for Bayesian optimization (we want exhaustive grid for explainability) |
+| `statsmodels` `wilcoxon` | ~30 MB; scipy.stats.wilcoxon already available |
+| `pingouin` | ~5 MB; nice but redundant given scipy |
+
+---
+
+## Installation
+
+```bash
+# Backend — promote two transitive deps to direct + add CoinGecko SDK
+pip install -e ".[dev]"  # already-installed, just for posterity
+
+# After pyproject.toml edit:
+# dependencies = [
+#   ...existing...,
+#   "scikit-learn>=1.4,<2.0",       # SIG-v2-01 reliability plot binning
+#   "numpy>=1.26,<3.0",             # promote (was transitive)
+#   "scipy>=1.10,<2.0",             # promote (was transitive — used in tracker.py:389)
+#   "coingecko-sdk>=1.14.2,<2.0",   # DATA-v2-03 official CoinGecko client
+# ]
+
+pip install -e .
+
+# Frontend — NO new deps; recharts already pinned at ^2.13.0
+# (frontend/package.json line 18 unchanged)
+
+# Environment — new optional API keys (all graceful-degrade if absent)
+echo "SIMFIN_API_KEY=" >> .env.example
+echo "COINGECKO_DEMO_API_KEY=" >> .env.example
+echo "COINGECKO_RATE_LIMIT=30" >> .env.example
+echo "SIMFIN_RATE_LIMIT=120" >> .env.example  # 2/sec
 ```
-Integration: opt-in via `ENABLE_LLM_SYNTHESIS=true` env flag; falls back to current weighted average if disabled.
+
+**Default-install impact:** **+0.3 MB** (coingecko-sdk wheel). scikit-learn / numpy / scipy promotions are 0 MB net (already transitively installed). **No `[optional-extras]` needed** — well under the 50 MB threshold.
 
 ---
 
-## Dimension 2: Signal Aggregation Strategy
+## License Summary (all new + promoted deps)
 
-### How OSS Projects Do It
+| Library | License | Compatibility | Notes |
+|---|---|---|---|
+| `scikit-learn` | BSD-3-Clause | ✓ MIT-compatible | Already transitively installed |
+| `numpy` | BSD-3-Clause | ✓ MIT-compatible | Already transitively installed |
+| `scipy` | BSD-3-Clause | ✓ MIT-compatible | Already transitively installed; lazy-imported |
+| `coingecko-sdk` | Apache-2.0 | ✓ MIT-compatible | New core dep, ~330 KB |
+| SimFin DATA license | Proprietary (vendor ToS) | ⚠ Data redistribution prohibited | We don't redistribute — local-first solo-operator only |
+| CoinGecko DATA license | Proprietary (vendor ToS) | ⚠ Attribution required + no redistribution | Add credit line in frontend Footer |
 
-**ai-hedge-fund:**
-Portfolio Manager LLM agent reads all analyst signals in natural language and produces a final Buy/Hold/Sell. No documented numerical weighting; purely LLM-driven. No regime conditioning. No ensemble formalism.
-
-**TradingAgents:**
-Sequential: Analyst team outputs → Researcher debate → Trader decision. No documented numerical weighting formula. LLM-as-judge pattern at each step (the next agent in the pipeline judges the previous). No adaptive weights or regime switching.
-
-**qlib:**
-Factor model paradigm. Alpha factors (IC-based) are combined via mean-rank or linear weighting. Portfolio construction via optimizer (mean-variance or risk-budget). No LLM in the signal path. Regime conditioning via DDG-DA (domain generalization for concept drift). Rolling retraining for non-stationarity.
-
-**FreqAI:**
-ML model outputs a prediction probability; strategy rules convert it to signal using configurable thresholds. Community contributions show dynamic weighting (e.g., LSTM + aggregate scoring system). Models retrained on sliding windows to handle regime shifts.
-
-**vectorbt:**
-Signal combination is user-defined; vectorbt provides the evaluation harness not the combination logic. Walk-forward optimization to select weights. Supports multi-signal portfolio simulation.
-
-**jesse:**
-Monte Carlo mode shuffles trade order to test signal robustness. ML pipeline (scikit-learn) for labeling. No ensemble weighting framework built in; user-defined strategy logic.
-
-**MarketSenseAI:**
-CoT fusion: final signal agent writes a reasoning chain over all other agents' outputs. No numerical ensemble; LLM reasoning is the aggregation function.
-
-**TauricResearch TradingAgents:**
-Bull/Bear researcher outputs feed the Trader agent, which produces a signal with confidence. Risk Management then applies a kill-switch / position-size modifier. Multi-stage LLM pipeline acts as sequential Bayesian update (informally).
-
-### What We Do Today
-
-- Weighted average: `∑(agent_signal × weight) / ∑weights` (`engine/aggregator.py`)
-- Bidirectional threshold grid search for BUY and SELL thresholds independently (`engine/weight_adapter.py`)
-- Regime-based weight switching via MacroAgent regime output
-- Adaptive weights: historical accuracy tracking updates agent weights (`engine/weight_adapter.py`)
-- Relative VIX normalization (ratio to 20-day SMA) as regime signal (`agents/macro.py`)
-- Sector-relative P/E for fundamental scoring (`agents/fundamental.py`)
-- Context-aware RSI (trend direction modulates score) (`agents/technical.py`)
-
-### Gap Analysis
-
-| Gap | Classification | Rationale |
-|-----|---------------|-----------|
-| LLM-as-judge synthesis (TradingAgents / MarketSenseAI) | **MUST** | Our weighted average can be dominated by volume (4 agents say HOLD weakly, 1 says SELL strongly → still HOLD). An LLM synthesis step reads the reasoning, not just the numbers. Catches qualitative risk that the aggregator misses. Integration: post-aggregation, pre-final-signal; opt-in. |
-| IC/ICIR-based weight optimization (qlib pattern) | **MUST** | Our weight adapter uses historical prediction accuracy (hit rate). Qlib uses Information Coefficient (correlation between predicted and realized returns). IC/ICIR is a more rigorous and industry-standard signal quality metric. IC = Pearson correlation of predicted rank vs actual rank return over rolling window. Already have `tracking/tracker.py` with accuracy data; extend to compute rolling IC per agent. |
-| Confidence-weighted ensemble with uncertainty estimates | **NICE** | Each agent already returns `confidence` (0–1). We use it in final output but not in the aggregation weighting. Multiply `agent_signal × confidence × weight` rather than just `signal × weight`. Small change with potential signal quality improvement. Integration: `engine/aggregator.py` lines 150-180. |
-| Bayesian updating of agent weights | **NICE** | Replace static adaptive weights with a Bayesian posterior over agent reliability. Requires a prior + likelihood function. More principled than grid search but adds complexity. Defer unless IC-based weights prove insufficient. |
-| Reinforcement learning for weight optimization (FinRL pattern) | **NO** | RL requires a simulator and extensive training data; our signal-level RL would need 5+ years of labeled signals per agent. Cost >> benefit for a 6-agent system with relatively sparse trading signals. |
-
-**Recommended borrowable pattern — rolling IC per agent:**
-```python
-# tracking/tracker.py (extend existing)
-def compute_rolling_ic(agent_name: str, window_days: int = 60) -> float:
-    """IC = Pearson correlation of agent signal rank vs forward return rank."""
-    signals = store.get_signals(agent_name, lookback_days=window_days)
-    forward_returns = store.get_forward_returns(signals)
-    return scipy.stats.pearsonr(
-        rankdata(signals['signal_value']),
-        rankdata(forward_returns['return_5d'])
-    )[0]
-```
-Then `weight_adapter.py` uses `max(0, ic)` to gate weights (negative IC agent gets zero weight).
+**No GPL/AGPL libraries introduced.** All BSD/MIT/Apache. Vendor data ToS (SimFin + CoinGecko) constrains redistribution but matches our local-first solo-operator constraint.
 
 ---
 
-## Dimension 3: Backtesting Rigor
+## What NOT to Add (anti-recommendations)
 
-### How OSS Projects Do It
-
-**qlib (41.1k stars) — GOLD STANDARD:**
-- Point-in-time database prevents look-ahead bias (fundamentals are stored at the date they were first published, not restated values)
-- Rolling walk-forward with expanding windows
-- Information Coefficient (IC), ICIR, Rank IC as primary backtest quality metrics
-- Transaction costs modeled (`qlib/backtest/exchange.py`)
-- Benchmark comparison built-in (CSI 500, NASDAQ 100)
-- Purged cross-validation support (purge + embargo to prevent data leakage)
-- Concept drift handling via DDG-DA meta-learning
-
-**freqtrade (49.1k stars):**
-- Walk-forward analysis built into FreqAI retraining cycle
-- Transaction fees included by default (exchange fee tables)
-- Slippage modeling configurable
-- Hyperopt for parameter optimization with configurable loss functions
-- No documented survivorship bias handling
-
-**vectorbt (7.2k stars):**
-- Walk-forward optimization in the open-source version (`examples/WalkForwardOptimization.ipynb`)
-- vectorbt PRO adds: block bootstrap, random windows, Monte Carlo trade shuffle, noise injection
-- Performance metrics via QuantStats integration
-- No point-in-time data handling (user's responsibility)
-
-**jesse (7.7k stars):**
-- Monte Carlo: two modes — trade-order shuffle and candles-based resampling
-- No look-ahead bias by design (event-driven execution model)
-- No documented survivorship bias handling
-- No walk-forward optimization (hyperparameter search via separate Optuna-based tool)
-
-**zipline-reloaded (1.7k stars):**
-- Event-driven, look-ahead bias prevention enforced architecturally (pipeline API separates data access from strategy)
-- Quantopian-era focus on equity factor backtesting
-- No built-in walk-forward; user-defined rolling windows
-- No documented Monte Carlo or block bootstrap
-
-**nautilus_trader (22.1k stars):**
-- Nanosecond-resolution event-driven backtester (Rust core)
-- Identical strategy code in backtest and live
-- Transaction costs and slippage configurable
-- Multi-venue, multi-instrument support
-- No documented walk-forward or Monte Carlo risk analysis
-
-**ai-hedge-fund / TradingAgents:**
-- Minimal backtesting: simple date-range replay with Sharpe + cumulative return output
-- No transaction costs, no slippage, no walk-forward, no regime conditioning
-- LLM token cost means "backtesting" 5 years of daily signals is expensive (≈365×5×LLM calls)
-
-### What We Do Today
-
-- Block-bootstrap Monte Carlo: 10,000 iterations, block_size=5, preserves volatility clustering (`engine/monte_carlo.py`)
-- Regime context applied to backtesting signals
-- No walk-forward testing (single in-sample backtest period)
-- No purged cross-validation
-- No transaction costs modeled in backtester
-- No slippage model
-- No point-in-time fundamental data (yfinance returns current/restated values — see CONCERNS.md "Point-in-time fundamental data")
-- No survivorship bias handling (yfinance only returns currently-listed tickers)
-
-### Gap Analysis
-
-| Gap | Classification | Rationale |
-|-----|---------------|-----------|
-| Walk-forward backtesting | **MUST** | Single-period backtesting is insufficient for validating regime-aware signals. Walk-forward tests whether adaptive weights actually adapt well on unseen periods. Implementation: rolling `(train_start, train_end, test_start, test_end)` windows in the backtest runner. Existing `backtesting/` module can be extended. No new dependencies. |
-| Transaction costs in backtester | **MUST** | Without costs, backtests overstate returns. Commission (0.05–0.10% per trade) and bid-ask spread should be deducted. Simple to add: multiply `return_before_costs × (1 - cost_per_trade)^n_trades`. |
-| Block bootstrap block-size optimization (variable by asset class) | **MUST** | Our block_size=5 is hardcoded (see CONCERNS.md). Literature suggests equities: 10–15 days, crypto: 3–5 days. Add `block_size: int | None = None` parameter; if None, use Patton-Politis-White automatic block-size selection (available in `arch` library). |
-| Purged cross-validation | **NICE** | Prevents leakage in ML-adjacent signal evaluation. Our adaptive weight training is not ML-based so the leakage risk is lower, but adding a purge gap between train/test periods for walk-forward would improve rigor. mlfinlab library implements this. |
-| Point-in-time fundamental data | **NICE** | As noted in CONCERNS.md, FundamentalAgent uses restated yfinance data in backtests. Fixes require a paid data provider (FMP, Compustat). Defer; flag backtest results as having this bias. |
-| Slippage model | **NICE** | Market impact model (e.g., linear slippage proportional to position size). Matters more for execution tools; we are signal-only, so a simple fixed-rate slippage assumption suffices. |
-| Survivorship bias handling | **NICE** | yfinance only includes currently-listed symbols. Adds survivorship bias to backtests (all tickers "survived" to today). Fixing requires a historical constituent list (e.g., CRSP, or a manual S&P 500 history file). Feasible with free data but non-trivial. |
-
-**Recommended integration: walk-forward scaffold**
-```python
-# backtesting/walk_forward.py (new file)
-def walk_forward_windows(
-    start: date, end: date,
-    train_months: int = 12,
-    test_months: int = 3,
-    step_months: int = 3,
-) -> list[tuple[date, date, date, date]]:
-    """Yield (train_start, train_end, test_start, test_end) tuples."""
-    ...
-```
-The existing `backtesting/` module runs each window independently; results are aggregated and plotted as an equity curve.
+1. **`simfin` PyPI SDK** — abandoned April 2024, predates the v3 API redesign. Build a 50-LOC httpx client instead.
+2. **`pycoingecko`** — sync-only community wrapper, superseded by official `coingecko-sdk` Nov 2024.
+3. **`netcal`, `ReliabilityDiagram`, `relplot`** — over-engineered for a single-binning operation; sklearn's `calibration_curve` is 1 line.
+4. **`mlflow`, `optuna`, `statsmodels`** — ~30-50 MB each for capabilities scipy already covers.
+5. **Frontend chart-lib migration (ApexCharts / Chart.js / Plotly.js)** — Recharts ScatterChart + ReferenceLine handles reliability plots; Phase 4 already locked Recharts.
+6. **`pandas-datareader`** — doesn't support SimFin; would only help for FRED (which we already cover via `fredapi>=0.5`).
+7. **`yfinance` for fundamentals as point-in-time** — yfinance silently returns the *latest* restated values (this is the bug DATA-v2-02 exists to fix). Don't paper over it with caching alone.
+8. **`requests` library** — we're async-first via httpx; do NOT introduce sync `requests` even for the SimFin client (would block the event loop on slow SimFin responses).
 
 ---
 
-## Dimension 4: Risk Modeling
+## Sources & Confidence
 
-### How OSS Projects Do It
-
-**qlib:**
-Portfolio optimization with risk budget (covariance matrix). No Monte Carlo in the signal layer; risk is handled in the portfolio construction layer. Supports mean-variance, risk parity.
-
-**QuantStats (library, widely used):**
-- Conditional VaR (CVaR / Expected Shortfall)
-- Historical VaR (parametric and empirical)
-- Maximum drawdown, Ulcer Index
-- Monte Carlo simulations (random draw, not block bootstrap)
-- Runs thousands of scenarios; output includes probability-weighted return distributions
-- Actively maintained (pyfolio is deprecated)
-- Drop-in integration with any returns series
-
-**vectorbt PRO:**
-Block bootstrap, Monte Carlo trade shuffle, noise injection. Community edition (7.2k stars) has walk-forward optimization example.
-
-**jesse (7.7k stars):**
-Monte Carlo: trade-order shuffle (tests whether trade sequencing drove results) + candles-based (tests market condition sensitivity). Two complementary modes provide robustness check.
-
-**nautilus_trader:**
-Rust-core execution with nanosecond precision; no built-in portfolio-level VaR or Monte Carlo documented.
-
-**freqtrade:**
-No built-in risk modeling beyond per-strategy stop-loss and position sizing. FreqAI ML model gives probability estimates but no VaR/CVaR.
-
-**ai-hedge-fund / TradingAgents:**
-Risk Manager agent applies qualitative position-size constraints (e.g., "do not exceed X% in a single position"). No quantitative risk model.
-
-### What We Do Today
-
-- Block-bootstrap Monte Carlo: 10,000 iterations preserving volatility clustering (`engine/monte_carlo.py`)
-- No VaR or CVaR computation
-- No CVaR on portfolio level (only single-ticker Monte Carlo)
-- Drawdown tracking in `engine/analytics.py` (portfolio snapshots)
-- No portfolio-level risk aggregation (correlations between positions not modeled)
-- Block size is hardcoded (5 days); see CONCERNS.md
-
-### Gap Analysis
-
-| Gap | Classification | Rationale |
-|-----|---------------|-----------|
-| CVaR / Expected Shortfall | **MUST** | VaR tells us the 95th-percentile loss; CVaR tells us the expected loss *given* we're in the tail. CVaR is superior for tail risk. QuantStats computes it in one line. Integration: add `quantstats` as optional dependency; call `qs.stats.cvar(returns)` in `engine/analytics.py` and surface in the API response. |
-| Portfolio-level risk aggregation (correlation-aware) | **MUST** | Our Monte Carlo runs per-ticker. A portfolio of correlated positions can have amplified tail risk that per-ticker Monte Carlo misses. Need a covariance matrix across holdings and portfolio-level VaR. Integration: `engine/analytics.py` — compute pairwise return correlations for held positions; run portfolio-level simulation. |
-| Jesse-style dual Monte Carlo (trade shuffle + candles) | **NICE** | We use candles-based block bootstrap. Adding trade-order shuffle as a second check would identify whether signal timing (not just market conditions) drives results. Conceptually simple to add to `engine/monte_carlo.py`. |
-| Dynamic block-size selection (Patton-Politis-White) | **MUST** | See CONCERNS.md: block_size=5 is hard-coded. The `arch` library provides `optimal_block_length()` for automatic selection. Install: `pip install arch`. One function call replaces the hard-coded constant. High confidence fix, low effort. |
-| QuantStats integration for tearsheets | **NICE** | QuantStats generates Sharpe, Sortino, Calmar, CVaR, Max DD, drawdown histogram, and monthly returns heatmap in a single call. Replaces our manual `engine/analytics.py` metric calculations. Import: `import quantstats as qs; qs.extend_pandas()`. |
-| Regime-conditioned VaR | **NICE** | Run separate VaR estimates per detected regime (bull/bear/high-vol). Our regime detector already classifies regimes; conditioning VaR on regime would be more informative than a single unconditional estimate. |
-
-**Recommended immediate integration: CVaR via QuantStats**
-```python
-# engine/analytics.py (add to existing analytics)
-import quantstats as qs
-def compute_risk_metrics(returns: pd.Series) -> dict:
-    return {
-        "cvar_95": qs.stats.cvar(returns, sigma=1.65),
-        "var_95": qs.stats.value_at_risk(returns),
-        "max_drawdown": qs.stats.max_drawdown(returns),
-        "sharpe": qs.stats.sharpe(returns),
-        "sortino": qs.stats.sortino(returns),
-        "calmar": qs.stats.calmar(returns),
-    }
-```
-This replaces or augments the existing analytics; no schema change required initially (add as new `risk_metrics` field in API response).
-
-**Recommended: `arch` library for dynamic block size**
-```python
-# engine/monte_carlo.py
-from arch.bootstrap import optimal_block_length
-def _select_block_size(returns: np.ndarray) -> int:
-    res = optimal_block_length(returns)
-    return max(3, int(res['stationary'].iloc[0]))
-```
-Resolves the CONCERNS.md residual risk around hardcoded block_size=5.
+| Claim | Source | Confidence |
+|---|---|---|
+| `simfin` PyPI 1.0.1 last release 2024-04-03 | [PyPI simfin page](https://pypi.org/project/simfin/) verified 2026-04-27 | HIGH |
+| `simfin` Snyk Inactive status | [Snyk advisor for simfin](https://snyk.io/advisor/python/simfin) | HIGH |
+| SimFin v3 base URL `https://prod.simfin.com` | [SimFin January 2024 update blog](https://www.simfin.com/en/blog/major-simfin-update/) | HIGH |
+| SimFin free-tier limits (2/sec, 5K stocks, 5y history, 500 credits/mo) | [simfin.com/en/prices](https://www.simfin.com/en/prices/) verified 2026-04-27 | HIGH |
+| `coingecko-sdk` 1.14.2 released 2026-04-21, Apache-2.0 | [PyPI coingecko-sdk](https://pypi.org/project/coingecko-sdk/) verified 2026-04-27 | HIGH |
+| `coingecko-sdk` async via httpx, supports Demo header auth | [github.com/coingecko/coingecko-python README](https://github.com/coingecko/coingecko-python) | HIGH |
+| CoinGecko Demo: 30 calls/min, 10K/month, attribution required | [docs.coingecko.com/docs/common-errors-rate-limit](https://docs.coingecko.com/docs/common-errors-rate-limit) + [coingecko.com/en/api/pricing](https://www.coingecko.com/en/api/pricing) verified 2026-04-27 | HIGH |
+| CoinGecko `/coins/{id}` includes developer_data + community_data on Demo tier | [docs.coingecko.com/v3.0.1/reference/coins-id](https://docs.coingecko.com/v3.0.1/reference/coins-id) verified 2026-04-27 | HIGH |
+| sklearn.calibration.calibration_curve API (n_bins, strategy, pos_label) | [scikit-learn.org calibration_curve docs](https://scikit-learn.org/stable/modules/generated/sklearn.calibration.calibration_curve.html) | HIGH |
+| sklearn 1.6.1 already installed transitively | `pip show scikit-learn` on 2026-04-27 | HIGH |
+| scipy 1.15.3 / numpy 2.2.6 already installed | `pip show` on 2026-04-27 | HIGH |
+| Recharts ScatterChart + ReferenceLine support | [recharts.github.io examples](https://recharts.github.io/en-US/examples/) | HIGH |
+| `pycoingecko` 3.2.0 released 2024-11-13, sync-only | [PyPI pycoingecko](https://pypi.org/project/pycoingecko/) | HIGH |
+| SimFin uses SEC XBRL filings (preserves filing date for PIT lookup) | [SimFin "Why is fundamental data hard" blog](https://www.simfin.com/en/blog/find-good-fundamental-data/) + [SimFin Medium API tutorial](https://simfin-official.medium.com/aggregating-financial-data-from-around-the-world-b9bffc7b463) | MEDIUM (vendor source — claims "as-reported" but free tier is 12-month delayed which complicates "real-time PIT") |
 
 ---
 
-## Dimension 5: Calibration and Prediction-Quality Metrics
+## Roadmap Implications
 
-### How OSS Projects Do It
+**Suggested phase ordering for v1.2 (informs gsd-roadmapper):**
 
-**qlib:**
-Information Coefficient (IC) and ICIR (IC's Sharpe ratio) are primary signal quality metrics. IC = Pearson correlation of predicted rank vs actual forward return rank over a rolling window. ICIR = mean(IC) / std(IC) — measures consistency. Rank IC (Spearman) is more robust to outliers. These are industry-standard metrics for alpha factor evaluation.
+1. **Phase 1 — Reliability plots (SIG-v2-01)** — pure additive, no new external API surface, smallest risk. Validates the calibration-page UX and surfaces empirical predicted-vs-realized gaps that motivate Phases 2-3.
+2. **Phase 2 — SimFin point-in-time (DATA-v2-02)** — provider + cache + fundamental-agent wiring. Independent of CoinGecko. Blocks nothing else but unlocks fundamental signal trustworthiness.
+3. **Phase 3 — CoinGecko on-chain (DATA-v2-03)** — provider + crypto-agent wiring + frontend attribution. Independent of Phase 2.
+4. **Phase 4 — Drift-threshold validation (DRIFT-v2-04)** — REQUIRES Phases 1-3 to have run for at least the corpus duration so reliability plots reveal genuine drift signal. The validator promotes thresholds out of `preliminary_threshold` ONLY after Phases 1-3 have populated enough corpus rows.
 
-**freqtrade / FreqAI:**
-Custom loss functions for hyperopt (Sharpe, Sortino, profit factor, custom). ML calibration: scikit-learn `CalibratedClassifierCV` can be applied to FreqAI classifiers. No built-in Brier score or log-loss reporting; user-defined.
+**Phase ordering rationale:** Phases 1-3 are independent and can be parallelized if multi-track development resumes. Phase 4 is a synthesis phase that *closes* v1.1's deferred preliminary_threshold flag using empirical data from Phases 1-3.
 
-**jesse:**
-ML pipeline generates "a full report with feature importance, calibration, and metrics" when training — calibration output is documented but details are sparse.
-
-**vectorbt PRO:**
-No built-in prediction calibration; focused on portfolio simulation. Users bring their own signal scores.
-
-**ai-hedge-fund / TradingAgents:**
-No calibration. LLM outputs Buy/Hold/Sell with no probability estimate that could be calibrated. Portfolio manager produces confidence as free text ("high confidence" etc.) not a numeric probability.
-
-**Academic / research context (2025):**
-Literature consensus (EMNLP 2025, ACL 2025 proceedings) on LLM financial agent evaluation:
-- Brier score = proper scoring rule for binary outcomes (predicted probability vs 0/1 outcome)
-- Log-loss = training loss for calibrated ML classifiers
-- Calibration plots (reliability diagrams): predicted probability percentiles vs actual win rates
-- Sharpe/Sortino/Calmar + hit rate at realistic rebalancing frequencies are the economically grounded metrics
-- IC/ICIR are the signal quality metrics for factor models
-
-### What We Do Today
-
-- Signal accuracy tracking: compare historical Buy/Hold/Sell signals vs actual price moves at N days forward (`tracking/tracker.py`)
-- No Brier score
-- No log-loss
-- No calibration plot / reliability diagram
-- No IC/ICIR computation
-- Agent confidence (0–1) is self-reported by each agent, not calibrated against outcomes
-- Weight adapter uses raw hit rate (accuracy) not IC
-
-### Gap Analysis
-
-| Gap | Classification | Rationale |
-|-----|---------------|-----------|
-| Rolling IC/ICIR per agent | **MUST** | IC is the correct metric for evaluating signal quality in a factor-model context. Hit rate (what we use) treats all correct predictions equally; IC weights by magnitude of prediction vs magnitude of outcome. An agent with 55% accuracy but high-magnitude-correct predictions ranks higher on IC. Already have the raw data in `tracking/tracker.py`. Add `compute_rolling_ic()` and expose in analytics API. |
-| Brier score for confidence calibration | **MUST** | Our agents return a `confidence` float (0–1). If confidence=0.8 is declared but the agent is right only 60% of the time when it says 0.8, that confidence is miscalibrated. Brier score = mean((predicted_confidence - outcome)^2). Low implementation effort; high diagnostic value. Integration: `tracking/tracker.py` — add `compute_brier_score(agent_name)` using signal history and forward returns. |
-| Calibration plot (reliability diagram) | **NICE** | Visual check: bin confidence scores into deciles, compute actual win rate per bin. If the plot is diagonal → well-calibrated. If it bows → over-confident. Generate as a Plotly chart in the analytics section of the dashboard. Integration surface: `engine/analytics.py` + frontend charting component. |
-| Platt scaling / isotonic regression for confidence recalibration | **NICE** | If agents are systematically over/under-confident, apply sklearn's `CalibratedClassifierCV` or `isotonic_regression` to recalibrate outputs post-hoc. Requires training data (signal history). Feasible after Brier score confirms miscalibration exists. |
-| Log-loss for multi-class signal output | **NO** | Our signals are continuous (-1 to 1), not class probabilities. Log-loss applies to the ML classification context (FreqAI); our deterministic agents don't produce a log-likelihood. Not applicable. |
-
-**Recommended implementation: Brier score + IC in tracker**
-```python
-# tracking/tracker.py (extend existing)
-def compute_brier_score(agent_name: str, horizon_days: int = 5) -> float:
-    """Brier score = mean((confidence - binary_outcome)^2)."""
-    rows = store.get_agent_signals_with_outcomes(agent_name, horizon_days)
-    return float(np.mean((rows['confidence'] - rows['outcome_binary']) ** 2))
-
-def compute_rolling_ic(agent_name: str, window_days: int = 60) -> float:
-    """IC = Pearson corr of signal_value rank vs forward_return rank."""
-    rows = store.get_agent_signals_with_returns(agent_name, window_days)
-    ic, _ = scipy.stats.pearsonr(rankdata(rows['signal_value']), rankdata(rows['forward_return_5d']))
-    return ic
-```
-These two functions + a new `/api/v1/analytics/calibration` endpoint expose calibration data for the dashboard.
-
----
-
-## Cross-Cutting Borrowable Patterns Summary
-
-### Must-Borrow (Priority Order)
-
-| # | Pattern | Source Project | Our Integration Surface | Effort |
-|---|---------|---------------|------------------------|--------|
-| 1 | Dynamic block-size selection via `arch.optimal_block_length()` | Research consensus | `engine/monte_carlo.py` — replace hardcoded `block_size=5` | Low (1 function call) |
-| 2 | CVaR / Expected Shortfall via QuantStats | QuantStats library | `engine/analytics.py` — add `compute_risk_metrics()` | Low (1 dependency) |
-| 3 | Transaction costs in backtester | qlib, freqtrade | `backtesting/` — add `cost_per_trade` parameter | Low–Medium |
-| 4 | Rolling IC/ICIR per agent | qlib | `tracking/tracker.py` — extend existing accuracy tracking | Medium |
-| 5 | Brier score for confidence calibration | Academic / research | `tracking/tracker.py` — extend alongside IC | Medium |
-| 6 | Walk-forward backtesting scaffold | freqtrade, vectorbt | `backtesting/walk_forward.py` (new file) | Medium |
-| 7 | Portfolio-level VaR (correlation-aware) | qlib / QuantStats | `engine/analytics.py` — covariance matrix across held positions | Medium–High |
-| 8 | LLM synthesis / Bull-Bear step | TradingAgents, MarketSenseAI | `engine/pipeline.py` — opt-in post-gather step | Medium (opt-in) |
-
-### Nice-to-Borrow (Defer to Later Milestones)
-
-| Pattern | Source Project | Why Defer |
-|---------|---------------|-----------|
-| Agent memory / historical context | TradingAgents | Adds state complexity; current stateless design is simpler to test |
-| Calibration plot (reliability diagram) | Research | Dashboard work; depends on Brier score being implemented first |
-| Jesse dual Monte Carlo (trade shuffle) | jesse | Our block bootstrap already covers scenario diversity; second mode is incremental |
-| QuantStats tearsheet integration | QuantStats | Nice visual; depends on analytics extension above |
-| Regime-conditioned VaR | Research | Requires regime-tagged return series; depends on walk-forward first |
-| RAG over SEC filings | MarketSenseAI | Needs document store; significant infrastructure; out of scope this milestone |
-| Platt scaling / isotonic calibration | Research | Depends on Brier score data accumulation (months of history) |
-| IC/ICIR-based dynamic weight adapter | qlib | Depends on IC computation being stable; upgrade from hit-rate weights |
-
-### Not Worth Borrowing
-
-| Pattern | Source Project | Rationale |
-|---------|---------------|-----------|
-| LLM persona agents (investor personas) | ai-hedge-fund | Not calibrated; our deterministic agents are more testable and reproducible |
-| RL for weight optimization | FinRL | Requires a simulator and years of labeled signal data; cost >> benefit |
-| LangGraph orchestration (without LLM agents) | TradingAgents | Adds dependency overhead; our asyncio.gather() pipeline is simpler for deterministic agents |
-| Log-loss metric | freqtrade / ML context | Not applicable to our continuous-signal deterministic agent outputs |
-| Nanosecond-resolution backtesting | nautilus_trader | We are signal-level (daily), not tick-level; Rust-core overkill for our use case |
-| Hummingbot market-making strategies | Hummingbot | Market-making is explicitly out of scope; different problem domain |
-
----
-
-## Library Recommendations
-
-| Library | Version | Purpose | Integration Surface | Why This Library |
-|---------|---------|---------|---------------------|-----------------|
-| `quantstats` | 0.0.62+ | CVaR, VaR, Sharpe, Sortino, Calmar, drawdown analytics, tearsheets | `engine/analytics.py` | Actively maintained; replaces deprecated pyfolio; one-line metric generation; MIT license |
-| `arch` | 6.x | Optimal block-length selection for block bootstrap (`optimal_block_length()`) | `engine/monte_carlo.py` | Research-grade GARCH/bootstrap library; Patton-Politis-White method is the academic standard for block-size selection |
-| `scipy.stats` | already in ecosystem | IC computation via `pearsonr`, `spearmanr` | `tracking/tracker.py` | Already available via numpy/scipy; no new dependency |
-| `scikit-learn` (calibration module) | already common | `CalibratedClassifierCV`, `calibration_curve` for reliability diagrams | `tracking/tracker.py` (future) | Standard ML calibration; only needed after Brier score confirms miscalibration |
-| `mlfinlab` | 0.15+ | Purged cross-validation, combinatorial purged CV, fractional differentiation | `backtesting/walk_forward.py` | The Hudson & Thames implementation of Marcos Lopez de Prado's ML for Finance methods; implements CPCV |
-
-**Note on mlfinlab:** The library is maintained but not heavily star'd; the purged CV implementation is the specific feature needed, which could alternatively be implemented from scratch using Lopez de Prado's open-source code (https://github.com/hudson-and-thames/mlfinlab). Confidence: MEDIUM.
-
----
-
-## Alternatives Considered
-
-| Category | Recommended | Alternative | Why Not |
-|----------|-------------|-------------|---------|
-| Risk metrics library | QuantStats | pyfolio | pyfolio is deprecated; QuantStats is its maintained successor with Monte Carlo addition |
-| Block bootstrap | arch.optimal_block_length | Fixed block_size | Addresses CONCERNS.md residual risk; literature standard |
-| Walk-forward | Custom scaffold in `backtesting/` | Adopt vectorbt / Zipline | Our backtest is agent-pipeline-based, not pure price-series-based; vectorbt/Zipline would require porting the agent architecture |
-| Signal quality metric | IC/ICIR | Hit rate (current) | IC is standard for factor models; hit rate treats all correct predictions equally |
-| Calibration | Brier score | Log-loss | Brier score applies to binary outcomes (up/down); log-loss needs class probabilities |
-| LLM orchestration | Direct asyncio + optional LLM synthesis | LangGraph | LangGraph is appropriate when all agents are LLM-powered; our agents are mostly deterministic Python |
-
----
-
-## Sources
-
-- ai-hedge-fund: https://github.com/virattt/ai-hedge-fund (56.6k stars, fetched Apr 2026)
-- TradingAgents: https://github.com/TauricResearch/TradingAgents (52k stars, v0.2.3 Mar 2026)
-- OpenBB: https://github.com/OpenBB-finance/OpenBB (65.9k stars, fetched Apr 2026)
-- OpenBB Agents (experimental): https://github.com/OpenBB-finance/openbb-agents
-- qlib: https://github.com/microsoft/qlib (41.1k stars, v0.9.7 Aug 2025)
-- FinRL: https://github.com/AI4Finance-Foundation/FinRL (14.8k stars, v0.3.8 Mar 2026)
-- FinGPT: https://github.com/AI4Finance-Foundation/FinGPT (19.7k stars, fetched Apr 2026)
-- freqtrade: https://github.com/freqtrade/freqtrade (49.1k stars, fetched Apr 2026)
-- nautilus_trader: https://github.com/nautechsystems/nautilus_trader (22.1k stars, v1.208.0 Apr 2026)
-- vectorbt: https://github.com/polakowo/vectorbt (7.2k stars, fetched Apr 2026)
-- jesse: https://github.com/jesse-ai/jesse (7.7k stars, fetched Apr 2026)
-- zipline-reloaded: https://github.com/stefan-jansen/zipline-reloaded (1.7k stars, v3.1.1 Jul 2025)
-- lumibot: https://github.com/Lumiwealth/lumibot (1.4k stars, v4.5.1 Apr 2026)
-- Hummingbot: https://github.com/hummingbot/hummingbot (18.2k stars, v2.13.0 Mar 2026)
-- QuantStats: https://github.com/ranaroussi/quantstats (fetched Apr 2026)
-- MarketSenseAI 2.0: https://arxiv.org/html/2502.00415v2
-- HedgeAgents: https://arxiv.org/html/2502.13165v1
-- TradingAgents paper: https://arxiv.org/abs/2412.20138
-- Block bootstrap literature: https://portfoliooptimizer.io/blog/bootstrap-simulation-with-portfolio-optimizer-usage-for-financial-planning/
-- Purged CV: https://en.wikipedia.org/wiki/Purged_cross-validation
-- LLM calibration: https://simplefunctions.dev/opinions/brier-vs-log-vs-quadratic
-- LLM agents in finance survey: https://pmc.ncbi.nlm.nih.gov/articles/PMC12421730/
-- qlib IC/ICIR documentation: https://vadim.blog/qlib-ai-quant-workflow-scoreic
-- Regime detection review: https://www.quantstart.com/articles/market-regime-detection-using-hidden-markov-models-in-qstrader/
-
----
-
-*Research date: 2026-04-21 | Confidence: MEDIUM–HIGH | Covers 14 OSS projects + 3 research papers*
+**Research flags for downstream phases (gsd-roadmapper input):**
+- Phase 2 (SimFin): needs phase-specific research on **filing-date filtering logic** — SimFin's `filed_at` field semantics + edge cases for amended 10-Q filings (10-Q/A) which carry the original filing date but differ in content
+- Phase 3 (CoinGecko): needs phase-specific research on **CryptoAgent factor weights** — specifically how to z-score `commit_count_4_weeks` against asset-specific baselines (BTC vs ETH vs altcoins have very different commit rhythms)
+- Phase 4 (Drift validator): needs phase-specific research on **multi-comparison correction** — 16-point grid search risks p-hacking; Bonferroni or FDR correction needed for Wilcoxon-derived thresholds
