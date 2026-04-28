@@ -53,11 +53,14 @@ An "investment journal that fights back" — a personal investing system that tr
 - ✓ `PositionStatus(Enum)` + `VALID_TRANSITIONS` dict + `validate_status_transition` FSM guard reading actual row status (not hardcoded) in `portfolio/manager.py::close_position` — Phase 4 (UI-06)
 - ✓ Opt-in Bull/Bear LLM synthesis (`ENABLE_LLM_SYNTHESIS` flag, default off) in `engine/llm_synthesis.py` with FOUND-04 backtest_mode short-circuit as FIRST check, PII-safe prompt (no $ amounts, no thesis_text, confidence bucketed to 10%), (ticker, asset_type, date)-keyed cache — Phase 4 (UI-07)
 
-### Active — v1.2 (TBD)
+### Active — v1.2 Trustworthy Signals (scoping)
 
-<!-- v1.1 Live Validation shipped 2026-04-25; all 12/12 requirements moved to Validated below. v1.2 to be scoped via `/gsd-new-milestone`. Candidate themes carried in `.planning/ROADMAP.md` v1.2 (Planned) section. -->
+<!-- v1.2 scoped 2026-04-27. Tight scope (~3 phases / ~12 reqs) combining Signal Quality v2 + Data Coverage v2 + v1.1 carry-forward research. REQ-IDs assigned by roadmapper after research + scoping. -->
 
-(empty — define via `/gsd-new-milestone`)
+- ☐ Calibration reliability plots — predicted-vs-realized accuracy buckets surfaced on `/calibration` page (SIG-v2-01)
+- ☐ SimFin point-in-time fundamentals provider — eliminates restatement bias outside `backtest_mode` (DATA-v2-02)
+- ☐ CoinGecko on-chain provider for CryptoAgent — adds network/dev-activity signals (DATA-v2-03)
+- ☐ Drift-threshold validation against live corpus — promote `>20% IC-IR drop` / `<0.5 floor` out of `preliminary_threshold` (carry-forward from v1.1 Phase 7)
 
 ### Validated — v1.1 Live Validation (shipped 2026-04-25)
 
@@ -81,16 +84,23 @@ An "investment journal that fights back" — a personal investing system that tr
 - ✓ **AN-01**: Dividend-aware IRR — `compute_irr_multi(dividends=[(date, amount)])` extended; `YFinanceProvider.get_dividends` + `DividendCache` Parquet sibling at `data/cache/dividends/{ticker}.parquet` (FOUND-02 pattern, 24h TTL); strict-inequality test verified MSFT/KO IRR ≥0.5pp higher with dividends — v1.1 Phase 7
 - ✓ **AN-02**: Signal drift detector — `engine/drift_detector.py` evaluates per-agent IC-IR weekly with `preliminary_threshold` flag (mirroring Phase 2 preliminary_calibration when <60 samples); >20% drop or <0.5 absolute floor triggers + auto-scale via `agent_weights` UPSERT (preserves `manual_override=1`, NEVER-zero-all guard); Sunday 17:30 APScheduler cron; `drift_log` table; `GET /api/v1/drift/log` endpoint; `DriftBadge.tsx` 3-state UI (null/amber-preliminary/red-triggered) integrated into CalibrationPage — v1.1 Phase 7
 
-## Current State: v1.1 Shipped — v1.2 Pending Scope
+## Current Milestone: v1.2 Trustworthy Signals
 
-**v1.1 Live Validation** shipped 2026-04-25 closes the "is this dashboard actually trustworthy?" gap: corpus rebuild on demand, calibration metrics surface noisy agents per-week, IC-IR-derived weights apply with one click, weekly digest summarizes the week's signal flips + drift, and the drift detector auto-down-weights agents that lose edge.
+**Goal:** Promote calibration from "shipped" to "validated" — broaden free-tier inputs (SimFin point-in-time fundamentals + CoinGecko on-chain) and surface reliability plots + back-tested drift thresholds, closing v1.1's `preliminary_threshold` flag.
 
-**Next milestone (v1.2) candidates** — see `.planning/ROADMAP.md` for full list:
+**Target features:**
+- Calibration reliability plots on `/calibration` page (SIG-v2-01)
+- SimFin point-in-time fundamentals provider (DATA-v2-02)
+- CoinGecko on-chain provider for CryptoAgent (DATA-v2-03)
+- Drift-threshold validation against live corpus (carry-forward from v1.1 Phase 7)
+
+**Connecting narrative:** Broader inputs (SimFin + CoinGecko) feed tighter calibration (reliability plots), which produces the empirical basis for promoting the drift detector out of `preliminary_threshold`.
+
+**Deferred from this milestone (kept in `.planning/ROADMAP.md` Future):**
 - Deployment story (Docker, OpenTelemetry, `pandas-ta-classic`)
 - UX depth (allocation donuts, CSV import wizard, alert-threshold UI, Riskfolio-Lib, QuantStats)
-- Signal Quality v2 (calibration reliability plots, regime-conditioned RSI, trade-shuffle MC)
-- Data Coverage v2 (MarketAux, SimFin, CoinGecko on-chain)
-- **Open research flag from v1.1:** validate drift-detector thresholds (`>20%` IC-IR drop / `<0.5` floor) against the populated live corpus before promoting them out of "preliminary" status.
+- Signal Quality v2 remainder (regime-conditioned RSI, trade-shuffle MC)
+- Data Coverage v2 remainder (MarketAux news/sentiment)
 
 ### v1.1 Operator UAT debt (8 items — runtime/browser/corpus required)
 
@@ -190,4 +200,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-25 after **v1.1 Live Validation milestone** complete — all 12/12 requirements shipped across Phases 5-7; v1.1 archived to `.planning/milestones/v1.1-{ROADMAP,REQUIREMENTS}.md`; git tagged `v1.1`. Active section reset for v1.2 scoping via `/gsd-new-milestone`.*
+*Last updated: 2026-04-27 — **v1.2 Trustworthy Signals milestone scoping started** via `/gsd-new-milestone`. Tight scope (~3 phases / ~12 reqs) combining Signal Quality v2 (reliability plots) + Data Coverage v2 (SimFin + CoinGecko) + v1.1 carry-forward drift-threshold validation. Research wave (4 parallel `gsd-project-researcher` agents) and requirements scoping in progress.*

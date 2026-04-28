@@ -1,34 +1,34 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: Competitive Parity
-status: verifying
-stopped_at: Completed 07-03-PLAN.md (DriftBadge frontend integration — AN-02 complete)
-last_updated: "2026-04-25T07:02:37.993Z"
-last_activity: 2026-04-25
+milestone: v1.2
+milestone_name: Trustworthy Signals
+status: scoping
+stopped_at: Milestone scoping started — research + requirements + roadmap pending
+last_updated: "2026-04-27T00:00:00.000Z"
+last_activity: 2026-04-27
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 8
-  completed_plans: 8
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-22)
+See: .planning/PROJECT.md (updated 2026-04-27 for v1.2 milestone)
 
 **Core value:** Drawdown protection via thesis-aware, regime-aware multi-agent signals — catching when a held position no longer matches the reason it was bought.
-**Current focus:** Phase 7 — Digest + Analytics Completeness
+**Current focus:** v1.2 Trustworthy Signals — scoping (research + requirements + roadmap pending)
 
 ## Current Position
 
-Phase: 7
-Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-04-25
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-27 — Milestone v1.2 Trustworthy Signals started
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -37,26 +37,31 @@ Progress: [░░░░░░░░░░] 0%
 v1.0 Competitive Parity shipped 2026-04-22. 4 phases, 14 plans, 25/25 requirements shipped.
 Full record: `.planning/milestones/v1.0-ROADMAP.md`, `.planning/milestones/v1.0-REQUIREMENTS.md`
 
+## v1.1 Archive Summary
+
+v1.1 Live Validation shipped 2026-04-25. 3 phases, 8 plans, 12/12 requirements shipped.
+Full record: `.planning/milestones/v1.1-ROADMAP.md`, `.planning/milestones/v1.1-REQUIREMENTS.md`
+
 ## Performance Metrics
 
-**v1.1 Velocity:** (updated after each plan completion)
+**v1.2 Velocity:** (updated after each plan completion)
+
+**v1.1 Reference (8 plans total):**
+
+| Phase | Plans | Avg Duration |
+|-------|-------|-------------|
+| 5 - Corpus Population + Live Data Closeout | 2 | ~498s |
+| 6 - Calibration & Weights UI            | 3 | ~822s |
+| 7 - Digest + Analytics Completeness     | 3 | ~859s |
 
 **v1.0 Reference (14 plans total):**
 
 | Phase | Plans | Avg Duration |
 |-------|-------|-------------|
-| 1 - Foundation Hardening | 3 | ~1086s |
-| 2 - Signal Quality Upgrade | 3 | ~2040s |
-| 3 - Data Coverage Expansion | 4 | ~575s |
-| 4 - Portfolio UI + Analytics Uplift | 4 | ~1301s |
-| Phase 05-corpus-population-live-data-closeout P01 | 1489 | 2 tasks | 4 files |
-| Phase 05-corpus-population-live-data-closeout P02 | 7 | 3 tasks | 7 files |
-| Phase 06-calibration-weights-ui P06-01 | 600 | 3 tasks | 6 files |
-| Phase 06-calibration-weights-ui P06-02 | 1446 | 3 tasks | 19 files |
-| Phase 06-calibration-weights-ui P06-03 | 420 | 3 tasks | 10 files |
-| Phase 07 P07-01 | 615 | 3 tasks | 14 files |
-| Phase 07 P02 | 1680 | 3 tasks | 9 files |
-| Phase 07 P07-03 | 283 | 2 tasks | 10 files |
+| 1 - Foundation Hardening                  | 3 | ~1086s |
+| 2 - Signal Quality Upgrade                | 3 | ~2040s |
+| 3 - Data Coverage Expansion               | 4 | ~575s |
+| 4 - Portfolio UI + Analytics Uplift       | 4 | ~1301s |
 
 ## Accumulated Context
 
@@ -104,14 +109,18 @@ Key decisions carrying forward into v1.1:
 
 ### Pending Todos
 
-- Run `/gsd-plan-phase 5` to generate the Phase 5 execution plan
+- Run 4 parallel `gsd-project-researcher` agents to populate `.planning/research/{STACK,FEATURES,ARCHITECTURE,PITFALLS}.md`
+- Synthesize → `.planning/research/SUMMARY.md` via `gsd-research-synthesizer`
+- Define v1.2 requirements with REQ-IDs (interactive scoping with user)
+- Spawn `gsd-roadmapper` to create v1.2 phase plan starting at Phase 8
 
 ### Blockers/Concerns
 
-- Phase 7 AN-02: drift detector threshold calibration ("IC-IR drop >20%" baseline definition) is a research question — determine whether existing backtest corpus provides enough signal variation to validate thresholds before committing to implementation constants.
+- v1.2 carry-forward research: drift-detector thresholds (`>20%` IC-IR drop / `<0.5` floor) ship with `preliminary_threshold` flag. v1.2 must validate these against the corpus produced by v1.1 LIVE-01 rebuild + ongoing daemon runs, OR design a methodology for validating them as soon as ≥60 weekly IC samples per agent accumulate.
+- v1.1 Phase 7 residual: drift-detector threshold calibration was the open research question carried forward — same question reframed for v1.2.
 
 ## Session Continuity
 
-Last session: 2026-04-25T05:54:07.389Z
-Stopped at: Completed 07-03-PLAN.md (DriftBadge frontend integration — AN-02 complete)
-Resume: Run `/gsd-plan-phase 5`
+Last session: 2026-04-27T00:00:00.000Z
+Stopped at: Milestone v1.2 scoping started — PROJECT.md + STATE.md updated; research wave next
+Resume: Continue `/gsd-new-milestone` workflow (research → requirements → roadmap)
