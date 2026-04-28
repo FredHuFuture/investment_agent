@@ -1,232 +1,200 @@
-# Research Summary: Investment Agent -- Competitive Benchmarking
+# Project Research Summary — v1.2 Trustworthy Signals
 
-**Project:** Investment Agent
-**Domain:** Thesis-aware portfolio monitoring + multi-agent signal generation
-**Researched:** 2026-04-21
-**Confidence:** MEDIUM (GitHub READMEs and documentation verified; OSS feature absences based on documentation review)
-
----
-
-## 1. Differentiator Confirmed
-
-The combination of (a) structured thesis capture at entry, (b) continuous per-position drift detection via a six-agent pipeline, and (c) regime-aware signal aggregation with adaptive weights is unique in the OSS landscape. No surveyed competitor across 30+ projects including Ghostfolio (15k stars), TradeNote, Portfolio Performance, TradingAgents, and ai-hedge-fund closes the loop between why a position was opened and whether the current signal still supports that reason.
-
-Specific moat elements no competitor replicates:
-- Structured thesis fields (target price, stop loss, time horizon, thesis text) linked to per-position monitoring, not free-text notes
-- Daily daemon comparing current agent signal vs. the original thesis parameters (engine/drift_analyzer.py)
-- Multi-channel alert delivery (Email + Telegram) -- Ghostfolio, the closest OSS portfolio tracker, delivers in-app notifications only
-- Regime-aware signal aggregation with bidirectional threshold optimization (engine/weight_adapter.py)
-
-This moat is worth protecting explicitly. The roadmap should extend the thesis/drift/journal surface before reaching for net-new data integrations.
+**Project:** Investment Agent (subsequent / brownfield milestone)
+**Domain:** Personal multi-agent investment journal — calibration validation, point-in-time fundamentals, on-chain crypto signals, drift-threshold validation
+**Researched:** 2026-04-27
+**Confidence:** HIGH (all 4 researchers cross-checked against live code paths, vendor docs, and PyPI release dates verified 2026-04-27)
+**Supersedes:** v1.0 SUMMARY.md (2026-04-21 competitive benchmarking) — that synthesis informed v1.0/v1.1 and is now archived
 
 ---
 
-## 2. Must-Borrow Stack
+## Executive Summary
 
-All free-tier compatible and fitting the existing Python/FastAPI/SQLite/React stack.
+v1.2 adds 4 capabilities to a mature brownfield system (889 tests, 15 frontend pages, two shipped milestones). Three of the four are surgical extensions of existing patterns — a new provider mirroring `data_providers/finnhub_provider.py`, a new metric mirroring `tracking/tracker.py::compute_brier_score`, a new utility mirroring `engine/drift_detector.py`. The fourth — drift-threshold validation — closes v1.1's `preliminary_threshold` carry-forward by shipping the *capability to validate*, not necessarily *validated thresholds* (the live corpus will be ~13 weeks at ship time, below the 60-week floor).
 
-| # | Capability | Source | Integration Surface | Effort | Priority | Category |
-|---|-----------|--------|---------------------|--------|----------|----------|
-| 1 | Dynamic block-size via arch.optimal_block_length() | arch lib 6.x https://github.com/bashtage/arch | engine/monte_carlo.py -- replace hardcoded block_size=5 | XS | P0 | signal quality |
-| 2 | Agent weight renormalization when agents disabled | Internal fix | engine/aggregator.py lines 150-180 | XS | P0 | signal quality |
-| 3 | backtest_mode flag suppressing restated yfinance fundamentals | Internal fix (look-ahead bias) | agents/fundamental.py + backtesting/engine.py | XS | P0 | signal quality |
-| 4 | yfinance batch download (yfinance.download with list + group_by=ticker) | FinRL, freqtrade pattern | data_providers/yfinance_provider.py | S | P0 | data |
-| 5 | Local Parquet cache layer for OHLCV | freqtrade, lumibot pattern | New data_providers/cache.py (TTL-backed) | S | P0 | data |
-| 6 | SQLite WAL indexes + 90-day signal pruning | qlib, freqtrade pattern | db/database.py + daemon/jobs.py | S | P0 | arch/deploy |
-| 7 | job_run_log table + atomic daemon transactions | freqtrade, nautilus_trader pattern | db/database.py + daemon/jobs.py + daemon/scheduler.py | S | P0 | arch/deploy |
-| 8 | CVaR / Expected Shortfall via quantstats | QuantStats https://github.com/ranaroussi/quantstats | engine/analytics.py -- add compute_risk_metrics() | S | P0 | signal quality |
-| 9 | Brier score for agent confidence calibration | Academic consensus / qlib IC pattern | tracking/tracker.py -- extend accuracy tracking | S | P1 | signal quality |
-| 10 | Rolling IC/ICIR per agent | qlib https://github.com/microsoft/qlib | tracking/tracker.py + engine/weight_adapter.py | M | P1 | signal quality |
-| 11 | Transaction costs in backtester | qlib, freqtrade | backtesting/ -- add cost_per_trade parameter | S | P1 | signal quality |
-| 12 | Walk-forward backtesting scaffold | freqtrade, vectorbt https://github.com/polakowo/vectorbt | New backtesting/walk_forward.py | M | P1 | signal quality |
-| 13 | Finnhub provider (live sector P/E, insider, ESG, transcripts) | Finnhub free 60 req/min https://finnhub.io/docs/api/ | New data_providers/finnhub_provider.py; agents/fundamental.py | M | P1 | data |
-| 14 | FinBERT local sentiment fallback | ProsusAI/finbert Apache 2.0 https://huggingface.co/ProsusAI/finbert | agents/sentiment.py -- check ANTHROPIC_API_KEY; fallback | M | P1 | data |
-| 15 | TTWROR + IRR per-position and aggregate | Portfolio Performance / FinanceToolkit pattern | engine/analytics.py + api/routes/analytics.py + PerformancePage.tsx | M | P1 | portfolio/UI |
-| 16 | Benchmark comparison overlay (SPY default) | Ghostfolio / Wealthfolio pattern | engine/analytics.py + PerformancePage.tsx | M | P1 | portfolio/UI |
-| 17 | Named rules inventory panel + enable/disable toggles | Ghostfolio X-ray https://github.com/ghostfolio/ghostfolio | api/routes/monitoring.py + MonitoringPage.tsx | M | P1 | portfolio/UI |
-| 18 | Target-weight rebalancing visualization | Portfolio Performance / Ghostfolio | db/database.py (add target_weight col); PortfolioPage.tsx | S | P1 | portfolio/UI |
-| 19 | Calendar heatmap for daily P&L | TradeNote https://github.com/Eleven-Trading/TradeNote | PerformancePage.tsx -- new chart component | S | P1 | portfolio/UI |
-| 20 | SEC EDGAR insider transactions via edgartools | edgartools Apache 2.0 https://github.com/dgunning/edgartools | New data_providers/edgar_provider.py; agents/fundamental.py | M | P2 | data |
-| 21 | Portfolio-level VaR with covariance matrix | qlib / QuantStats | engine/analytics.py -- pairwise correlation across held positions | M | P2 | signal quality |
-| 22 | Bull/Bear LLM synthesis step (opt-in) | TradingAgents, MarketSenseAI arxiv 2502.00415 | engine/pipeline.py -- opt-in post-gather; ENABLE_LLM_SYNTHESIS env flag | M | P2 | signal quality |
-| 23 | Structured logs (JSON) + GET /health daemon status endpoint | freqtrade, nautilus_trader pattern | api/app.py + new api/routes/health.py | S | P2 | arch/deploy |
-| 24 | Daemon PID file + localhost-only default binding | freqtrade pattern | daemon/scheduler.py + api/app.py + startup scripts | XS | P2 | arch/deploy |
-| 25 | PositionStatus FSM Enum with transition guard | freqtrade persistence pattern | portfolio/models.py + portfolio/manager.py | S | P2 | arch/deploy |
+The recommended approach is **three sequential phases ordered to neutralize cross-feature data-contamination risk first**: Phase 8 lands SimFin + Reliability Plots together (both touch FOUND-04 and the `backtest_signal_history` corpus schema, so they share the `fundamentals_provider` column migration), Phase 9 lands CoinGecko (independent dependency-wise, but its crypto-agent rewiring shifts CryptoAgent's IC distribution and must precede drift validation), Phase 10 closes the loop with drift-threshold validation methodology against a corpus that has been rebuilt under the new providers. Total new install footprint is ~0.3 MB (`coingecko-sdk`); SimFin uses raw httpx (the abandoned PyPI SDK is rejected); reliability plots reuse already-installed sklearn; drift validator reuses already-installed scipy. No frontend chart-lib migration.
+
+The dominant risks are *silent data corruption* rather than implementation difficulty. **FOUND-04 contract bypass** (Pitfall 1) and **provider mixing in `signal_history`/`backtest_signal_history`** (Pitfall 4) are both DATA-CORRUPTION class — they would silently invalidate the calibration corpus that the whole "Trustworthy Signals" narrative rests on. Defensive code patterns (a `fundamentals_provider` schema column landed in the same PR as SimFin, a tripwire regression test on the FOUND-04 backtest_mode short-circuit, an `asyncio.wait_for(10s)` per-agent timeout for CoinGecko's 5-15/min rate limit) are non-negotiable for v1.2 to ship trustworthy. Drift-threshold validation must be **methodologically honest** — out-of-sample time-split, bootstrap CI, and an explicit "remain preliminary" acceptance path if the 60-week corpus floor isn't reached.
 
 ---
 
-## 3. Nice-to-Borrow
+## Key Findings
 
-| Capability | Source | Why Defer | Integration Surface | Effort |
-|-----------|--------|-----------|---------------------|--------|
-| MarketAux news + pre-computed sentiment | MarketAux https://www.marketaux.com/documentation (100 req/day free) | Supplements existing scraper; not a blocker | data_providers/web_news_provider.py augmentation | S |
-| Calibration plot / reliability diagram | Academic pattern | Needs Brier score data first (months of history) | engine/analytics.py + frontend chart | M |
-| Adaptive RSI thresholds (regime-conditioned) | vectorbt / freqtrade hyperopt | Needs observability metrics to validate improvement | agents/technical.py + agents/macro.py | M |
-| Allocation donut charts (sector/currency) | Ghostfolio pattern | Pure frontend; no backend changes needed | PortfolioPage.tsx -- Recharts PieChart | S |
-| Broker CSV import UI | Ghostfolio / Portfolio Performance | Skeleton exists in portfolio/manager.py; UI not complete | Frontend import wizard + api/routes/portfolio.py | M |
-| Alert threshold editing in UI | Ghostfolio X-ray | Rules today require code changes to modify thresholds | api/routes/monitoring.py settings panel | M |
-| SimFin point-in-time fundamentals | SimFin CC license https://simfin.readthedocs.io/ | 12-month delay; useful only for historical backtests | New data_providers/simfin_provider.py | M |
-| Jesse dual Monte Carlo (trade-order shuffle) | jesse https://github.com/jesse-ai/jesse | Block bootstrap already covers scenario diversity | engine/monte_carlo.py | S |
-| QuantStats tearsheet integration | QuantStats | Nice visual; depends on analytics extension above | engine/analytics.py + report endpoint | S |
-| CoinGecko GeckoTerminal DEX on-chain data | CoinGecko demo 30 req/min https://www.coingecko.com/en/api/ | Low urgency vs. equity gaps | agents/crypto.py augmentation | M |
-| Riskfolio-Lib position sizing (Kelly / risk parity) | Riskfolio-Lib https://github.com/dcajasn/Riskfolio-Lib | No UI surface yet; prerequisite is target-weight visualization | New engine/sizing.py + api/routes/sizing.py | L |
-| pandas-ta-classic migration | https://github.com/xgboosted/pandas-ta-classic | Still works; defer until Pandas 4.x forces the issue | agents/technical.py import swap | S |
-| Docker / docker-compose.yml | freqtrade, jesse pattern | Increases setup friction but not blocking solo development | Root Dockerfile + docker-compose.yml | M |
-| OpenTelemetry + Prometheus metrics | opentelemetry-python-contrib | Structured logs + health endpoint sufficient for Phase 1 | api/app.py auto-instrumentation | M |
+### Recommended Stack
 
----
+See `.planning/research/STACK.md` for full rationale and PyPI verification. Headline: **+0.3 MB total install footprint** for v1.2 — three transitively-installed deps get promoted to direct dependencies (sklearn, numpy, scipy) and one new official SDK is added (`coingecko-sdk`). The abandoned `simfin` PyPI SDK is **rejected** in favor of a 50-LOC httpx client.
 
-## 4. Anti-Features / Confirmed Out of Scope
+**Core technologies (additions / promotions):**
 
-| Anti-Feature | Why Skip | What We Do Instead |
-|-------------|----------|--------------------|
-| LLM investor persona agents (Buffett, Munger style) | Not calibrated; deterministic agents are more testable and reproducible | Extend six-agent structure with IC/Brier signal quality metrics |
-| RL for weight optimization (FinRL pattern) | Requires simulator + years of labeled signal data; cost >> benefit for 6-agent system | IC/ICIR-based weight adaptation (qlib pattern) |
-| LangGraph orchestration without full LLM agents | Adds dependency overhead; asyncio.gather() is simpler for deterministic agents | Keep asyncio pipeline; add opt-in LLM synthesis step only |
-| Glassnode on-chain integration | No free tier; Professional plan + API add-on required | CoinGecko GeckoTerminal for DEX on-chain (free demo tier) |
-| Kaiko / Bloomberg / WRDS paid data | Institutional-only; incompatible with free-only constraint | Finnhub + FMP + EDGAR free tiers |
-| Automated order execution / broker hooks | Out of scope per PROJECT.md; multiplies regulatory/liability surface | Remain signal + thesis tool only |
-| Unusual Whales options / dark pool flow | All providers paid (50+/mo); execution-focused | Out of scope for thesis-tracking tool |
-| IEX Cloud | Shut down August 2024 | Migrate any references to Tiingo or Finnhub |
-| pytrends Google Trends scraping | Archived April 2025; TOS prohibits automated scraping | Wikipedia pageviews API as future nice-to-have |
-| Real-time tick data / level 2 order book | nautilus_trader and freqtrade do this better; requires low-latency infra | Out of scope for daily thesis-review cadence |
-| Multi-tenant SaaS / account system | Out of scope this milestone per PROJECT.md | Solo-operator first |
-| Drag-drop widget dashboard (OpenBB Workspace pattern) | High complexity sink; wrong for solo operator | 15-page structure provides depth without configurability overhead |
-| Brinson performance attribution | Requires reliable TTWROR as prerequisite; do not build out of order | Add TTWROR first; defer attribution |
-| Factor exposure (FF5) | Niche demand demonstrated by Quant Lab Alpha Tkinter UI; defer | Not in this milestone |
-| Full TradeNote psychology diary / annual playbook | JournalPage.tsx covers the core; low leverage for next milestone | Partial borrow only: structured tag taxonomy + screenshot attachment |
+- `scikit-learn>=1.4,<2.0`: SIG-v2-01 reliability plot binning via `sklearn.calibration.calibration_curve()` — already transitively installed (1.6.1 via quantstats); promote to direct dep for explicit contract on `pos_label` kwarg + `strategy='quantile'` semantics. License BSD-3-Clause.
+- `coingecko-sdk>=1.14.2,<2.0`: DATA-v2-03 official async CoinGecko REST client — Apache-2.0, ~330 KB, native httpx, supports `x-cg-demo-api-key` header. Released 2026-04-21. Supersedes the unmaintained `pycoingecko`.
+- `httpx>=0.27` (existing): DATA-v2-02 SimFin v3 REST client — pattern already established by `data_providers/finnhub_provider.py:79-90`. **Do NOT install the abandoned `simfin` PyPI SDK** (last release 2024-04-03, Snyk-flagged Inactive, predates SimFin v3 API).
+- `scipy>=1.10,<2.0` (promote): DRIFT-v2-04 will add `scipy.stats.wilcoxon` for paired threshold significance testing — already lazy-imported in `tracking/tracker.py:389` for `pearsonr`.
+- `recharts^2.13.0` (existing): Reliability plot renders via `<ScatterChart>` + `<ReferenceLine y=x>` + optional `<ErrorBar>` — Phase 4 already locked Recharts; no chart-lib migration.
 
----
+**Anti-stack (rejected with reason):** `simfin` PyPI SDK (abandoned), `pycoingecko` (sync-only, supplanted), `netcal`/`ReliabilityDiagram` (over-engineered for one binning operation), `mlflow`/`optuna` (~50 MB for capabilities scipy already covers), `statsmodels` (~30 MB for `wilcoxon` scipy.stats already exposes), Apple `relplot` (uses kernel smoothing — overkill for sparse corpus), `pandas-datareader` (doesn't support SimFin).
 
-## 5. Phase Suggestions
+### Expected Features
 
-Four coarse phases. Each phase is shippable independently. Order respects the dependency chain:
-yfinance batch fix -> faster backtests -> walk-forward validation -> IC-based weight upgrades.
+See `.planning/research/FEATURES.md` for table-stakes vs. differentiator analysis and OSS competitor patterns. The four v1.2 capabilities resolve to **5 P1 ship-list features** plus deferred extensions.
 
-### Phase 1: Foundation Hardening
+**Must have (table stakes — all P1, all required for v1.2 milestone goal):**
+- Reliability plot per agent on `/calibration` — predicted-confidence vs realized-win-rate ScatterChart with diagonal reference line + sample-size annotations + per-bin Wilson CIs.
+- Murphy/Brier decomposition card (REL/RES/UNC) next to the plot — tells the user *why* Brier is 0.18. No OSS competitor offers this.
+- SimFin provider + `backtest_mode` opt-in routing — eliminates look-ahead bias from yfinance's restated fundamentals. FOUND-04 contract is *preserved*: SimFin is opt-in via a NEW `use_pit_fundamentals` field on `AgentInput`, not a silent provider swap.
+- CoinGecko on-chain provider + CryptoAgent Factor 6 rewiring — replaces static `crypto_adoption.yaml` constants with live `commit_count_4_weeks` + `reddit_subscribers` deltas. No new factor; same 5% weight (rebalancing deferred to v1.3).
+- Drift-threshold validation methodology + UI panel — `engine/drift_validator.py` + `drift_thresholds` table + `DriftValidationPanel.tsx` mounted in CalibrationPage. Ships *capability*, not necessarily flipped flag.
 
-**Rationale:** Fix the codebase liabilities identified by competitor gap analysis before layering
-new capabilities on top. The yfinance serial-lock, hardcoded MC block size, look-ahead bias in
-the backtester, and missing daemon crash recovery are all prerequisites for trust in the
-signal-quality metrics introduced in Phase 2.
+**Should have (deferred to v1.3 if user feedback confirms demand):**
+- Restated-vs-as-filed delta badge on positions (when `|delta| > 10%`)
+- Per-bin trend sparklines on reliability plot (30/60/90d rolling)
+- Drift sensitivity heatmap (`(drop_pct × abs_floor)` colored by OOS Sharpe)
 
-**Ships:**
-- Row 4: yfinance batch download (P0 data)
-- Row 5: Parquet OHLCV cache layer (P0 data)
-- Row 1: arch.optimal_block_length() replacing hardcoded block_size=5 (P0 signal quality)
-- Row 3: backtest_mode flag for look-ahead bias (P0 signal quality)
-- Row 2: agent weight renormalization guard (P0 signal quality)
-- Row 6: SQLite WAL indexes + 90-day signal pruning (P0 arch)
-- Row 7: job_run_log table + atomic daemon transactions (P0 arch)
+**Defer (v2+):**
+- Bootstrap CIs replacing Wilson — Wilson is asymptotically equivalent for our N
+- Glassnode/CryptoQuant paid integration — free-tier constraint binds
+- Auto-tuning drift thresholds with hysteresis — threshold-thrashing risk
+- Real-time on-chain refresh — free-tier rate limits
 
-**Pitfalls addressed:** #1 yfinance global lock, #2 APScheduler crash recovery, #3 SQLite WAL
-contention, #4 look-ahead bias, #8 weight normalization
+**Anti-features (commonly requested, problematic):**
+- Switch *entire* fundamental pipeline to SimFin — single-provider failure surface; ~5y free-tier history. Use **layered routing**.
+- Real-time on-chain refresh polling — 30/min Demo limit blown in 4 days at sub-minute polling.
+- Auto-tune drift thresholds on every weekly run — threshold thrashing; defeats validation purpose.
 
-**Research flag:** Standard patterns. No phase research needed.
+### Architecture Approach
 
----
+See `.planning/research/ARCHITECTURE.md` for full file-path index, integration points, and dependency graph. v1.2 is **brownfield integration into a 6-layer system** (frontend → routes → engine/tracking/portfolio → agents → data_providers → SQLite + APScheduler daemon). All 4 capabilities slot into existing patterns — no new layer is introduced.
 
-### Phase 2: Signal Quality Upgrade
+**Major components (new + modified):**
 
-**Rationale:** Extend the thesis/drift moat with calibrated, measurable signal quality. IC/ICIR
-and Brier score give per-agent accountability, walk-forward backtesting removes the
-single-window bias, and CVaR/VaR surfaces the tail risk competitors ignore. This phase
-deepens the core moat before expanding the data surface.
+1. **`data_providers/simfin_provider.py` (NEW)** — Class `SimfinProvider(DataProvider)` mirroring `FinnhubProvider`: class-level `AsyncRateLimiter(2/sec)`, httpx async client, `params={"api-key": resolved_key}`, lazy-key warning. Sibling `data_providers/simfin_cache.py` (NEW) is a Parquet disk cache mirroring `dividend_cache.py`, 24h TTL. Wired into `agents/fundamental.py` via opt-in `agent_input.use_pit_fundamentals` flag (FOUND-04 short-circuit preserved as default).
 
-**Ships:**
-- Row 8: CVaR / Expected Shortfall via QuantStats (P0 signal quality)
-- Row 9: Brier score for agent confidence calibration (P1 signal quality)
-- Row 10: Rolling IC/ICIR per agent (P1 signal quality)
-- Row 11: Transaction costs in backtester (P1 signal quality)
-- Row 12: Walk-forward backtesting scaffold (P1 signal quality)
-- Row 21: Portfolio-level VaR with covariance matrix (P2 signal quality)
+2. **`data_providers/coingecko_provider.py` (NEW)** — Class `CoinGeckoProvider(DataProvider)` using `coingecko-sdk` `AsyncCoingecko` client. Class-level `AsyncRateLimiter(30/min)` matching Demo tier. TTL cache (24h). Wired into `agents/crypto.py` Factor 6 — replaces `_score_network_adoption` static path; same 5% weight; static `crypto_adoption.yaml` becomes graceful fallback.
 
-**Pitfalls addressed:** #9 survivorship bias (walk-forward), #12 static RSI/VIX thresholds
-(IC data enables adaptive thresholds in Nice-to-Borrow), #8 weight normalization follow-through
+3. **`tracking/tracker.py` extension (MODIFY)** — New methods `compute_reliability_bins(agent, horizon, n_bins, min_bucket_size)` + `compute_ece(...)` + `compute_murphy_decomposition(...)`. All read from existing `backtest_signal_history` corpus. New endpoint shape: `GET /api/v1/analytics/calibration?include_reliability=true` (additive — preserves WARNING 11 stable-key contract). Frontend: NEW `frontend/src/components/calibration/ReliabilityPlot.tsx` (Recharts ScatterChart + ReferenceLine + bubble size = sample count) mounted as expandable drill-down on `AgentCalibrationRow.tsx`.
 
-**Research flag:** Walk-forward window sizing and IC significance threshold need validation
-against actual signal history length. Consider /gsd-research-phase before implementation.
+4. **`engine/drift_validator.py` (NEW)** — Function `validate_drift_thresholds(db_path, candidate_grid)` returning per-`(drop_pct, floor)` precision/recall/Wilcoxon-p-value. Reuses `backtesting/walk_forward.py::generate_walk_forward_windows` (`purge_days=5` for IC-feeding). New `drift_thresholds` table — per-`(asset_type, agent_name)` row with `source` ∈ `{preliminary, validated, manual}`. `engine/drift_detector.py` reads this table at runtime, falling back to hardcoded constants if empty.
+
+5. **`db/database.py` migrations (MODIFY)** — Three idempotent migrations land in this milestone: (a) `signal_history.fundamentals_provider TEXT DEFAULT 'yfinance'`; (b) `backtest_signal_history.fundamentals_provider TEXT DEFAULT 'yfinance'` + index; (c) `drift_log.fundamentals_provider TEXT DEFAULT 'yfinance'` + new `drift_thresholds` table.
+
+6. **`engine/pipeline.py` provider injection (MODIFY)** — When `os.getenv("SIMFIN_FOR_FUNDAMENTALS") == "true"`, inject `SimfinProvider` into `FundamentalAgent.set_pit_provider()`. When `COINGECKO_DEMO_API_KEY` set, inject `CoinGeckoProvider` into `CryptoAgent`. Both with try/except + pipeline_warnings fallback (matches `MacroAgent` pattern for missing FRED key). Plus per-agent `asyncio.wait_for(timeout=10s)` wrapper for CoinGecko.
+
+### Critical Pitfalls
+
+See `.planning/research/PITFALLS.md` for the full 13-pitfall catalog with severity, phase ownership, and recovery costs. Top 5 by severity:
+
+1. **SimFin invoked outside `backtest_mode` bypasses FOUND-04 contract** (DATA-CORRUPTION) — Naive integration would lift the FundamentalAgent `backtest_mode=True` HOLD short-circuit when SimFin is the provider. This breaks `engine/signal_aggregator.py` weight renormalization (FOUND-05's 12-case parametrized test) and contaminates `backtest_signal_history` Brier/IC computations. **Avoid:** Make SimFin opt-in via NEW `agent_input.use_pit_fundamentals: bool = False` field; preserve FOUND-04 default; add tripwire regression test `test_fundamental_agent_backtest_mode_default_unchanged` in initial PR.
+
+2. **Provider mixing in `signal_history`/`backtest_signal_history` without `fundamentals_provider` column** (DATA-CORRUPTION) — Cache key today is `(ticker, date)`, not `(ticker, date, fundamentals_provider)`. After SimFin lands, IC computed against pre-SimFin yfinance rows mixed with post-SimFin SimFin rows is silently wrong. **Avoid:** `fundamentals_provider` column migration MUST land in same PR as SimFin provider, with index on `(ticker, created_at, fundamentals_provider)`. IC and drift queries filter by provider. Force corpus rebuild on first SimFin enable.
+
+3. **CoinGecko free-tier rate limit (5-15/min) blocks `asyncio.gather` for 60s** (LOUD-FAILURE) — `engine/pipeline.py:130` runs all agents in parallel via `asyncio.gather(*all_tasks, return_exceptions=True)` with NO per-agent timeout. CoinGecko's 60s default httpx timeout means a single slow call stalls the entire analyze endpoint. **Avoid:** Wrap CoinGecko-dependent calls with `asyncio.wait_for(timeout=10s)` at pipeline edge; 24h Parquet cache for `developer_data`/`community_data` (ToS-compliant per CoinGecko "must refresh at least every 24 hours"); CryptoAgent `enable_oncoin` flag with graceful price-only fallback.
+
+4. **Reliability plot binning hides miscalibration at current corpus size** (SILENT-FAILURE) — `sklearn.calibration_curve(n_bins=10)` is the canonical tutorial example, but our `backtest_signal_history` corpus is ~10 rows live + ~750 rows synthetic. With 10 bins, each bin has 0-3 samples; plot looks like Swiss cheese; operator concludes "uncalibrated" when really sample-noise dominates. **Avoid:** Adaptive bin count `_adaptive_bin_count(n_samples, min_per_bin=10, max_bins=10)`. Plumb `preliminary_calibration: true` flag through reliability endpoint (mirrors Phase 2 pattern). Frontend renders amber banner when flag set.
+
+5. **Drift-threshold validation data-snoops the corpus it tests against** (SILENT-FAILURE) — Natural research workflow ("tune `>20%` to match drift events that already happened in the corpus") IS data-snooping. With ~13 weeks of `drift_log` at v1.2 ship vs `MIN_SAMPLES_FOR_REAL_THRESHOLD=60`, even ignoring snoop the sample size doesn't support promotion. **Avoid:** (a) Out-of-sample time-split (train through 2024-06-30, validate 2024-07-01+); (b) Bootstrap 95% CI on threshold; (c) Tripwire test `test_preliminary_threshold_promotion_requires_evidence` that fails until validation set documented; (d) Honest "remain preliminary" acceptance path documented as Key Decision in PROJECT.md.
+
+**Cross-feature pitfalls (multi-feature interaction — these only emerge under combined deployment):**
+
+- **Cross-1 (SimFin + Drift Detector)**: Drift detector's `_get_avg_icir_60d` baseline shifts when SimFin lands — FALSE drift alert. Owned by Phase 8.
+- **Cross-2 (CoinGecko + Drift Detector)**: New on-chain inputs shift CryptoAgent IC distribution; thresholds tuned on old distribution misfire. Owned by Phase 9 (reset `(CryptoAgent, btc/eth)` `preliminary_threshold = True` regardless of sample count).
+- **Cross-3 (Reliability Plot + CoinGecko + SimFin)**: Reliability plot computed against corpus mixing pre- and post-v1.2 signals looks badly miscalibrated. Owned by Phase 10 (corpus rebuild MANDATORY before plot interpretation).
+- **Cross-4 (Drift validation + corpus rebuild ordering)**: If validation runs on half-rebuilt corpus, results are garbage. Phase 10 prerequisite check fails fast if corpus rebuild post-dates SimFin/CoinGecko feature flags.
 
 ---
 
-### Phase 3: Data Coverage Expansion
+## Implications for Roadmap
 
-**Rationale:** Expand the free-tier data surface with Finnhub (live sector P/E, transcripts,
-insider flow), FinBERT (local sentiment, no API key), and SEC EDGAR (insider transactions).
-These close the three largest data gaps vs. competitors while staying free-only. Comes
-after Phase 1 because the Parquet cache and rate-limit architecture must be in place
-before adding more providers.
+The 4 researchers diverged on phase count: ARCHITECTURE.md proposed 4 phases, FEATURES.md and STACK.md proposed 3 phases (with reliability plots first), PITFALLS.md proposed 3 phases (with SimFin + reliability plots bundled first). User's stated scope is "tight (~3 phases / ~12 reqs)". **Recommendation: 3 phases adopting PITFALLS.md ordering**, because cross-feature data-corruption pitfalls (Cross-1 SimFin+drift baseline; Cross-3 reliability-plot mixed corpus) make sequential ordering more important than separation-of-concerns.
 
-**Ships:**
-- Row 13: Finnhub provider (P1 data)
-- Row 14: FinBERT local sentiment fallback (P1 data)
-- Row 20: SEC EDGAR insider transactions via edgartools (P2 data)
-- Row 23: Structured JSON logs + GET /health endpoint (P2 arch)
-- Row 24: Daemon PID file + localhost-only binding (P2 arch)
+**Trade-off documented:** PITFALLS' bundling of SimFin + Reliability Plots into Phase 8 is the *defensive* choice — both features touch FOUND-04 and require the `fundamentals_provider` schema column, so landing them together avoids a migration-then-feature interleave. ARCHITECTURE's separated 4-phase ordering is *cleaner conceptually* but exceeds user scope and creates a Phase 8.5 problem (where does the schema migration land if SimFin and reliability plots ship in different phases?). The bundled approach is recommended.
 
-**Pitfalls addressed:** #6 observability blind spot (health endpoint), #10 pandas_ta future
-warnings mitigated via TA-Lib comparison data
+### Phase 1 (Phase 8 in milestone-cumulative numbering) — SimFin + Reliability Plots
 
-**Research flag:** FinBERT download size (~400 MB) needs first-run UX decision; Finnhub
-free-tier commercial use terms should be reviewed before shipping.
+**Rationale:** These two features share schema-migration risk (the new `fundamentals_provider` column on `signal_history`/`backtest_signal_history`/`drift_log`) and both touch the FOUND-04 contract surface. Landing them together avoids the migration-then-feature interleave and lets the same PR carry: (a) schema migration, (b) `fundamentals_provider` filter on IC/drift queries, (c) FOUND-04 tripwire test, (d) corpus-rebuild-on-first-SimFin-enable, (e) reliability bin computation against the now-provider-aware corpus.
 
----
+**Delivers:**
+- `data_providers/simfin_provider.py` + `data_providers/simfin_cache.py` (Parquet, 24h TTL)
+- `agent_input.use_pit_fundamentals: bool = False` field on `AgentInput`
+- FOUND-04 contract preserved: `if backtest_mode and not use_pit_fundamentals → HOLD/completeness=0.0` (default unchanged)
+- `tracking/tracker.py::compute_reliability_bins` + `compute_ece` + `compute_murphy_decomposition` (REL/RES/UNC)
+- `GET /api/v1/analytics/calibration?include_reliability=true` extension (additive, preserves stable-key contract)
+- `frontend/src/components/calibration/ReliabilityPlot.tsx` + `MurphyDecompositionCard.tsx`
+- DB migrations: `fundamentals_provider TEXT DEFAULT 'yfinance'` on 3 tables + index
+- Tripwire tests: `test_fundamental_agent_backtest_mode_default_unchanged`, `test_simfin_provider_no_silent_yfinance_fallback`, `test_adaptive_bin_count`
 
-### Phase 4: Portfolio UI + Analytics Uplift
+**Addresses (FEATURES.md):** SimFin provider P1 (table stake), Reliability plot P1 (table stake), Murphy decomposition P1 (differentiator)
+**Uses (STACK.md):** `httpx>=0.27` (SimFin client), `scikit-learn>=1.4` promotion, `recharts` (existing)
+**Implements (ARCHITECTURE.md):** SimfinProvider mirroring FinnhubProvider; tracker extension owning new methods alongside existing Brier/IC/IC-IR; ReliabilityPlot as expandable drill-down (not new column)
+**Avoids (PITFALLS.md):** Pitfalls 1, 2, 4, 7, 8, 9, 10, 12, 13
 
-**Rationale:** Close the UI gap vs. Ghostfolio and Portfolio Performance. TTWROR, benchmark
-overlay, and target-weight visualization are table-stakes for a credible portfolio tracker.
-Calendar heatmap and named rules panel are differentiator extensions. Comes last because
-accurate P&L math requires transaction cost data from Phase 2.
+**Estimated reqs:** 4-5
 
-**Ships:**
-- Row 15: TTWROR + IRR per-position and aggregate (P1 portfolio/UI)
-- Row 16: Benchmark comparison overlay -- SPY default (P1 portfolio/UI)
-- Row 17: Named rules inventory panel + enable/disable toggles (P1 portfolio/UI)
-- Row 18: Target-weight rebalancing visualization (P1 portfolio/UI)
-- Row 19: Calendar heatmap for daily P&L (P1 portfolio/UI)
-- Row 25: PositionStatus FSM Enum with transition guard (P2 arch)
-- Row 22: Bull/Bear LLM synthesis step opt-in (P2 signal quality) -- if chart lib and
-  LLM provider questions are resolved
+### Phase 2 (Phase 9) — CoinGecko On-Chain Provider
 
-**Pitfalls addressed:** #5 position lifecycle fragmentation (FSM), #3 SQLite write contention
-from high-frequency UI queries (index work extends Phase 1 coverage)
+**Rationale:** Independent of Phase 8 dependency-wise — separate providers, separate agent. Comes second because (a) it's the smallest scope, (b) its CryptoAgent rewiring shifts the IC distribution that Phase 10's drift validation will measure against (Cross-2 pitfall), (c) its rate-limit timeout pattern (`asyncio.wait_for(10s)`) is a reusable defensive primitive.
 
-**Research flag:** TradingView Lightweight Charts vs. Recharts for financial time-series is
-an open question. Recommend /gsd-research-phase before starting PerformancePage.tsx work.
+**Delivers:**
+- `data_providers/coingecko_provider.py` using `coingecko-sdk` `AsyncCoingecko` + class-level `AsyncRateLimiter(30/min)` matching Demo tier
+- 24h TTL cache for `developer_data` + `community_data` (ToS-compliant)
+- `agents/crypto.py` Factor 6 rewired with live composite of `commit_count_4_weeks` z-score + `reddit_subscribers` MoM growth + `telegram_channel_user_count` MoM growth. Same 5% weight; `config/crypto_adoption.yaml` becomes graceful fallback.
+- `engine/pipeline.py` per-agent timeout wrapper `asyncio.wait_for(timeout=10s)`
+- CryptoAgent `enable_oncoin` constructor flag with graceful price-only fallback
+- "Powered by CoinGecko" attribution footer on `/calibration` and `/analyze` pages (ToS requirement)
+- DB migration: reset `(CryptoAgent, btc/eth)` drift_thresholds.source = 'preliminary' to avoid Cross-2 pitfall
+- Tripwire tests: `test_coingecko_timeout_does_not_block_other_agents`, `test_crypto_agent_factor6_symmetry`
 
----
+**Addresses (FEATURES.md):** CoinGecko on-chain provider P1, combined community+developer activity score (differentiator)
+**Uses (STACK.md):** `coingecko-sdk>=1.14.2,<2.0` (NEW core dep, +0.3 MB)
+**Implements (ARCHITECTURE.md):** CoinGeckoProvider mirroring FinnhubProvider; option B (replace static factor) NOT option A (new 8th factor)
+**Avoids (PITFALLS.md):** Pitfalls 3, 6, 11; Cross-2
 
-## 6. Open Questions
+**Estimated reqs:** 2-3
 
-These are unresolved decisions that will surface during phase planning:
+### Phase 3 (Phase 10) — Drift-Threshold Validation Methodology
 
-1. **Chart library for financial time-series:** TradingView Lightweight Charts (MIT, 10k stars,
-   candlestick-native) vs. extending Recharts (already in the project). Decision affects
-   PerformancePage.tsx architecture. Recommend resolving before Phase 4 kickoff.
+**Rationale:** Depends on Phases 8+9 conceptually. The validation framework reuses `tracker.compute_rolling_ic` infrastructure that Phase 8 reliability plots also use; corpus must be rebuilt under SimFin+CoinGecko providers before validation can be honest. Without ECE/reliability already in the UI from Phase 8, operators cannot cross-check whether a "validated" threshold matches what they see in the calibration view.
 
-2. **LLM provider for Bull/Bear synthesis (Row 22):** Claude API vs. local Ollama vs. skip.
-   TradingAgents uses GPT-4o/DeepSeek; cost and latency differ 10x. This is opt-in, but the
-   provider decision shapes the env-flag design. Resolve during Phase 4 scoping.
+**Delivers:**
+- `engine/drift_validator.py` — `validate_drift_thresholds(db_path, candidate_grid)` returning per-`(drop_pct, floor)` precision/recall/Wilcoxon-p-value
+- 16-point candidate grid: `(drop_pct ∈ {15, 20, 25, 30}) × (floor ∈ {0.3, 0.4, 0.5, 0.6})`
+- Out-of-sample time split: train through 2024-06-30, validate 2024-07-01+. Bootstrap 1000× resample for 95% CI.
+- `drift_thresholds` table — per-`(asset_type, agent_name)` row with `source` ∈ `{preliminary, validated, manual}`
+- `POST /api/v1/drift/validate-thresholds` (long-running, returns 202 + job_id, reuses `corpus_rebuild_jobs` async-job pattern)
+- `GET /api/v1/drift/validation` returning per-`(agent, asset_type)` precision/recall/CI-width
+- `frontend/src/components/calibration/DriftValidationPanel.tsx` mounted in CalibrationPage
+- `DriftBadge.tsx` 4th `validated` state (green) replaces amber `preliminary` once `validation_run_at` is non-null
+- Phase 10 prerequisite check: assert corpus was rebuilt AFTER SimFin/CoinGecko feature flags landed
+- Tripwire test: `test_preliminary_threshold_promotion_requires_evidence` — REQUIRES bootstrap 95% CI < 10pp wide before promotion
 
-3. **Walk-forward window sizing:** qlib uses 252-day training + 63-day validation windows.
-   Our signal history depth is unknown -- if < 2 years, windows need adjustment. Check
-   signal_history table row count before Phase 2 design.
+**Addresses (FEATURES.md):** Drift threshold validation P1 (carry-forward closure)
+**Uses (STACK.md):** `scipy>=1.10` promotion (`scipy.stats.wilcoxon`); reuses `backtesting/walk_forward.py::generate_walk_forward_windows`
+**Implements (ARCHITECTURE.md):** All three Q4 sub-paths (A: validation panel + endpoint; B: persisted thresholds table; C: lifecycle promote-flag)
+**Avoids (PITFALLS.md):** Pitfall 5; Cross-4
 
-4. **Finnhub commercial use terms:** Free tier is labeled "Non-commercial use only" in some
-   plan descriptions. Verify before shipping the Finnhub provider in Phase 3.
+**Critical caveat (must land in PROJECT.md Key Decisions):** v1.2 ships *capability to validate*, NOT *validated thresholds*. The cron-week corpus is ~13 weeks at ship time vs 60-week floor. Validation panel will display "needs N more weeks" until ~2026-07-XX. **Closeout for the v1.1 carry-forward = panel landing**, not flag flipping.
 
-5. **pandas-ta-classic migration timing:** Current pandas_ta emits FutureWarnings on
-   Pandas 3.x. pandas-ta-classic is a drop-in fork. Defer migration until Pandas 4.x
-   forces the issue (estimated 2026), or pull it into Phase 1 if warnings escalate to errors.
+**Estimated reqs:** 3-4
 
-6. **SimFin 12-month delay acceptability:** SimFin point-in-time data has a 12-month embargo
-   on the free CC license. Useful only for historical backtest validation, not live signals.
-   Confirm use case before adding the provider.
+### Phase Ordering Rationale
 
-7. **Docker / docker-compose timing:** Containerization adds setup polish but increases
-   iteration friction during active development. Defer to end of Phase 3 or after milestone
-   is feature-complete.
+- **Why Phase 8 bundles SimFin + Reliability Plots:** Both touch FOUND-04 + `backtest_signal_history` schema. Sharing the `fundamentals_provider` column migration in one PR avoids a migration-then-feature interleave. PITFALLS Cross-1 + Pitfall 4 require the schema column to land in the same PR as SimFin.
+- **Why CoinGecko comes second:** Independent of Phase 8, BUT Phase 9's CryptoAgent rewiring shifts CryptoAgent IC distribution (Cross-2). Doing CoinGecko before drift validation means Phase 10 can validate against a corpus that already reflects the v1.2 input space.
+- **Why drift validation is last:** Closes the carry-forward by *capability*. Cannot honestly run before the corpus has been rebuilt under the new providers (Cross-3). The Phase 10 prerequisite check enforces this.
+- **Why NOT 4 phases (ARCHITECTURE proposal):** User scope is "tight ~3 phases". The 4-phase proposal separates SimFin and reliability plots into Phase 8 + Phase 9, but neither is large enough to justify its own phase, and splitting them introduces the schema-migration-interleave problem.
+- **Why NOT FEATURES/STACK ordering (Reliability → Providers → Drift):** That ordering does the smallest-risk feature first, but ignores Cross-1/Cross-3 — running reliability plots BEFORE SimFin lands means the corpus they read from will need rebuilding the moment SimFin ships.
+
+### Research Flags
+
+Phases likely needing deeper research during planning (`/gsd-research-phase`):
+
+- **Phase 8 (SimFin + Reliability Plots):** Three open questions: (a) **SimFin filing-date filtering** for amended 10-Q/A filings (carry original filing date but differ in content); (b) **Murphy decomposition exact-bin vs PAV** — FEATURES suggests exact-bin for v1.2; confirm before implementation that arXiv 2008.03033 formulas suffice for our N-per-bin range; (c) **`use_pit_fundamentals` opt-in flag UX** — per-analyze, per-portfolio, or globally? Recommendation: per-analyze field on `AgentInput` matching `backtest_mode` precedent.
+
+- **Phase 9 (CoinGecko):** Phase research on **CryptoAgent factor weights** specifically — how to z-score `commit_count_4_weeks` against asset-specific baselines (BTC vs ETH vs altcoins have different commit rhythms). Without phase-specific calibration, Factor 6 score becomes a BTC-biased indicator.
+
+- **Phase 10 (Drift validation):** Phase research on **multi-comparison correction** — 16-point grid search risks p-hacking; Bonferroni or FDR correction needed for Wilcoxon-derived thresholds. Also confirm 16-point grid resolution before implementation (vs 64 — STACK recommends 16; 64 would pull in `optuna`, scope creep).
+
+Phases with standard patterns (skip research-phase):
+- None. All three phases benefit from focused phase research given the open-question density. **Recommend `/gsd-research-phase` for all three phases**, with Phase 8 having the densest open-question list.
 
 ---
 
@@ -234,69 +202,79 @@ These are unresolved decisions that will surface during phase planning:
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack (signal quality libs) | MEDIUM-HIGH | arch, quantstats, edgartools are well-documented with active maintainers; FinBERT Apache 2.0 verified |
-| Features (competitor gap analysis) | MEDIUM | Based on README and documentation review of 30+ projects; feature absences may not reflect unreleased work |
-| Architecture (integration surfaces) | MEDIUM | File paths and function signatures inferred from commit history and existing test suite; no runtime verification |
-| Pitfalls (risk catalog) | MEDIUM-HIGH | yfinance lock, look-ahead bias, and APScheduler patterns are well-documented failure modes with community precedent |
+| Stack | HIGH | All PyPI release dates verified 2026-04-27; SimFin SDK abandonment confirmed via Snyk; CoinGecko Demo limits cross-checked against vendor docs; sklearn/scipy/numpy already-installed status confirmed via `pip show` |
+| Features | HIGH | Existing `tracking/tracker.py::compute_calibration_data` already implements 80% of the reliability-plot binning logic; `agents/fundamental.py:11-15` already documents the non-PIT gap; `agents/crypto.py:548` already documents the Factor 6 static-data gap; `engine/drift_detector.py:30-32` already documents the preliminary_threshold gap. Each "must have" feature is closing a self-acknowledged gap. |
+| Architecture | HIGH | All file paths and integration points verified via direct file reads of the existing codebase; provider patterns (FinnhubProvider as template) are concrete and battle-tested; cache patterns (Parquet + TTLCache + thundering-herd dedup) are documented in v1.0 Phase 1 work. |
+| Pitfalls | HIGH | All 13 pitfalls grounded in either (a) live code paths in the existing codebase, (b) explicit prior fixes documented in PROJECT.md / commit messages, or (c) vendor-published constraints. MEDIUM only on Pitfall 8 (SimFin free-tier exact daily cap not published — assumed conservative 2/sec). |
 
-**Overall: MEDIUM**
+**Overall confidence:** HIGH
 
-The competitor feature gap analysis is the weakest link -- documentation review cannot rule out
-features that exist but are undocumented, or features in active development. The technical
-integration surfaces are medium-confidence because they were inferred from commit messages and
-file names, not live code inspection of all relevant modules.
+### Gaps to Address
 
----
+1. **SimFin free-tier exact daily cap not published** — vendor pricing page implies daily caps but doesn't publish a hard ceiling. Mitigation: ship `AsyncRateLimiter(2/sec, 60s sliding window of 60 calls)` conservatively and surface "Rebuild will take ~6 hours at free-tier rate" UI estimate. Resolve in Phase 8 research with real rebuild against operator's portfolio.
 
-## Gaps to Address
+2. **CoinGecko `community_data` Twitter follower discontinuation (2024)** — Reddit + Telegram are the only social signals on Demo tier. Factor weights need to be tuned without Twitter. Resolve in Phase 9 research by confirming Reddit + Telegram coverage for BTC/ETH on the operator's actual portfolio.
 
-1. **Chart library decision** -- TradingView vs. Recharts tradeoff needs a focused spike before
-   Phase 4 work starts on PerformancePage.tsx.
+3. **Drift validator candidate grid resolution + multi-comparison correction** — STACK recommends 16-point grid. With 16 candidates × N agents × M asset_types, p-hacking risk is real. Resolve in Phase 10 research: pick Bonferroni vs FDR before tuning.
 
-2. **IC significance threshold** -- what p-value / minimum IC magnitude should trigger weight
-   adjustment? Academic literature suggests |IC| > 0.05 but this needs calibration to the
-   six-agent system specifically.
+4. **v1.2 ships *capability* not *validated thresholds* — explicit operator communication needed** — validation panel will display "needs N more weeks" until ~2026-07-XX. Must be documented as a Key Decision in PROJECT.md so a future contributor doesn't see "preliminary" still flying and conclude v1.2 failed. Resolve at Phase 10 closeout.
 
-3. **Walk-forward history sufficiency** -- signal_history table row count and date range must be
-   checked before designing the walk-forward scaffold window sizes.
-
-4. **FinBERT first-run experience** -- 400 MB model download on first sentiment call will
-   surprise users. Need a download-progress indicator or a prefetch install step.
+5. **`use_pit_fundamentals` opt-in scope** — does the operator toggle per-analyze, per-portfolio, or globally? Phase 8 research must pick before implementation. Recommendation: per-analyze field on `AgentInput` (matches `backtest_mode` precedent).
 
 ---
 
 ## Sources
 
-### Primary (direct code/documentation review)
-- Ghostfolio: https://github.com/ghostfolio/ghostfolio
-- TradingAgents: https://github.com/TauricResearch/TradingAgents
-- ai-hedge-fund: https://github.com/virattt/ai-hedge-fund
-- OpenBB: https://github.com/OpenBB-finance/OpenBB
-- qlib: https://github.com/microsoft/qlib
-- freqtrade: https://github.com/freqtrade/freqtrade
-- vectorbt: https://github.com/polakowo/vectorbt
-- jesse: https://github.com/jesse-ai/jesse
-- TradeNote: https://github.com/Eleven-Trading/TradeNote
-- nautilus_trader: https://github.com/nautechsystems/nautilus_trader
-- QuantStats: https://github.com/ranaroussi/quantstats
-- arch: https://github.com/bashtage/arch
-- edgartools: https://github.com/dgunning/edgartools
-- ProsusAI/finbert: https://huggingface.co/ProsusAI/finbert
-- Portfolio Performance: https://github.com/portfolio-performance/portfolio
-- Wealthfolio: https://github.com/afadil/wealthfolio
-- Riskfolio-Lib: https://github.com/dcajasn/Riskfolio-Lib
+### Primary (HIGH confidence — verified 2026-04-27)
 
-### Secondary (API documentation and data provider terms)
-- Finnhub API docs: https://finnhub.io/docs/api/
-- CoinGecko demo API: https://www.coingecko.com/en/api/
-- MarketAux API: https://www.marketaux.com/documentation
-- SimFin API: https://simfin.readthedocs.io/
+**Vendor documentation:**
+- SimFin v3 API base URL — https://www.simfin.com/en/blog/major-simfin-update/
+- SimFin pricing & free-tier limits — https://www.simfin.com/en/prices/ (2/sec, 5K stocks, 5y history, 500 credits/mo)
+- SimFin Restated Date semantics — https://www.simfin.com/en/blog/find-good-fundamental-data/
+- CoinGecko API endpoint overview — https://docs.coingecko.com/reference/endpoint-overview
+- CoinGecko Demo rate limits — https://www.coingecko.com/en/api/pricing (30/min, 10K/month)
+- CoinGecko ToS / attribution — https://www.coingecko.com/en/api_terms
+- CoinGecko free-tier rate limit FAQ — https://support.coingecko.com/hc/en-us/articles/4538771776153
+- scikit-learn calibration_curve API — https://scikit-learn.org/stable/modules/generated/sklearn.calibration.calibration_curve.html
+- scikit-learn Probability Calibration documentation — https://scikit-learn.org/stable/modules/calibration.html
 
-### Tertiary (academic / benchmark references)
-- MarketSenseAI: https://arxiv.org/abs/2502.00415
-- IC/ICIR methodology: qlib documentation + academic literature on information coefficient
-- Block bootstrap optimal block size: Politis & White (2004) via arch library implementation
+**PyPI release verification:**
+- coingecko-sdk 1.14.2 (2026-04-21, Apache-2.0, ~330 KB) — https://pypi.org/project/coingecko-sdk/
+- simfin 1.0.1 (2024-04-03, marked Inactive) — https://pypi.org/project/simfin/ + https://snyk.io/advisor/python/simfin
+- pycoingecko 3.2.0 (2024-11-13, sync-only) — https://pypi.org/project/pycoingecko/
+- coingecko-sdk GitHub — https://github.com/coingecko/coingecko-python (Stainless-generated)
+
+**Existing codebase (direct file reads):**
+- `agents/fundamental.py` — FundamentalAgent integration point + FOUND-04 contract (lines 56-77, 140-163)
+- `agents/crypto.py` — 7-factor model + Factor 6 static path (lines 27-30, 50-53, 529-575)
+- `data_providers/finnhub_provider.py` — provider pattern template (lines 79-90)
+- `data_providers/cached_provider.py` + `parquet_cache.py` + `dividend_cache.py` — cache pattern templates
+- `data_providers/rate_limiter.py` — `AsyncRateLimiter` token-bucket pattern
+- `engine/pipeline.py:130` — `asyncio.gather(return_exceptions=True)` without per-agent timeout
+- `engine/drift_detector.py:30-32` — threshold constants; MIN_SAMPLES_FOR_REAL_THRESHOLD=60; line 247 NEVER-zero-all guard
+- `tracking/tracker.py` — Brier/IC/IC-IR + existing `compute_calibration_data` (lines 96-135, 320-350, 356-424)
+- `backtesting/walk_forward.py` — `generate_walk_forward_windows` with purge_days=5 (lines 51-100)
+- `frontend/src/pages/CalibrationPage.tsx` + `frontend/src/components/calibration/*`
+- `.planning/PROJECT.md` — v1.2 milestone scope + 25-row Key Decisions table
+- `.planning/codebase/CONCERNS.md` — pre-existing tech debt (lines 55-60, 209-216, 264-267)
+
+### Secondary (MEDIUM confidence — peer-reviewed but not vendor-verified)
+
+- Murphy decomposition formulas (REL/RES/UNC) — https://arxiv.org/pdf/2008.03033
+- CORP method for stable reliability diagrams — https://www.pnas.org/doi/10.1073/pnas.2016191118
+- ECE Expected Calibration Error formulation — https://towardsdatascience.com/expected-calibration-error-ece-a-step-by-step-visual-explanation-with-python-code-c3e9aa12937d/
+- Walk-forward methodology — https://arxiv.org/html/2512.12924v1
+- Bias-free backtesting + restatement bias quantification — https://sharpely.in/blog/bias-free-backtesting-explained
+- S&P Global PIT vs lagged fundamentals — https://www.spglobal.com/content/dam/spglobal/mi/en/documents/general/sp-capitaliq-quantamental-point-in-time-vs-lagged-fundamentals.pdf
+
+### Tertiary (LOW confidence — single-source community claims)
+
+- SimFin free-tier daily cap not published — inferred from pricing-page tier structure; verify in Phase 8 with real rebuild
+- CoinGecko 60s default httpx timeout — community claim from coingecko-sdk PyPI page
+- Wilson interval asymptotic equivalence to bootstrap at N≥15 per bin — academic consensus but corpus-specific behavior not verified
 
 ---
 
-*Last updated: 2026-04-21 -- competitive benchmarking research synthesis*
+*Research synthesis completed: 2026-04-27*
+*Ready for roadmap: yes*
+*Recommended next step: `/gsd-roadmapper` with this SUMMARY.md as primary input; expect 3 phases × 3-5 reqs = ~12 reqs total matching user's stated scope.*
