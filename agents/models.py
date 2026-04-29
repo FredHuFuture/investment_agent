@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -29,6 +29,10 @@ class AgentInput:
     learned_weights: dict[str, Any] = field(default_factory=dict)
     approved_rules: list[str] = field(default_factory=list)
     backtest_mode: bool = False
+    # Phase 8 DATA-v2-02: SimFin opt-in. False default preserves FOUND-04
+    # (backtest_mode=True && use_pit_fundamentals=False -> HOLD/0.0 unchanged).
+    use_pit_fundamentals: bool = False
+    backtest_date: date | None = None
 
 
 @dataclass
