@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import date
+
+from fastapi import BackgroundTasks
 
 from agents.base import BaseAgent
 from agents.crypto import CryptoAgent
@@ -18,6 +21,64 @@ from engine.sector import get_sector_modifier
 from portfolio.models import Portfolio
 
 _logger = logging.getLogger("investment_agent.pipeline")
+
+
+async def _trigger_simfin_corpus_rebuild_if_first(
+    *,
+    db_path: str,
+    background_tasks: BackgroundTasks,
+) -> bool:
+    """First-enable detection for SimFin corpus rebuild (DATA-v2-04 SC-4).
+
+    Single-shot SELECT against corpus_rebuild_jobs (08-01 migration added the
+    fundamentals_provider column + idx_crj_provider_status index for this query).
+    If no successful or partial 'simfin' rebuild exists, schedules one via
+    BackgroundTasks. Returns True iff a rebuild was scheduled, False otherwise.
+
+    Race-safety (T-08-02-08): SQLite SELECT is atomic; two concurrent first-enable
+    requests could both observe 'no prior simfin row' and both schedule rebuilds.
+    The downstream rebuild job is idempotent on (ticker, signal_date, agent_name,
+    fundamentals_provider) — duplicate rebuilds are wasteful but not data-corrupting.
+    """
+    import aiosqlite
+
+    async with aiosqlite.connect(db_path) as conn:
+        cursor = await conn.execute(
+            """
+            SELECT COUNT(*) FROM corpus_rebuild_jobs
+            WHERE fundamentals_provider = 'simfin'
+              AND status IN ('success', 'partial')
+            """,
+        )
+        row = await cursor.fetchone()
+        existing_count = row[0] if row is not None else 0
+
+    if existing_count > 0:
+        return False
+
+    # No prior simfin rebuild — discover the open positions to rebuild.
+    # Import lazily to avoid circular imports between engine.pipeline and daemon.jobs.
+    from daemon.jobs import rebuild_signal_corpus
+
+    async with aiosqlite.connect(db_path) as conn:
+        cursor = await conn.execute(
+            "SELECT DISTINCT ticker, asset_type FROM active_positions WHERE status = 'open'"
+        )
+        ticker_rows = await cursor.fetchall()
+        tickers_with_type: list[tuple[str, str]] = [
+            (r[0], r[1]) for r in ticker_rows
+        ]
+
+    if not tickers_with_type:
+        return False  # No tickers to rebuild
+
+    background_tasks.add_task(
+        rebuild_signal_corpus,
+        db_path=db_path,
+        tickers=tickers_with_type,
+        fundamentals_provider="simfin",
+    )
+    return True
 
 
 class AnalysisPipeline:
@@ -43,12 +104,20 @@ class AnalysisPipeline:
         aggregator: SignalAggregator,
         use_regime: bool,
         backtest_mode: bool = False,
+        *,
+        use_pit_fundamentals: bool = False,
+        backtest_date: date | None = None,
+        background_tasks: BackgroundTasks | None = None,
     ) -> AggregatedSignal:
         """Core pipeline shared by analyze_ticker and analyze_ticker_custom.
 
         Handles: ticker mapping, agent init, parallel execution, signal
         aggregation (with optional regime detection), portfolio overlay,
         and sector modifier.
+
+        Phase 8 DATA-v2-02: optional `use_pit_fundamentals` opt-in injects
+        SimfinProvider via FundamentalAgent.set_pit_provider() and (on first
+        enable) schedules a corpus rebuild via the supplied BackgroundTasks.
         """
         pipeline_warnings: list[str] = []
         _logger.info("Pipeline starting: %s (%s)", ticker, asset_type)
@@ -63,6 +132,7 @@ class AnalysisPipeline:
 
         # 2. Initialize agents
         agents: list[BaseAgent] = []
+        fundamental_agent: FundamentalAgent | None = None
 
         if asset_type in ("btc", "eth"):
             # Crypto: use dedicated CryptoAgent (7-factor model)
@@ -72,7 +142,8 @@ class AnalysisPipeline:
             agents.append(TechnicalAgent(primary_provider))
 
             if asset_type == "stock":
-                agents.append(FundamentalAgent(primary_provider))
+                fundamental_agent = FundamentalAgent(primary_provider)
+                agents.append(fundamental_agent)
 
             # MacroAgent needs two providers; skip gracefully if FRED key unavailable
             try:
@@ -101,12 +172,49 @@ class AnalysisPipeline:
 
         _logger.info("Selected agents: %s", [a.name for a in agents])
 
+        # Phase 8 DATA-v2-02: inject SimFin PIT provider when caller opts in.
+        # Try/except + pipeline_warnings fallback matches MacroAgent FRED pattern.
+        if use_pit_fundamentals and fundamental_agent is not None:
+            try:
+                from data_providers.simfin_provider import SimfinProvider
+                simfin_provider = SimfinProvider()
+                if simfin_provider._client is not None:
+                    fundamental_agent.set_pit_provider(simfin_provider)
+                else:
+                    pipeline_warnings.append(
+                        "use_pit_fundamentals=True but SIMFIN_API_KEY missing; "
+                        "falling back to yfinance"
+                    )
+            except Exception as exc:
+                pipeline_warnings.append(
+                    f"SimFin unavailable, falling back to yfinance: {exc}"
+                )
+
+            # First-enable corpus rebuild trigger (DATA-v2-04 SC-4)
+            if background_tasks is not None:
+                try:
+                    triggered = await _trigger_simfin_corpus_rebuild_if_first(
+                        db_path=self._db_path,
+                        background_tasks=background_tasks,
+                    )
+                    if triggered:
+                        pipeline_warnings.append(
+                            "First SimFin enable observed — corpus rebuild "
+                            "scheduled in background"
+                        )
+                except Exception as exc:
+                    pipeline_warnings.append(
+                        f"SimFin corpus rebuild trigger skipped: {exc}"
+                    )
+
         # 3. Construct AgentInput
         agent_input = AgentInput(
             ticker=ticker,
             asset_type=asset_type,
             portfolio=portfolio,
             backtest_mode=backtest_mode,
+            use_pit_fundamentals=use_pit_fundamentals,
+            backtest_date=backtest_date,
         )
 
         # 4. Run agents + ticker info fetch in parallel
@@ -237,6 +345,10 @@ class AnalysisPipeline:
         ticker: str,
         asset_type: str,
         portfolio: Portfolio | None = None,
+        *,
+        use_pit_fundamentals: bool = False,
+        backtest_date: date | None = None,
+        background_tasks: BackgroundTasks | None = None,
     ) -> AggregatedSignal:
         """Run full analysis pipeline for a single ticker.
 
@@ -246,6 +358,12 @@ class AnalysisPipeline:
         4. Filter exceptions, collect valid outputs.
         5. Aggregate signals with SignalAggregator.
         6. Return AggregatedSignal (pipeline warnings merged in).
+
+        Phase 8 DATA-v2-02: opt-in `use_pit_fundamentals=True` injects
+        SimfinProvider into FundamentalAgent. When `background_tasks` is
+        supplied, the first observed PIT enable also schedules a SimFin corpus
+        rebuild (DATA-v2-04 SC-4). Both default-False/None to preserve all
+        existing call sites.
         """
         pipeline_warnings: list[str] = []
 
@@ -293,6 +411,9 @@ class AnalysisPipeline:
             portfolio=portfolio,
             aggregator=aggregator,
             use_regime=True,
+            use_pit_fundamentals=use_pit_fundamentals,
+            backtest_date=backtest_date,
+            background_tasks=background_tasks,
         )
         signal.warnings[:0] = pipeline_warnings  # prepend any weight-load warnings
         return signal

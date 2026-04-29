@@ -256,8 +256,11 @@ async def test_rebuild_signal_corpus_writes_job_run_log_success(
     from backtesting import signal_corpus as sc_mod
 
     async def _mock_populate(db_path, ticker, asset_type, provider,
-                              start_date, end_date, agents=None, run_id=None):
+                              start_date, end_date, agents=None, run_id=None,
+                              **kwargs):
         # Insert a real row so the assertion below works
+        # Phase 8 DATA-v2-04: extra kwargs (e.g. fundamentals_provider) are
+        # accepted via **kwargs and ignored for this v1.1-shaped test.
         async with aiosqlite.connect(db_path) as conn:
             await conn.execute(
                 """INSERT INTO backtest_signal_history
@@ -381,7 +384,9 @@ def test_rebuild_signal_corpus_rolls_back_partial_on_error(
         async def _partial_populate(
             db_path, ticker, asset_type, provider,
             start_date, end_date, agents=None, run_id=None,
+            **kwargs,
         ):
+            # Phase 8 DATA-v2-04: accept extra kwargs (e.g. fundamentals_provider).
             async with aiosqlite.connect(db_path) as conn:
                 for j in range(5):
                     await conn.execute(

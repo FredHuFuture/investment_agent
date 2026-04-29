@@ -191,31 +191,36 @@ async def rebuild_corpus_endpoint(
     job_id = uuid.uuid4().hex
     started_at = datetime.now(timezone.utc).isoformat()
 
-    # Persist initial job row synchronously (short-lived connection)
+    # Persist initial job row synchronously (short-lived connection).
+    # Phase 8 DATA-v2-04: tag the audit row with fundamentals_provider so the
+    # 08-02 first-enable detection query can identify prior simfin rebuilds.
     async with aiosqlite.connect(db_path) as conn:
         await conn.execute(
             """
             INSERT INTO corpus_rebuild_jobs
                 (job_id, status, tickers_total, tickers_completed,
-                 ticker_progress_json, started_at)
-            VALUES (?, 'running', ?, 0, ?, ?)
+                 ticker_progress_json, started_at, fundamentals_provider)
+            VALUES (?, 'running', ?, 0, ?, ?, ?)
             """,
             (
                 job_id,
                 len(tickers_with_type),
                 json.dumps({t: {"status": "pending"} for t, _ in tickers_with_type}),
                 started_at,
+                body.fundamentals_provider,
             ),
         )
         await conn.commit()
 
     # FastAPI BackgroundTasks runs AFTER the response is sent.
     # In test mode (TestClient) it runs synchronously before the context manager exits.
+    # Phase 8 DATA-v2-04: thread fundamentals_provider into the per-ticker batch.
     background_tasks.add_task(
         _run_batch_rebuild,
         db_path=db_path,
         job_id=job_id,
         tickers_with_type=tickers_with_type,
+        fundamentals_provider=body.fundamentals_provider,
     )
 
     return RebuildCorpusResponse(
@@ -270,6 +275,8 @@ async def _run_batch_rebuild(
     db_path: str,
     job_id: str,
     tickers_with_type: list[tuple[str, str]],
+    *,
+    fundamentals_provider: str = "yfinance",
 ) -> None:
     """Background task: rebuild corpus per-ticker and persist progress.
 
@@ -288,6 +295,10 @@ async def _run_batch_rebuild(
     outside the per-ticker loop (e.g., ImportError on the deferred import)
     is caught and written to the job row as status='error' with error_message
     populated, preventing the row from being stuck at status='running'.
+
+    Phase 8 DATA-v2-04: ``fundamentals_provider`` is threaded into each
+    per-ticker rebuild_signal_corpus call so backtest_signal_history rows are
+    tagged with the correct provenance.
     """
     try:
         try:
@@ -316,6 +327,7 @@ async def _run_batch_rebuild(
                 result = await rebuild_signal_corpus(
                     db_path=db_path,
                     tickers=[(ticker, asset_type)],
+                    fundamentals_provider=fundamentals_provider,
                 )
                 progress[ticker] = {
                     "status": "success",

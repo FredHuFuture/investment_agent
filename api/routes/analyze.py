@@ -5,7 +5,7 @@ import logging
 import os
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -306,11 +306,19 @@ async def get_position_size(
 @router.get("/{ticker}")
 async def analyze_ticker(
     ticker: str,
+    background_tasks: BackgroundTasks,
     asset_type: Literal["stock", "btc", "eth"] = Query("stock"),
     adaptive_weights: bool = Query(False),
+    use_pit_fundamentals: bool = Query(False),
     db_path: str = Depends(get_db_path),
 ):
-    """Run multi-agent analysis for a single ticker."""
+    """Run multi-agent analysis for a single ticker.
+
+    Phase 8 DATA-v2-02: when ``use_pit_fundamentals=True`` the pipeline injects
+    SimfinProvider into FundamentalAgent. The first observed PIT enable also
+    schedules a SimFin corpus rebuild via the supplied BackgroundTasks
+    (DATA-v2-04 SC-4 first-enable trigger).
+    """
     asset_type = resolve_asset_type(ticker, asset_type)
     yf_ticker = map_ticker(ticker, asset_type)
 
@@ -324,7 +332,13 @@ async def analyze_ticker(
 
     pipeline = AnalysisPipeline(db_path=db_path, use_adaptive_weights=adaptive_weights)
     try:
-        result = await pipeline.analyze_ticker(yf_ticker, asset_type, portfolio=portfolio)
+        result = await pipeline.analyze_ticker(
+            yf_ticker,
+            asset_type,
+            portfolio=portfolio,
+            use_pit_fundamentals=use_pit_fundamentals,
+            background_tasks=background_tasks,
+        )
     except Exception as exc:
         return JSONResponse(
             status_code=502,

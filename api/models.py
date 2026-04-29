@@ -170,6 +170,12 @@ class RebuildCorpusRequest(BaseModel):
     When ``tickers`` is None, the endpoint enumerates all OPEN positions from
     active_positions and rebuilds each one. When ``tickers`` is explicit,
     ``asset_types`` may override the default "stock" asset_type per ticker.
+
+    Phase 8 DATA-v2-04: optional ``fundamentals_provider`` field tags every
+    backtest_signal_history row inserted by this rebuild with the provider name.
+    Defaults to 'yfinance' to preserve v1.1 behavior. Allowed values are
+    constrained by Pydantic's Literal allowlist (T-08-02-02 SQL-injection
+    mitigation — operator strings cannot reach SQL).
     """
 
     tickers: list[str] | None = Field(
@@ -179,6 +185,13 @@ class RebuildCorpusRequest(BaseModel):
     asset_types: dict[str, str] | None = Field(
         default=None,
         description="Optional ticker->asset_type override map; unspecified tickers default to 'stock'",
+    )
+    fundamentals_provider: Literal["yfinance", "simfin"] = Field(
+        default="yfinance",
+        description=(
+            "Provenance tag for the rebuilt rows; 'simfin' marks PIT-derived "
+            "rows for Pitfall 4 IC-contamination filtering."
+        ),
     )
 
     @field_validator("tickers")
@@ -256,3 +269,24 @@ class OverrideResponse(BaseModel):
     manual_override: bool
     renormalized_weights: dict[str, float]
     source: str
+
+
+# ---------------------------------------------------------------------------
+# Phase 8 DATA-v2-05: per-position restated-vs-as-filed deltas
+# ---------------------------------------------------------------------------
+
+class RestatedDelta(BaseModel):
+    """Phase 8 DATA-v2-05: per-metric restated-vs-as-filed delta for a position.
+
+    delta_pct = abs(restated - as_filed) / abs(as_filed)
+    Surfaced in GET /portfolio response for each open position when SimFin is
+    configured. Frontend (08-04 RestatedDeltaBadge) renders a badge when
+    |delta_pct| > 0.10 for any metric. delta_pct is None when as_filed is 0
+    or either value is missing (avoid division by zero / undefined ratio).
+    """
+
+    metric: str  # e.g., "revenue", "net_income", "eps_basic"
+    as_filed: float | None = None
+    restated: float | None = None
+    delta_pct: float | None = None
+    filing_date: str | None = None  # ISO date

@@ -38,6 +38,8 @@ async def populate_signal_corpus(
     end_date: str,
     agents: list[str] | None = None,
     run_id: str | None = None,
+    *,
+    fundamentals_provider: str = "yfinance",
 ) -> dict[str, Any]:
     """Run backtester, compute forward returns, insert into backtest_signal_history.
 
@@ -54,6 +56,10 @@ async def populate_signal_corpus(
                     INSERT row. Enables the daemon wrapper's atomic DELETE rollback
                     guard (BLOCKER 3 fix). If None, a fresh UUID hex is generated
                     for ad-hoc / non-daemon use.
+        fundamentals_provider:  'yfinance' (default, v1.1) or 'simfin' (Phase 8
+                    DATA-v2-04). Stored on every INSERT row so 08-03 reliability
+                    queries can filter by provider (Pitfall 4 IC contamination
+                    mitigation).
 
     Returns:
         Summary dict: {"rows_inserted": N, "n_bars": N, "n_agents": N, "run_id": str}
@@ -141,6 +147,7 @@ async def populate_signal_corpus(
                     fr21,
                     "backtest",
                     run_id,
+                    fundamentals_provider,  # Phase 8 DATA-v2-04
                 )
             )
 
@@ -165,8 +172,8 @@ async def populate_signal_corpus(
             INSERT INTO backtest_signal_history
               (ticker, asset_type, signal_date, agent_name, raw_score,
                signal, confidence, forward_return_5d, forward_return_21d,
-               source, backtest_run_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               source, backtest_run_id, fundamentals_provider)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             rows_to_insert,
         )

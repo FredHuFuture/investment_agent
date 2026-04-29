@@ -1008,12 +1008,20 @@ async def rebuild_signal_corpus(
     tickers: list[tuple[str, str]] | None = None,  # [(ticker, asset_type), ...]
     start_date: str | None = None,
     end_date: str | None = None,
+    *,
+    fundamentals_provider: str = "yfinance",
 ) -> dict[str, int]:
     """On-demand job to rebuild backtest_signal_history (SIG-05).
 
     Runs the backtester over each (ticker, asset_type) pair and populates
     backtest_signal_history via backtesting.signal_corpus.populate_signal_corpus.
     Uses two-connection pattern (Phase 1 FOUND-07 contract).
+
+    Phase 8 DATA-v2-04: `fundamentals_provider` is threaded into the
+    backtest_signal_history INSERT path AND recorded on the corpus_rebuild_jobs
+    audit row. Defaults to 'yfinance' to preserve v1.1 behavior. Supplying
+    'simfin' marks rows as PIT-derived for Pitfall 4 IC-contamination filtering
+    in 08-03 reliability backend queries.
 
     BLOCKER 2 fix: date range is derived per-ticker from
         SELECT MIN(date), MAX(date) FROM price_history_cache WHERE ticker = ?
@@ -1059,6 +1067,33 @@ async def rebuild_signal_corpus(
     # Convert integer row id to string for the TEXT backtest_run_id column
     run_id_for_corpus = str(jrl_row_id)
 
+    # Phase 8 DATA-v2-04: write a corpus_rebuild_jobs audit row recording the
+    # fundamentals_provider for this run. The first-enable lookup query in
+    # engine/pipeline.py::_trigger_simfin_corpus_rebuild_if_first reads from
+    # this table to decide whether a rebuild has already happened for a given
+    # provider. Use uuid for the public job_id (separate from internal jrl_row_id).
+    import uuid as _uuid
+    crj_job_id = _uuid.uuid4().hex
+    try:
+        async with aiosqlite.connect(db_path) as crj_conn:
+            await crj_conn.execute(
+                """
+                INSERT INTO corpus_rebuild_jobs
+                  (job_id, status, tickers_total, tickers_completed,
+                   ticker_progress_json, started_at, fundamentals_provider)
+                VALUES (?, 'running', ?, 0, '{}', ?, ?)
+                """,
+                (crj_job_id, len(tickers), started_at, fundamentals_provider),
+            )
+            await crj_conn.commit()
+    except Exception as crj_exc:
+        # Audit-row failure is non-fatal — the job can still proceed.
+        logger.warning(
+            "rebuild_signal_corpus: corpus_rebuild_jobs INSERT failed (non-fatal): %s",
+            crj_exc,
+        )
+        crj_job_id = ""  # sentinel so we skip the final UPDATE
+
     total_rows = 0
     try:
         for ticker, asset_type in tickers:
@@ -1090,11 +1125,12 @@ async def rebuild_signal_corpus(
                 start_date=eff_start,
                 end_date=eff_end,
                 run_id=run_id_for_corpus,   # BLOCKER 3: passthrough for rollback guard
+                fundamentals_provider=fundamentals_provider,  # Phase 8 DATA-v2-04
             )
             total_rows += stats["rows_inserted"]
             logger.info(
-                "rebuild_signal_corpus: %s inserted %d rows (run_id=%s)",
-                ticker, stats["rows_inserted"], run_id_for_corpus,
+                "rebuild_signal_corpus: %s inserted %d rows (run_id=%s, provider=%s)",
+                ticker, stats["rows_inserted"], run_id_for_corpus, fundamentals_provider,
             )
 
         # Success path — fresh connection for end-log (WR-02: no long-lived handle)
@@ -1104,9 +1140,32 @@ async def rebuild_signal_corpus(
                 await _end_job_run_log(log_conn, jrl_row_id, status="success", duration_ms=duration_ms)
         except Exception:
             pass
+
+        # Phase 8 DATA-v2-04: mark the corpus_rebuild_jobs row 'success'.
+        if crj_job_id:
+            try:
+                completed_at = datetime.now(timezone.utc).isoformat()
+                async with aiosqlite.connect(db_path) as crj_conn:
+                    await crj_conn.execute(
+                        """
+                        UPDATE corpus_rebuild_jobs
+                        SET status = 'success',
+                            tickers_completed = ?,
+                            completed_at = ?
+                        WHERE job_id = ?
+                        """,
+                        (len(tickers), completed_at, crj_job_id),
+                    )
+                    await crj_conn.commit()
+            except Exception as crj_upd_exc:
+                logger.warning(
+                    "rebuild_signal_corpus: corpus_rebuild_jobs UPDATE failed (non-fatal): %s",
+                    crj_upd_exc,
+                )
+
         logger.info(
-            "rebuild_signal_corpus complete — %d total rows, %d tickers",
-            total_rows, len(tickers),
+            "rebuild_signal_corpus complete — %d total rows, %d tickers (provider=%s)",
+            total_rows, len(tickers), fundamentals_provider,
         )
 
     except Exception as exc:
@@ -1142,6 +1201,28 @@ async def rebuild_signal_corpus(
                 )
         except Exception as log_end_exc:
             logger.warning("_end_job_run_log (error) failed: %s", log_end_exc)
+
+        # Phase 8 DATA-v2-04: mark the corpus_rebuild_jobs row 'error'.
+        if crj_job_id:
+            try:
+                completed_at = datetime.now(timezone.utc).isoformat()
+                async with aiosqlite.connect(db_path) as crj_conn:
+                    await crj_conn.execute(
+                        """
+                        UPDATE corpus_rebuild_jobs
+                        SET status = 'error',
+                            completed_at = ?,
+                            error_message = ?
+                        WHERE job_id = ?
+                        """,
+                        (completed_at, err_msg, crj_job_id),
+                    )
+                    await crj_conn.commit()
+            except Exception as crj_err_exc:
+                logger.warning(
+                    "rebuild_signal_corpus: corpus_rebuild_jobs error UPDATE failed: %s",
+                    crj_err_exc,
+                )
         raise
 
     return {

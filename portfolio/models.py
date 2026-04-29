@@ -63,6 +63,10 @@ class Position:
     exit_date: str | None = None
     exit_reason: str | None = None
     realized_pnl: float | None = None
+    # Phase 8 DATA-v2-05: dual-SimFin restated-vs-as-filed deltas. Populated by
+    # api/routes/portfolio.py::get_portfolio when SIMFIN_API_KEY is set; None
+    # otherwise (graceful degradation for solo-operator without SimFin tier).
+    restated_deltas: list[Any] | None = None
 
     @property
     def market_value(self) -> float:
@@ -126,6 +130,20 @@ class Position:
         return pos
 
     def to_dict(self) -> dict[str, Any]:
+        # Phase 8 DATA-v2-05: serialize restated_deltas list (Pydantic
+        # RestatedDelta models call .model_dump() to plain dicts).
+        if self.restated_deltas is None:
+            rd_serialized: list[dict] | None = None
+        else:
+            rd_serialized = []
+            for delta in self.restated_deltas:
+                if hasattr(delta, "model_dump"):
+                    rd_serialized.append(delta.model_dump())
+                elif hasattr(delta, "dict"):  # Pydantic v1 fallback
+                    rd_serialized.append(delta.dict())
+                elif isinstance(delta, dict):
+                    rd_serialized.append(delta)
+                # else: skip unknown shape silently — JSON-safe
         return {
             "ticker": self.ticker,
             "asset_type": self.asset_type,
@@ -152,6 +170,7 @@ class Position:
             "exit_date": self.exit_date,
             "exit_reason": self.exit_reason,
             "realized_pnl": self.realized_pnl,
+            "restated_deltas": rd_serialized,
         }
 
 
