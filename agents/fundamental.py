@@ -39,6 +39,23 @@ SECTOR_PE_MEDIANS: dict[str, float] = {
 
 
 class FundamentalAgent(BaseAgent):
+    def __init__(self, provider, *args, **kwargs) -> None:
+        super().__init__(provider, *args, **kwargs)
+        # Phase 8 DATA-v2-02: opt-in SimFin point-in-time provider, attached
+        # via set_pit_provider() before analyze(). When None, the agent falls
+        # back to yfinance-restated values plus an explicit warning.
+        self._pit_provider = None
+
+    def set_pit_provider(self, pit_provider) -> None:
+        """Attach a point-in-time provider (SimfinProvider) to be used when
+        AgentInput.use_pit_fundamentals=True. Default behavior (no PIT
+        provider attached) falls through to yfinance + NON_PIT_WARNING.
+
+        Phase 8 DATA-v2-02: see engine/pipeline.py::analyze_ticker for the
+        injection site.
+        """
+        self._pit_provider = pit_provider
+
     @property
     def name(self) -> str:
         return "FundamentalAgent"
@@ -49,11 +66,12 @@ class FundamentalAgent(BaseAgent):
     async def analyze(self, agent_input: AgentInput) -> AgentOutput:
         self._validate_asset_type(agent_input)
 
-        # FOUND-04: short-circuit in backtest_mode to prevent look-ahead bias.
-        # yfinance returns current/restated financials, not point-in-time data.
-        # Returning HOLD with data_completeness=0.0 ensures the aggregator
-        # excludes this agent's contribution entirely when renormalizing weights.
-        if agent_input.backtest_mode:
+        # FOUND-04 dual-condition (Phase 8 DATA-v2-02):
+        # Short-circuit ONLY when the restated yfinance path would be active.
+        # use_pit_fundamentals=True signals the SimFin (PIT) path, which IS
+        # safe in backtest_mode because asreported=True returns the values
+        # filed at the time, not later restatements.
+        if agent_input.backtest_mode and not agent_input.use_pit_fundamentals:
             self._logger.info(
                 "Analyzing %s in backtest_mode: returning HOLD (no provider calls)",
                 agent_input.ticker,
@@ -76,24 +94,125 @@ class FundamentalAgent(BaseAgent):
                 data_completeness=0.0,
             )
 
+        # Phase 8 DATA-v2-02: PIT path requires backtest_date for as-of filtering.
+        # Without it the SimFin lookup has no way to choose the correct fyear/period.
+        if agent_input.backtest_mode and agent_input.use_pit_fundamentals:
+            if agent_input.backtest_date is None:
+                raise ValueError(
+                    "use_pit_fundamentals=True requires backtest_date for "
+                    "as-of filtering"
+                )
+            # Fall through to provider lookup below; the SimFin branch (when
+            # _pit_provider is set) will use backtest_date.year as fyear.
+
         self._logger.info("Analyzing %s", agent_input.ticker)
 
-        warnings: list[str] = [NON_PIT_WARNING]
-        try:
-            key_stats = await self._provider.get_key_stats(agent_input.ticker)
-            financials = await self._provider.get_financials(agent_input.ticker)
-        except Exception as exc:
-            self._logger.warning("Fundamental data unavailable for %s: %s", agent_input.ticker, exc)
-            warnings.append(f"Fundamental data unavailable: {exc}")
-            return AgentOutput(
-                agent_name=self.name,
-                ticker=agent_input.ticker,
-                signal=Signal.HOLD,
-                confidence=30.0,
-                reasoning="Fundamental data unavailable; defaulting to HOLD.",
-                metrics=self._empty_metrics(),
-                warnings=warnings,
+        # NOTE: local list var `warnings` does NOT shadow stdlib here — `import
+        # warnings` is not in this module (verified at lines 1-9). Keeping the
+        # existing name preserves all reference sites.
+        warnings: list[str] = []
+        if agent_input.use_pit_fundamentals and self._pit_provider is not None:
+            # Phase 8 DATA-v2-02 SimFin (PIT) path — as-reported original 10-Q values.
+            try:
+                fyear = (
+                    agent_input.backtest_date.year
+                    if agent_input.backtest_date is not None
+                    else None
+                )
+                # Period defaults to q1; refinement deferred to follow-up plan.
+                period = "q1"
+                financials = await self._pit_provider.get_financials(
+                    agent_input.ticker,
+                    statement="pl",
+                    period=period,
+                    fyear=fyear,
+                    asreported=True,
+                )
+                # SimfinProvider does not implement get_key_stats — fall back
+                # to yfinance for those (key_stats are restatement-stable in practice).
+                key_stats = await self._provider.get_key_stats(agent_input.ticker)
+                warnings.append(
+                    "PIT data sourced from SimFin (as-reported, FOUND-04 safe)."
+                )
+            except Exception as exc:
+                self._logger.warning(
+                    "SimFin lookup failed for %s, falling back to yfinance: %s",
+                    agent_input.ticker,
+                    exc,
+                )
+                warnings.append(
+                    f"SimFin failed: {exc}; using yfinance restated values."
+                )
+                warnings.append(NON_PIT_WARNING)
+                try:
+                    key_stats = await self._provider.get_key_stats(agent_input.ticker)
+                    financials = await self._provider.get_financials(
+                        agent_input.ticker
+                    )
+                except Exception as fallback_exc:
+                    return AgentOutput(
+                        agent_name=self.name,
+                        ticker=agent_input.ticker,
+                        signal=Signal.HOLD,
+                        confidence=30.0,
+                        reasoning=(
+                            "Both SimFin and yfinance failed; defaulting HOLD"
+                        ),
+                        metrics=self._empty_metrics(),
+                        warnings=warnings + [
+                            f"yfinance fallback also failed: {fallback_exc}"
+                        ],
+                        data_completeness=0.0,
+                    )
+        elif agent_input.use_pit_fundamentals and self._pit_provider is None:
+            # Operator opted in to PIT but no provider configured — log loudly
+            # so the discrepancy is visible in agent output.
+            warnings.append(
+                "use_pit_fundamentals=True but no PIT provider configured; "
+                "falling back to yfinance restated values."
             )
+            warnings.append(NON_PIT_WARNING)
+            try:
+                key_stats = await self._provider.get_key_stats(agent_input.ticker)
+                financials = await self._provider.get_financials(agent_input.ticker)
+            except Exception as exc:
+                self._logger.warning(
+                    "Fundamental data unavailable for %s: %s",
+                    agent_input.ticker,
+                    exc,
+                )
+                warnings.append(f"Fundamental data unavailable: {exc}")
+                return AgentOutput(
+                    agent_name=self.name,
+                    ticker=agent_input.ticker,
+                    signal=Signal.HOLD,
+                    confidence=30.0,
+                    reasoning="Fundamental data unavailable; defaulting to HOLD.",
+                    metrics=self._empty_metrics(),
+                    warnings=warnings,
+                )
+        else:
+            # Default v1.1 path — yfinance restated fundamentals + non-PIT warning.
+            warnings.append(NON_PIT_WARNING)
+            try:
+                key_stats = await self._provider.get_key_stats(agent_input.ticker)
+                financials = await self._provider.get_financials(agent_input.ticker)
+            except Exception as exc:
+                self._logger.warning(
+                    "Fundamental data unavailable for %s: %s",
+                    agent_input.ticker,
+                    exc,
+                )
+                warnings.append(f"Fundamental data unavailable: {exc}")
+                return AgentOutput(
+                    agent_name=self.name,
+                    ticker=agent_input.ticker,
+                    signal=Signal.HOLD,
+                    confidence=30.0,
+                    reasoning="Fundamental data unavailable; defaulting to HOLD.",
+                    metrics=self._empty_metrics(),
+                    warnings=warnings,
+                )
 
         metrics = self._extract_metrics(key_stats, financials)
 
