@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Trustworthy Signals
-status: planning
-stopped_at: Roadmap complete — Phases 8-10 defined; ready for /gsd-plan-phase 8
-last_updated: "2026-04-27T00:00:00.000Z"
-last_activity: 2026-04-27
+status: executing
+stopped_at: "Completed 08-01-PLAN.md (Wave 0 defensive foundation: schema + tripwires + dep promotion)"
+last_updated: "2026-04-29T04:27:32.233Z"
+last_activity: 2026-04-29
 progress:
   total_phases: 3
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 4
+  completed_plans: 1
+  percent: 25
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-27 for v1.2 milestone)
 
 **Core value:** Drawdown protection via thesis-aware, regime-aware multi-agent signals — catching when a held position no longer matches the reason it was bought.
-**Current focus:** v1.2 Trustworthy Signals — Phase 8 planning (research → plan → execute pending)
+**Current focus:** Phase 8 — PIT Fundamentals + Reliability Plots
 
 ## Current Position
 
-Phase: 8 — Not started (planning)
-Plan: —
-Status: Ready for `/gsd-plan-phase 8`
-Last activity: 2026-04-27 — Roadmap created (Phases 8-10 / 10 reqs / 100% coverage)
+Phase: 8 (PIT Fundamentals + Reliability Plots) — EXECUTING
+Plan: 2 of 4
+Status: Ready to execute
+Last activity: 2026-04-29
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -62,6 +62,7 @@ Full record: `.planning/milestones/v1.1-ROADMAP.md`, `.planning/milestones/v1.1-
 | 2 - Signal Quality Upgrade                | 3 | ~2040s |
 | 3 - Data Coverage Expansion               | 4 | ~575s |
 | 4 - Portfolio UI + Analytics Uplift       | 4 | ~1301s |
+| Phase 08-pit-fundamentals-reliability-plots P01 | 5460 | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -114,6 +115,10 @@ Key decisions carrying forward from v1.1:
 - [Phase 07]: PII clamp uses _clamp_pii() stripping dollar-amounts + thesis-marker keywords from alert message fields — monitoring_alerts.message can contain thesis text from portfolio notes
 - [Phase 07]: send_markdown_email uses html.escape() + pre-wrap (not full Markdown-to-HTML conversion) — sufficient since digest body is machine-generated, no user-supplied text
 - [Phase 07]: DriftBadge: preliminary_threshold takes precedence over triggered (amber before red); 7-day RECENT_DRIFT_WINDOW_MS enforced client-side; driftByAgent keyed by agent_name after assetType filter in CalibrationPage
+- [Phase 08-pit-fundamentals-reliability-plots]: [Phase 08-01] Wave 0 defensive-ordering hinge: schema (fundamentals_provider TEXT NOT NULL DEFAULT 'yfinance') + 4 composite indexes shipped on 4 corpus tables (signal_history, backtest_signal_history, drift_log, corpus_rebuild_jobs) BEFORE 08-02 SimfinProvider — 08-02 PR can only USE the column, not INTRODUCE it
+- [Phase 08-pit-fundamentals-reliability-plots]: [Phase 08-01] FOUND-04 contract pinned via test_fundamental_agent_backtest_mode_default_unchanged tripwire — any future regression in agents/fundamental.py backtest_mode short-circuit fails this test loudly
+- [Phase 08-pit-fundamentals-reliability-plots]: [Phase 08-01] Pitfall 9 tripwire scaffolded with @pytest.mark.skipif + importlib.util.find_spec — auto-arms when 08-02 lands data_providers/simfin_provider.py without any test edit
+- [Phase 08-pit-fundamentals-reliability-plots]: [Phase 08-01] sklearn/numpy/scipy promoted from transitive to direct deps in pyproject.toml — 0 MB net install impact (already-transitively-installed), version pins (>=1.4 / >=1.26 / >=1.10) document the contracts 08-03 reliability backend + Phase 10 wilcoxon will rely on
 
 ### Pending Todos
 
@@ -133,6 +138,6 @@ Key decisions carrying forward from v1.1:
 
 ## Session Continuity
 
-Last session: 2026-04-27T00:00:00.000Z
-Stopped at: Roadmap created — Phases 8-10 defined / 10 reqs / 100% coverage; STATE updated to planning
+Last session: 2026-04-29T04:27:32.229Z
+Stopped at: Completed 08-01-PLAN.md (Wave 0 defensive foundation: schema + tripwires + dep promotion)
 Resume: Run `/gsd-plan-phase 8` to begin Phase 8 (PIT Fundamentals + Reliability Plots)

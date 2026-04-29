@@ -59,7 +59,7 @@ Full snapshot: `.planning/milestones/v1.1-ROADMAP.md` · Requirements: `.plannin
   4. Schema migration lands in the SAME PR as `SimfinProvider`: `signal_history`, `backtest_signal_history`, and `drift_log` gain `fundamentals_provider TEXT NOT NULL DEFAULT 'yfinance'` with `(ticker, created_at, fundamentals_provider)` index; IC and drift queries filter by provider; first `use_pit_fundamentals=True` observation triggers a one-shot SimFin-corpus rebuild via existing `corpus_rebuild_jobs` (Pitfall 4 — provider mixing in signal_history).
   5. When SimFin is enabled and `|restated_value − as_filed_value| > 10%` for a reported metric on an open position, the position card displays a "Restated" delta badge linking to a tooltip showing both values + filing date.
 **Plans**: 4 plans
-- [ ] 08-01-PLAN.md — Wave 0: Schema migration + tripwire tests + pyproject promotion (DATA-v2-04 schema half)
+- [x] 08-01-PLAN.md — Wave 0: Schema migration + tripwire tests + pyproject promotion (DATA-v2-04 schema half)
 - [ ] 08-02-PLAN.md — Wave 1: SimfinProvider + AgentInput field + FundamentalAgent dual-condition routing + first-enable corpus rebuild trigger (DATA-v2-02 + DATA-v2-04 trigger half)
 - [ ] 08-03-PLAN.md — Wave 2: tracker.py reliability + Murphy backend + /analytics/calibration include_reliability extension (SIG-v2-01 + SIG-v2-02 backend)
 - [ ] 08-04-PLAN.md — Wave 3: Frontend ReliabilityPlot + MurphyDecompositionCard + RestatedDeltaBadge (SIG-v2-01 + SIG-v2-02 frontend + DATA-v2-05)
