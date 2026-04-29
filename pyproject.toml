@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "investment-agent"
-version = "0.4.0"
+version = "0.5.0"
 description = "Self-hosted portfolio monitoring system with multi-agent analysis. Tracks your thesis, monitors positions, tells you when reality diverges from your plan."
 readme = "README.md"
 license = {text = "MIT"}
@@ -33,6 +33,9 @@ dependencies = [
     "uvicorn[standard]>=0.30",
     "python-dotenv>=1.0",
     "edgartools>=3.0",
+    "scikit-learn>=1.4,<2.0",  # Phase 8 SIG-v2-01: calibration_curve binning
+    "numpy>=1.26,<3.0",        # Phase 8 SIG-v2-01: Wilson CI vectorization (promote)
+    "scipy>=1.10,<2.0",        # Phase 8 SIG-v2-02: Murphy decomposition + future Phase 10 wilcoxon (promote)
 ]
 
 [project.optional-dependencies]
