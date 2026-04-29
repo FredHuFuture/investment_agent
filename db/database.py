@@ -179,6 +179,62 @@ async def _migrate_ticker_unique_to_partial(conn: aiosqlite.Connection) -> None:
     )
 
 
+async def _migrate_fundamentals_provider(conn: aiosqlite.Connection) -> None:
+    """DATA-v2-04: provenance column on the 4 corpus tables + composite indexes.
+
+    Mirrors the existing _ensure_column idempotent pattern. DEFAULT 'yfinance' is
+    correct for all pre-Phase-8 rows (yfinance is the sole fundamentals provider
+    through v1.1 Phase 7). Composite indexes support IC + drift + first-enable
+    queries that filter by provider (Pitfall 4 mitigation).
+
+    Tables (4):
+    - signal_history          — live signal corpus (Pitfall 4 IC contamination)
+    - backtest_signal_history — backtest corpus (Pitfall 4 IC contamination)
+    - drift_log               — drift detector log (provider-aware drift signals)
+    - corpus_rebuild_jobs     — rebuild-trigger lookup (08-02 Task 4 first-enable)
+    """
+    for table in (
+        "signal_history",
+        "backtest_signal_history",
+        "drift_log",
+        "corpus_rebuild_jobs",
+    ):
+        await _ensure_column(
+            conn,
+            table_name=table,
+            column_name="fundamentals_provider",
+            column_type="TEXT NOT NULL DEFAULT 'yfinance'",
+        )
+    await conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_signal_history_ticker_created_provider
+        ON signal_history (ticker, created_at, fundamentals_provider);
+        """
+    )
+    await conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_bsh_ticker_signal_date_provider
+        ON backtest_signal_history (ticker, signal_date, fundamentals_provider);
+        """
+    )
+    await conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_drift_log_agent_asset_provider_evaluated
+        ON drift_log (agent_name, asset_type, fundamentals_provider, evaluated_at DESC);
+        """
+    )
+    # 4th index — supports the first-enable lookup in 08-02 Task 4:
+    # SELECT COUNT(*) FROM corpus_rebuild_jobs
+    # WHERE fundamentals_provider='simfin' AND status IN ('success','partial')
+    # ORDER BY completed_at DESC
+    await conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_crj_provider_status
+        ON corpus_rebuild_jobs (fundamentals_provider, status, completed_at DESC);
+        """
+    )
+
+
 async def _seed_default_alert_rules(conn: aiosqlite.Connection) -> None:
     """UI-03: seed the 5 hardcoded checker rule names into alert_rules so the
     MonitoringPage rules panel exposes them with enable/disable toggles.
@@ -753,6 +809,12 @@ async def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
             ON drift_log (agent_name, asset_type, evaluated_at DESC);
             """
         )
+
+        # DATA-v2-04 (Phase 8 Wave 0): provenance column + composite indexes on
+        # the 4 corpus tables (signal_history, backtest_signal_history, drift_log,
+        # corpus_rebuild_jobs). MUST run AFTER all CREATE TABLE statements above
+        # and BEFORE conn.commit() so the schema lands in the same transaction.
+        await _migrate_fundamentals_provider(conn)
 
         await conn.commit()
 
