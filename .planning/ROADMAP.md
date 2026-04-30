@@ -60,7 +60,7 @@ Full snapshot: `.planning/milestones/v1.1-ROADMAP.md` · Requirements: `.plannin
   5. When SimFin is enabled and `|restated_value − as_filed_value| > 10%` for a reported metric on an open position, the position card displays a "Restated" delta badge linking to a tooltip showing both values + filing date.
 **Plans**: 4 plans
 - [x] 08-01-PLAN.md — Wave 0: Schema migration + tripwire tests + pyproject promotion (DATA-v2-04 schema half)
-- [ ] 08-02-PLAN.md — Wave 1: SimfinProvider + AgentInput field + FundamentalAgent dual-condition routing + first-enable corpus rebuild trigger (DATA-v2-02 + DATA-v2-04 trigger half)
+- [x] 08-02-PLAN.md — Wave 1: SimfinProvider + AgentInput field + FundamentalAgent dual-condition routing + first-enable corpus rebuild trigger (DATA-v2-02 + DATA-v2-04 trigger half)
 - [ ] 08-03-PLAN.md — Wave 2: tracker.py reliability + Murphy backend + /analytics/calibration include_reliability extension (SIG-v2-01 + SIG-v2-02 backend)
 - [ ] 08-04-PLAN.md — Wave 3: Frontend ReliabilityPlot + MurphyDecompositionCard + RestatedDeltaBadge (SIG-v2-01 + SIG-v2-02 frontend + DATA-v2-05)
 **UI hint**: yes
@@ -99,7 +99,7 @@ Full snapshot: `.planning/milestones/v1.1-ROADMAP.md` · Requirements: `.plannin
 | 5. Corpus Population + Live Data Closeout | v1.1 | 2/2 | Complete    | 2026-04-23 |
 | 6. Calibration & Weights UI               | v1.1 | 3/3 | Complete    | 2026-04-24 |
 | 7. Digest + Analytics Completeness        | v1.1 | 3/3 | Complete    | 2026-04-25 |
-| 8. PIT Fundamentals + Reliability Plots   | v1.2 | 0/4 | Planning    | -          |
+| 8. PIT Fundamentals + Reliability Plots   | v1.2 | 2/4 | In Progress|  |
 | 9. CoinGecko On-Chain Provider            | v1.2 | 0/0 | Not started | -          |
 | 10. Drift-Threshold Validation Methodology| v1.2 | 0/0 | Not started | -          |
 </content>

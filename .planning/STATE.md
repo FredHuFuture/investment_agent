@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Trustworthy Signals
 status: executing
-stopped_at: "Completed 08-01-PLAN.md (Wave 0 defensive foundation: schema + tripwires + dep promotion)"
-last_updated: "2026-04-29T04:27:32.233Z"
-last_activity: 2026-04-29
+stopped_at: "Completed 08-02-PLAN.md (Wave 1: SimfinProvider + dual-condition routing + corpus trigger + portfolio restated_deltas)"
+last_updated: "2026-04-30T16:56:57.115Z"
+last_activity: 2026-04-30
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 4
-  completed_plans: 1
-  percent: 25
+  completed_plans: 2
+  percent: 50
 ---
 
 # Project State
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-04-27 for v1.2 milestone)
 ## Current Position
 
 Phase: 8 (PIT Fundamentals + Reliability Plots) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
-Last activity: 2026-04-29
+Last activity: 2026-04-30
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -63,6 +63,7 @@ Full record: `.planning/milestones/v1.1-ROADMAP.md`, `.planning/milestones/v1.1-
 | 3 - Data Coverage Expansion               | 4 | ~575s |
 | 4 - Portfolio UI + Analytics Uplift       | 4 | ~1301s |
 | Phase 08-pit-fundamentals-reliability-plots P01 | 5460 | 3 tasks | 5 files |
+| Phase 08-pit-fundamentals-reliability-plots P02 | 10800 | 5 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -119,6 +120,9 @@ Key decisions carrying forward from v1.1:
 - [Phase 08-pit-fundamentals-reliability-plots]: [Phase 08-01] FOUND-04 contract pinned via test_fundamental_agent_backtest_mode_default_unchanged tripwire — any future regression in agents/fundamental.py backtest_mode short-circuit fails this test loudly
 - [Phase 08-pit-fundamentals-reliability-plots]: [Phase 08-01] Pitfall 9 tripwire scaffolded with @pytest.mark.skipif + importlib.util.find_spec — auto-arms when 08-02 lands data_providers/simfin_provider.py without any test edit
 - [Phase 08-pit-fundamentals-reliability-plots]: [Phase 08-01] sklearn/numpy/scipy promoted from transitive to direct deps in pyproject.toml — 0 MB net install impact (already-transitively-installed), version pins (>=1.4 / >=1.26 / >=1.10) document the contracts 08-03 reliability backend + Phase 10 wilcoxon will rely on
+- [Phase 08-pit-fundamentals-reliability-plots]: [Phase 08-02] Wave 1 SimFin provider + agent routing + corpus trigger + portfolio API shipped end-to-end (DATA-v2-02 + DATA-v2-04 corpus-rebuild half + DATA-v2-05 backend payload). 959 passed / 6 skipped / 0 failed (vs 934 baseline + 25 new tests). FOUND-04 + Pitfall 9 tripwires both GREEN. agents/fundamental.py local 'warnings' list var preserved (no rename — phantom premise from initial plan).
+- [Phase 08-pit-fundamentals-reliability-plots]: [Phase 08-02] BackgroundTasks injection threaded from API route → pipeline.analyze_ticker (NOT instantiated inside analyze_ticker) — FastAPI BackgroundTasks is request-scoped; instantiating in pipeline silently no-ops the task. The /calibration/calibrate and /analyze/{ticker} routes own the BackgroundTasks instance and pass it down.
+- [Phase 08-pit-fundamentals-reliability-plots]: [Phase 08-02] FOUND-04 dual-condition lifts the short-circuit ONLY when use_pit_fundamentals=True (not just when backtest_mode=True). Default v1.1 behavior is byte-identical. Tripwire from 08-01 still GREEN under the new logic; SimFin (asreported=True) path is PIT-safe and is allowed to run in backtest_mode.
 
 ### Pending Todos
 
@@ -138,6 +142,6 @@ Key decisions carrying forward from v1.1:
 
 ## Session Continuity
 
-Last session: 2026-04-29T04:27:32.229Z
-Stopped at: Completed 08-01-PLAN.md (Wave 0 defensive foundation: schema + tripwires + dep promotion)
+Last session: 2026-04-30T16:56:57.112Z
+Stopped at: Completed 08-02-PLAN.md (Wave 1: SimfinProvider + dual-condition routing + corpus trigger + portfolio restated_deltas)
 Resume: Run `/gsd-plan-phase 8` to begin Phase 8 (PIT Fundamentals + Reliability Plots)

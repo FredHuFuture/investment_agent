@@ -20,10 +20,10 @@ Requirements for milestone v1.2. Each maps to exactly one roadmap phase (filled 
 
 ### Data Coverage v2 — Provider depth
 
-- [ ] **DATA-v2-02**: Operator can opt into SimFin point-in-time fundamentals via a NEW `use_pit_fundamentals: bool = False` field on `AgentInput` — eliminates restatement bias from yfinance's restated fundamentals when set. FOUND-04 contract preserved as default (`backtest_mode=True && use_pit_fundamentals=False → HOLD/completeness=0.0`). Requires `SIMFIN_API_KEY` env var; logs lazy-key warning if missing.
+- [x] **DATA-v2-02**: Operator can opt into SimFin point-in-time fundamentals via a NEW `use_pit_fundamentals: bool = False` field on `AgentInput` — eliminates restatement bias from yfinance's restated fundamentals when set. FOUND-04 contract preserved as default (`backtest_mode=True && use_pit_fundamentals=False → HOLD/completeness=0.0`). Requires `SIMFIN_API_KEY` env var; logs lazy-key warning if missing.
 - [ ] **DATA-v2-03**: CryptoAgent's Factor 6 ("Network adoption") replaces static `config/crypto_adoption.yaml` constants with a live composite of CoinGecko `commit_count_4_weeks` z-score + `reddit_subscribers` MoM growth + `telegram_channel_user_count` MoM growth via a NEW `data_providers/coingecko_provider.py`. Same 5% factor weight; static yaml becomes graceful fallback when provider unavailable. "Powered by CoinGecko" attribution rendered on `/calibration` and `/analyze` pages (ToS requirement).
 - [x] **DATA-v2-04**: `signal_history`, `backtest_signal_history`, and `drift_log` schemas migrate to include a `fundamentals_provider TEXT NOT NULL DEFAULT 'yfinance'` column with idx `(ticker, created_at, fundamentals_provider)`. IC + drift queries filter by `fundamentals_provider`. First time `use_pit_fundamentals=True` is observed for a portfolio, the daemon triggers a one-shot SimFin-corpus rebuild via the existing `corpus_rebuild_jobs` async-job pattern. Mandatory to avoid Pitfall 4 (silent IC contamination from provider mixing).
-- [ ] **DATA-v2-05**: When SimFin is enabled and `|restated_value − as_filed_value| > 10%` for any reported metric on an open position, the position card displays a "Restated" delta badge linking to a tooltip showing both values + filing date. Surfaces the *value* of point-in-time fundamentals to the operator without requiring them to read backtest output.
+- [x] **DATA-v2-05**: When SimFin is enabled and `|restated_value − as_filed_value| > 10%` for any reported metric on an open position, the position card displays a "Restated" delta badge linking to a tooltip showing both values + filing date. Surfaces the *value* of point-in-time fundamentals to the operator without requiring them to read backtest output.
 
 ### Drift Validation — v1.1 carry-forward
 
@@ -90,10 +90,10 @@ Which phases cover which requirements. Updated by `gsd-roadmapper` in Step 10 of
 |-------------|-------|--------|
 | SIG-v2-01 | Phase 8 | Pending |
 | SIG-v2-02 | Phase 8 | Pending |
-| DATA-v2-02 | Phase 8 | Pending |
+| DATA-v2-02 | Phase 8 | Complete |
 | DATA-v2-03 | Phase 9 | Pending |
 | DATA-v2-04 | Phase 8 | Complete |
-| DATA-v2-05 | Phase 8 | Pending |
+| DATA-v2-05 | Phase 8 | Complete |
 | DRIFT-v2-01 | Phase 10 | Pending |
 | DRIFT-v2-02 | Phase 10 | Pending |
 | DRIFT-v2-03 | Phase 10 | Pending |
