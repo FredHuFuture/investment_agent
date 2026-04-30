@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends
 
 from api.deps import get_db_path, map_ticker, resolve_asset_type
 from pydantic import BaseModel
-from api.models import AddPositionRequest, BulkImportRequest, ClosePositionRequest, ScaleRequest, SetCashRequest, SplitRequest, ThesisResponse, UpdateThesisRequest
+from api.models import AddPositionRequest, BulkImportRequest, ClosePositionRequest, RestatedDelta, ScaleRequest, SetCashRequest, SplitRequest, ThesisResponse, UpdateThesisRequest
 from pydantic import Field
 from data_providers.factory import get_provider
 from portfolio.manager import PortfolioManager
@@ -17,6 +17,24 @@ from portfolio.manager import PortfolioManager
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+# Phase 8 DATA-v2-05: top metrics surfaced in restated_deltas. Drawn from
+# FundamentalAgent's _compute_value_score / _compute_quality_score inputs that
+# are most likely to be restated by SimFin in subsequent 10-Q/A filings.
+# Metric names match the SimFin v3 statement payload keys (see 08-RESEARCH.md).
+_RESTATED_METRICS: tuple[str, ...] = (
+    "Revenue",
+    "Net Income",
+    "EPS Basic",
+    "EPS Diluted",
+    "Total Assets",
+    "Total Liabilities",
+    "Free Cash Flow",
+    "Gross Profit",
+    "Operating Income",
+    "Stockholders Equity",
+)
 
 
 async def _fetch_price(ticker: str, asset_type: str) -> tuple[str, float]:
@@ -31,9 +49,98 @@ async def _fetch_price(ticker: str, asset_type: str) -> tuple[str, float]:
         return ticker, 0.0
 
 
+async def _compute_restated_deltas(
+    provider,
+    ticker: str,
+) -> list[RestatedDelta] | None:
+    """DATA-v2-05 backend: dual SimFin call (as-filed + restated) → per-metric deltas.
+
+    Returns None when SimFin is not configured (provider._client is None) OR when
+    either dual-call response is empty. Returns a list of RestatedDelta entries
+    when both calls succeed.
+
+    Pitfall mitigations:
+    - Zero as_filed: delta_pct is set to None (avoid div-by-zero)
+    - Missing values: delta_pct is None when as_filed or restated is None
+    - SimFin failure: any exception in either get_financials call returns None
+      (graceful degradation, no crash)
+    """
+    if getattr(provider, "_client", None) is None:
+        return None
+    try:
+        asfiled_resp = await provider.get_financials(
+            ticker, statement="pl", period="q1", asreported=True,
+        )
+        restated_resp = await provider.get_financials(
+            ticker, statement="pl", period="q1", asreported=False,
+        )
+    except Exception as exc:
+        logger.warning("SimFin dual-call failed for %s: %s", ticker, exc)
+        return None
+
+    asfiled_rows = (
+        asfiled_resp.get("data", []) if isinstance(asfiled_resp, dict) else []
+    )
+    restated_rows = (
+        restated_resp.get("data", []) if isinstance(restated_resp, dict) else []
+    )
+    if not asfiled_rows or not restated_rows:
+        return None
+
+    # SimFin v3 returns rows ordered by fyear/period DESC — use the most recent.
+    asfiled = asfiled_rows[0]
+    restated = restated_rows[0]
+    filing_date = asfiled.get("Publish Date") or asfiled.get("Filing Date")
+
+    deltas: list[RestatedDelta] = []
+    for metric in _RESTATED_METRICS:
+        af_raw = asfiled.get(metric)
+        rs_raw = restated.get(metric)
+        try:
+            af_val: float | None = float(af_raw) if af_raw is not None else None
+        except (TypeError, ValueError):
+            af_val = None
+        try:
+            rs_val: float | None = float(rs_raw) if rs_raw is not None else None
+        except (TypeError, ValueError):
+            rs_val = None
+
+        metric_key = metric.lower().replace(" ", "_")
+        if af_val is None or rs_val is None or af_val == 0:
+            # delta_pct undefined for None or zero denominator.
+            deltas.append(
+                RestatedDelta(
+                    metric=metric_key,
+                    as_filed=af_val,
+                    restated=rs_val,
+                    delta_pct=None,
+                    filing_date=filing_date,
+                )
+            )
+            continue
+        delta_pct = abs(rs_val - af_val) / abs(af_val)
+        deltas.append(
+            RestatedDelta(
+                metric=metric_key,
+                as_filed=af_val,
+                restated=rs_val,
+                delta_pct=delta_pct,
+                filing_date=filing_date,
+            )
+        )
+    return deltas
+
+
 @router.get("")
 async def get_portfolio(db_path: str = Depends(get_db_path)):
-    """Return the current portfolio with live prices."""
+    """Return the current portfolio with live prices.
+
+    Phase 8 DATA-v2-05: when SIMFIN_API_KEY is set, each open stock position
+    is enriched with optional `restated_deltas` (per-metric as-filed vs
+    restated diff via dual SimFin call). When SimFin is not configured, the
+    payload is byte-compatible with v1.1 (restated_deltas is None for all
+    positions; no extra HTTP calls issued).
+    """
     mgr = PortfolioManager(db_path)
     portfolio = await mgr.load_portfolio()
 
@@ -53,6 +160,43 @@ async def get_portfolio(db_path: str = Depends(get_db_path)):
 
         # Recompute totals using market values now that we have prices
         portfolio = mgr.recompute_with_prices(portfolio)
+
+        # Phase 8 DATA-v2-05: enrich open stock positions with restated_deltas
+        # when SimFin is configured. Solo-operator scope means we only attempt
+        # for stock positions (SimFin doesn't cover crypto).
+        try:
+            from data_providers.simfin_provider import SimfinProvider
+            simfin = SimfinProvider()
+        except Exception as exc:
+            simfin = None
+            warnings.append(f"SimfinProvider unavailable: {exc}")
+
+        if simfin is not None and getattr(simfin, "_client", None) is not None:
+            stock_positions = [
+                p for p in portfolio.positions if p.asset_type == "stock"
+            ]
+            if stock_positions:
+                delta_results = await asyncio.gather(
+                    *[
+                        _compute_restated_deltas(simfin, p.ticker)
+                        for p in stock_positions
+                    ],
+                    return_exceptions=True,
+                )
+                for pos, deltas in zip(stock_positions, delta_results):
+                    if isinstance(deltas, Exception):
+                        warnings.append(
+                            f"Restated delta lookup failed for {pos.ticker}: {deltas}"
+                        )
+                        # restated_deltas stays None (default); no crash
+                    else:
+                        pos.restated_deltas = deltas  # may be None or list[RestatedDelta]
+
+            # Always close the SimFin client to free the underlying httpx.AsyncClient.
+            try:
+                await simfin.aclose()
+            except Exception:
+                pass
 
     return {"data": portfolio.to_dict(), "warnings": warnings}
 
