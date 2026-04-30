@@ -13,6 +13,24 @@ from tracking.store import SignalStore
 # ---------------------------------------------------------------------------
 
 
+def _adaptive_bin_count(
+    n_samples: int, min_per_bin: int = 10, max_bins: int = 10
+) -> int:
+    """Phase 8 SIG-v2-01 (Pitfall 2 mitigation) — bin count adapted to sample size.
+
+    Formula: ``max(2, min(max_bins, n_samples // min_per_bin))``
+
+    - N=15 → 2 bins (floor at 2 to keep diagonal interpretable)
+    - N=50 → 5 bins
+    - N=200 → 10 bins (capped)
+
+    The floor at 2 keeps the reliability plot visually meaningful even at
+    extreme low N (the diagonal y=x reference still produces a 2-point line).
+    The cap at 10 caps render cost on large corpora.
+    """
+    return max(2, min(max_bins, n_samples // min_per_bin))
+
+
 class SignalTracker:
     """Compute signal accuracy and agent performance metrics."""
 
@@ -440,3 +458,169 @@ class SignalTracker:
         if std_ic == 0:
             return None
         return round(mean_ic / std_ic, 4)
+
+    # -----------------------------------------------------------------------
+    # Phase 8 SIG-v2-01: Reliability bins + adaptive bin count + Wilson 95% CI
+    # -----------------------------------------------------------------------
+
+    async def compute_reliability_bins(
+        self,
+        agent_name: str,
+        horizon: str = "5d",
+        min_per_bin: int = 10,
+        max_bins: int = 10,
+        fundamentals_provider: str | None = "yfinance",
+    ) -> dict[str, Any]:
+        """Phase 8 SIG-v2-01: per-agent reliability bins for calibration plot.
+
+        Reads from ``backtest_signal_history`` (consistent with Brier/IC).
+        Excludes HOLD signals (one-vs-rest binary; mirrors compute_brier_score).
+        Bins predicted-confidence × observed-win-rate via quantile binning so
+        each bin holds approximately equal sample count (sklearn 'quantile'
+        strategy). Per-bin Wilson 95% CI (z = 1.96) provides binomial-proportion
+        error bars without bootstrap cost.
+
+        Returns:
+            {
+                "bins": [{bin_lo, bin_hi, n, predicted, observed,
+                          ci_low, ci_high, ece_contrib}, ...],
+                "n_samples": int,
+                "n_bins_used": int,
+                "preliminary_calibration": bool,
+                "ece": float | None,
+            }
+
+        Empty / low-N cases:
+            - n_samples == 0 → empty bins, ece=None, preliminary_calibration=True
+            - n_samples < min_per_bin * 2 → empty bins, ece=None, preliminary=True
+            - duplicate-quantile collapse to <2 bins → empty bins, preliminary=True
+
+        Mitigations:
+            - Pitfall 2 (Swiss-cheese binning at small N) → adaptive bin count +
+              ``preliminary_calibration`` flag set when n_bins_used < 5 OR any
+              bin has n < min_per_bin
+            - Pitfall 4 (provider-mixed corpus) → filter rows by
+              ``fundamentals_provider`` (default 'yfinance'); pass None for
+              cross-provider audit
+        """
+        import numpy as np  # noqa: PLC0415 — lazy import (matches scipy pattern)
+        # noqa: PLC0415 — lazy import; sklearn is a direct dep but mirror the
+        # compute_rolling_ic lazy-import pattern for collection-time safety.
+        from sklearn.calibration import calibration_curve  # noqa: F401, PLC0415
+
+        rows = await self._store.get_backtest_signals_by_agent(
+            agent_name,
+            horizon,
+            fundamentals_provider=fundamentals_provider,
+        )
+
+        # Translate signal rows to (y_true, y_prob) pairs (HOLD excluded).
+        # BUY wins when forward_return > 0; SELL wins when forward_return < 0.
+        y_true_list: list[int] = []
+        y_prob_list: list[float] = []
+        for r in rows:
+            if r.get("signal") == "HOLD":
+                continue
+            fwd = r.get("forward_return")
+            # Some test fixtures pass forward_return_5d/forward_return_21d
+            # explicitly without flattening; keep the fallback for parity.
+            if fwd is None:
+                fwd = r.get(f"forward_return_{horizon}")
+            if fwd is None:
+                continue
+            confidence = r.get("confidence")
+            if confidence is None:
+                continue
+            y_prob = float(confidence) / 100.0
+            if r.get("signal") == "BUY":
+                y_true_list.append(1 if fwd > 0 else 0)
+            elif r.get("signal") == "SELL":
+                y_true_list.append(1 if fwd < 0 else 0)
+            else:
+                # Unknown signal direction — skip
+                continue
+            y_prob_list.append(y_prob)
+
+        n_samples = len(y_true_list)
+
+        # Defensive: zero/very-low samples → empty result with preliminary=True.
+        if n_samples == 0 or n_samples < min_per_bin * 2:
+            return {
+                "bins": [],
+                "n_samples": n_samples,
+                "n_bins_used": 0,
+                "preliminary_calibration": True,
+                "ece": None,
+            }
+
+        n_bins = _adaptive_bin_count(n_samples, min_per_bin, max_bins)
+
+        y_true_arr = np.asarray(y_true_list, dtype=int)
+        y_prob_arr = np.asarray(y_prob_list, dtype=float)
+
+        # Compute bin edges via quantiles for equal-N bins (mirrors sklearn
+        # calibration_curve(strategy='quantile') behavior). De-duplicate edges
+        # to handle constant-confidence corner cases.
+        edges = np.quantile(y_prob_arr, np.linspace(0, 1, n_bins + 1))
+        edges = np.unique(edges)
+        if len(edges) - 1 < 2:
+            return {
+                "bins": [],
+                "n_samples": n_samples,
+                "n_bins_used": 0,
+                "preliminary_calibration": True,
+                "ece": None,
+            }
+
+        # Assign each sample to a bin index 0..len(edges)-2.
+        # np.digitize with edges[1:-1] yields 0..len(edges)-2 inclusive.
+        bin_indices = np.digitize(y_prob_arr, edges[1:-1])
+
+        z = 1.96  # Wilson 95% CI z-value (scipy.stats.norm.ppf(0.975))
+        bins_out: list[dict[str, Any]] = []
+        for k in range(len(edges) - 1):
+            mask = bin_indices == k
+            n_k = int(mask.sum())
+            if n_k == 0:
+                continue
+            observed = float(y_true_arr[mask].mean())
+            predicted = float(y_prob_arr[mask].mean())
+
+            # Wilson 95% CI (binomial proportion):
+            # center = (p + z²/2n) / (1 + z²/n)
+            # half_width = z * sqrt(p(1-p)/n + z²/4n²) / (1 + z²/n)
+            p_hat = observed
+            denom = 1.0 + (z**2) / n_k
+            center = (p_hat + (z**2) / (2 * n_k)) / denom
+            half = (
+                z
+                * np.sqrt(p_hat * (1 - p_hat) / n_k + (z**2) / (4 * n_k**2))
+                / denom
+            )
+            ci_low = max(0.0, float(center - half))
+            ci_high = min(1.0, float(center + half))
+
+            ece_contrib = (n_k / n_samples) * abs(predicted - observed)
+            bins_out.append(
+                {
+                    "bin_lo": float(edges[k]),
+                    "bin_hi": float(edges[k + 1]),
+                    "n": n_k,
+                    "predicted": predicted,
+                    "observed": observed,
+                    "ci_low": ci_low,
+                    "ci_high": ci_high,
+                    "ece_contrib": float(ece_contrib),
+                }
+            )
+
+        ece = sum(b["ece_contrib"] for b in bins_out) if bins_out else 0.0
+        min_bin_n = min((b["n"] for b in bins_out), default=0)
+        preliminary = len(bins_out) < 5 or min_bin_n < min_per_bin
+        return {
+            "bins": bins_out,
+            "n_samples": n_samples,
+            "n_bins_used": len(bins_out),
+            "preliminary_calibration": preliminary,
+            "ece": float(ece) if bins_out else None,
+        }

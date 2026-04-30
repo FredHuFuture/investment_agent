@@ -19,6 +19,7 @@ async def _get_backtest_signals_by_agent(
     db_path: Path,
     agent_name: str,
     horizon: str = "5d",
+    fundamentals_provider: str | None = "yfinance",
 ) -> list[dict]:
     """Read per-agent backtest signals with forward returns from backtest_signal_history.
 
@@ -26,22 +27,26 @@ async def _get_backtest_signals_by_agent(
                       forward_return} dicts.
     forward_return is from the requested horizon column.
     Rows with NULL forward_return are excluded.
+
+    Phase 8 DATA-v2-04: ``fundamentals_provider`` filter (default 'yfinance')
+    prevents IC contamination from provider mixing (Pitfall 4). Pass None to
+    read across all providers (e.g., for cross-provider audit / migration).
     """
     col = "forward_return_5d" if horizon == "5d" else "forward_return_21d"
+    sql = (
+        "SELECT ticker, signal_date, raw_score, signal, confidence,\n"
+        f"       {col} AS forward_return\n"
+        "FROM backtest_signal_history\n"
+        f"WHERE agent_name = ? AND {col} IS NOT NULL"
+    )
+    params: list[Any] = [agent_name]
+    if fundamentals_provider is not None:
+        sql += " AND fundamentals_provider = ?"
+        params.append(fundamentals_provider)
+    sql += " ORDER BY signal_date ASC"
     async with aiosqlite.connect(db_path) as conn:
         conn.row_factory = aiosqlite.Row
-        rows = await (
-            await conn.execute(
-                f"""
-                SELECT ticker, signal_date, raw_score, signal, confidence,
-                       {col} AS forward_return
-                FROM backtest_signal_history
-                WHERE agent_name = ? AND {col} IS NOT NULL
-                ORDER BY signal_date ASC
-                """,
-                (agent_name,),
-            )
-        ).fetchall()
+        rows = await (await conn.execute(sql, params)).fetchall()
     return [dict(r) for r in rows]
 
 
@@ -305,6 +310,7 @@ class SignalStore:
         self,
         agent_name: str,
         horizon: str = "5d",
+        fundamentals_provider: str | None = "yfinance",
     ) -> list[dict]:
         """Read per-agent backtest signals with forward returns.
 
@@ -312,6 +318,11 @@ class SignalStore:
                           confidence, forward_return} dicts.
         forward_return is from the requested horizon column.
         Rows with NULL forward_return are excluded.
+
+        Phase 8 DATA-v2-04: threads the ``fundamentals_provider`` filter through
+        to the module-level helper (default 'yfinance'). Both call paths must
+        support the filter for consistency — some legacy callers may use the
+        module-level helper directly.
         """
         if self._db_path is None:
             # Fallback path: use module-level helper via a temp file path
@@ -320,7 +331,12 @@ class SignalStore:
                 "get_backtest_signals_by_agent requires a db_path-based SignalStore "
                 "(not a live aiosqlite.Connection). Construct SignalStore(str(db_path))."
             )
-        return await _get_backtest_signals_by_agent(self._db_path, agent_name, horizon)
+        return await _get_backtest_signals_by_agent(
+            self._db_path,
+            agent_name,
+            horizon,
+            fundamentals_provider=fundamentals_provider,
+        )
 
     async def get_backtest_corpus_metadata(self) -> dict:
         """Return corpus-level metadata for the calibration API.
