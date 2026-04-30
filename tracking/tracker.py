@@ -624,3 +624,61 @@ class SignalTracker:
             "preliminary_calibration": preliminary,
             "ece": float(ece) if bins_out else None,
         }
+
+    # -----------------------------------------------------------------------
+    # Phase 8 SIG-v2-02: Murphy 3-component Brier decomposition
+    # -----------------------------------------------------------------------
+
+    @staticmethod
+    def compute_murphy_decomposition(bins_response: dict) -> dict:
+        """Phase 8 SIG-v2-02: Murphy exact-bin decomposition (REL - RES + UNC ≈ Brier).
+
+        Reads predicted/observed/n from the output of ``compute_reliability_bins``
+        (no duplicate corpus query). Vectorized numpy math.
+
+        Exact-bin formulas (Murphy 1973 / Wikipedia 'Brier score'):
+            N    = sum(n_k)
+            o_bar = sum(n_k * o_k) / N        # base rate
+            REL  = (1/N) * sum(n_k * (f_k - o_k)^2)   # reliability (lower better)
+            RES  = (1/N) * sum(n_k * (o_k - o_bar)^2) # resolution (higher better)
+            UNC  = o_bar * (1 - o_bar)                 # uncertainty
+            Brier ≈ REL - RES + UNC                    # invariant ("verified_sum")
+
+        Bias-corrected exact-bin is stable at N ≥ 60 per bin (Ferro & Fricker 2012).
+        Below that threshold, the bins_response.preliminary_calibration flag
+        already surfaces — consumers should respect it for interpretation.
+
+        Args:
+            bins_response: output of compute_reliability_bins, with key 'bins'
+                           containing list of {n, predicted, observed, ...} dicts.
+
+        Returns:
+            {rel, res, unc, verified_sum} all floats in [0, 1] or all None when
+            bins is empty / total N is zero.
+        """
+        import numpy as np  # noqa: PLC0415 — lazy import (matches scipy pattern)
+
+        bins = bins_response.get("bins", [])
+        if not bins:
+            return {"rel": None, "res": None, "unc": None, "verified_sum": None}
+
+        n_arr = np.asarray([b["n"] for b in bins], dtype=float)
+        f_arr = np.asarray([b["predicted"] for b in bins], dtype=float)
+        o_arr = np.asarray([b["observed"] for b in bins], dtype=float)
+        N = float(n_arr.sum())
+        if N == 0:
+            return {"rel": None, "res": None, "unc": None, "verified_sum": None}
+
+        o_bar = float((n_arr * o_arr).sum() / N)
+        rel = float((n_arr * (f_arr - o_arr) ** 2).sum() / N)
+        res = float((n_arr * (o_arr - o_bar) ** 2).sum() / N)
+        unc = float(o_bar * (1.0 - o_bar))
+        return {
+            "rel": rel,
+            "res": res,
+            "unc": unc,
+            # ≈ Brier — sanity invariant: REL - RES + UNC == Brier exactly under
+            # the exact-bin formulation. Consumer can cross-check against
+            # compute_brier_score for the same corpus / horizon / provider.
+            "verified_sum": rel - res + unc,
+        }
