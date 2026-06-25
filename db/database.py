@@ -810,6 +810,54 @@ async def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> Path:
             """
         )
 
+        # ── Decision Layer (human-in-the-loop) ──────────────────────────────
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS decisions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ticker TEXT NOT NULL,
+                asset_type TEXT NOT NULL,
+                action TEXT NOT NULL CHECK (action IN ('BUY','SELL','HOLD')),
+                quantity REAL,
+                source_signal_json TEXT NOT NULL,
+                reasoning TEXT NOT NULL,
+                proposal_hash TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending'
+                    CHECK (status IN ('pending','approved','rejected','executed','expired')),
+                valid_until TEXT NOT NULL,
+                actor TEXT,
+                decided_at TEXT,
+                decision_note TEXT,
+                approved_proposal_hash TEXT,
+                execution_report_json TEXT,
+                created_at TEXT NOT NULL
+            );
+            """
+        )
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_decisions_status ON decisions(status);"
+        )
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS decision_audit (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                decision_id INTEGER NOT NULL REFERENCES decisions(id),
+                event_type TEXT NOT NULL CHECK (
+                    event_type IN ('PROPOSED','APPROVED','REJECTED','EXECUTED','EXPIRED','FAILED')
+                ),
+                actor TEXT,
+                payload_json TEXT NOT NULL,
+                prev_hash TEXT NOT NULL,
+                entry_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+            """
+        )
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_decision_audit_decision_id "
+            "ON decision_audit(decision_id);"
+        )
+
         # DATA-v2-04 (Phase 8 Wave 0): provenance column + composite indexes on
         # the 4 corpus tables (signal_history, backtest_signal_history, drift_log,
         # corpus_rebuild_jobs). MUST run AFTER all CREATE TABLE statements above
