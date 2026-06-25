@@ -290,3 +290,22 @@ class RestatedDelta(BaseModel):
     restated: float | None = None
     delta_pct: float | None = None
     filing_date: str | None = None  # ISO date
+
+
+# ---------------------------------------------------------------------------
+# Decision Layer requests
+# ---------------------------------------------------------------------------
+
+class CreateDecisionRequest(BaseModel):
+    ticker: str
+    asset_type: Literal["stock", "btc", "eth"] = "stock"
+    quantity: float | None = Field(default=None, gt=0)
+
+
+class ApproveDecisionRequest(BaseModel):
+    actor: str
+
+
+class RejectDecisionRequest(BaseModel):
+    actor: str
+    note: str = ""
