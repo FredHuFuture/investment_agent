@@ -42,7 +42,17 @@ export default function AppShell({ children }: AppShellProps) {
               <path d="M3 12h18M3 6h18M3 18h18" />
             </svg>
           </button>
-          <span className="flex-1 text-center font-mono text-base font-semibold text-accent tracking-tight">
+          <span className="flex-1 flex items-center justify-center gap-2 font-mono text-base font-semibold text-accent tracking-tight">
+            <svg viewBox="0 0 120 120" className="h-5 w-5 shrink-0" aria-hidden="true">
+              <g stroke="#32AF78" strokeWidth={7} strokeLinecap="round" fill="none">
+                <line x1="22" y1="44" x2="58" y2="64" />
+                <line x1="18" y1="64" x2="58" y2="64" />
+                <line x1="22" y1="84" x2="58" y2="64" />
+              </g>
+              <line x1="58" y1="64" x2="98" y2="32" stroke="#48C891" strokeWidth={8} strokeLinecap="round" />
+              <circle cx="58" cy="64" r="13" fill="#32AF78" />
+              <circle cx="98" cy="32" r="8" fill="#48C891" />
+            </svg>
             investment_agent
           </span>
           <div className="w-9" />

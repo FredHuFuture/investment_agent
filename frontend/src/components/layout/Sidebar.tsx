@@ -300,14 +300,31 @@ export default function Sidebar({
       >
         {showLabels ? (
           <div className="flex items-center gap-2 flex-1 min-w-0">
+            <svg viewBox="0 0 120 120" className="h-6 w-6 shrink-0" aria-hidden="true">
+              <g stroke="#32AF78" strokeWidth={7} strokeLinecap="round" fill="none">
+                <line x1="22" y1="44" x2="58" y2="64" />
+                <line x1="18" y1="64" x2="58" y2="64" />
+                <line x1="22" y1="84" x2="58" y2="64" />
+              </g>
+              <line x1="58" y1="64" x2="98" y2="32" stroke="#48C891" strokeWidth={8} strokeLinecap="round" />
+              <circle cx="58" cy="64" r="13" fill="#32AF78" />
+              <circle cx="98" cy="32" r="8" fill="#48C891" />
+            </svg>
             <span className="font-mono text-[15px] font-semibold text-accent tracking-tight truncate">
               investment_agent
             </span>
           </div>
         ) : (
-          <span className="font-mono text-base font-bold text-accent">
-            ia
-          </span>
+          <svg viewBox="0 0 120 120" className="h-7 w-7" aria-hidden="true">
+            <g stroke="#32AF78" strokeWidth={7} strokeLinecap="round" fill="none">
+              <line x1="22" y1="44" x2="58" y2="64" />
+              <line x1="18" y1="64" x2="58" y2="64" />
+              <line x1="22" y1="84" x2="58" y2="64" />
+            </g>
+            <line x1="58" y1="64" x2="98" y2="32" stroke="#48C891" strokeWidth={8} strokeLinecap="round" />
+            <circle cx="58" cy="64" r="13" fill="#32AF78" />
+            <circle cx="98" cy="32" r="8" fill="#48C891" />
+          </svg>
         )}
 
         {isMobile ? (
