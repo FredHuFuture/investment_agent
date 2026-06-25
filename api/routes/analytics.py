@@ -452,8 +452,9 @@ async def activity_feed(
                 )
             ).fetchall()
             for row in rows:
+                # final_confidence is stored on a 0-100 scale; do not re-scale.
                 confidence_pct = (
-                    round(row["final_confidence"] * 100)
+                    round(row["final_confidence"])
                     if row["final_confidence"] is not None
                     else 0
                 )
