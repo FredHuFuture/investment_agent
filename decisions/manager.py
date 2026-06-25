@@ -149,3 +149,99 @@ class DecisionManager:
             return [ProposedAction.from_row(r) for r in rows]
         finally:
             await conn.close()
+
+    async def approve(self, decision_id: int, actor: str) -> ProposedAction:
+        conn = await self._connect()
+        try:
+            await conn.execute("BEGIN IMMEDIATE;")
+            row = await self._get_row(conn, decision_id)
+            if row is None:
+                raise DecisionError(
+                    "DECISION_NOT_FOUND", f"No decision with id {decision_id}", 404
+                )
+            if row["status"] == "pending" and is_past(row["valid_until"]):
+                ts = now_utc_iso()
+                await conn.execute(
+                    "UPDATE decisions SET status='expired' WHERE id=? AND status='pending'",
+                    (decision_id,),
+                )
+                await append_audit(
+                    conn, decision_id=decision_id, event_type="EXPIRED", actor=None,
+                    payload={"reason": "valid_until passed"}, created_at=ts,
+                )
+                await conn.commit()
+                raise DecisionError(
+                    "DECISION_EXPIRED", "Proposal is stale; cannot approve", 409
+                )
+            if row["status"] != "pending":
+                raise DecisionError(
+                    "DECISION_NOT_PENDING",
+                    f"Cannot approve a {row['status']} decision", 409,
+                )
+            ts = now_utc_iso()
+            await conn.execute(
+                "UPDATE decisions SET status='approved', "
+                "approved_proposal_hash=proposal_hash, actor=?, decided_at=? WHERE id=?",
+                (actor, ts, decision_id),
+            )
+            await append_audit(
+                conn, decision_id=decision_id, event_type="APPROVED", actor=actor,
+                payload={"approved_proposal_hash": row["proposal_hash"]}, created_at=ts,
+            )
+            await conn.commit()
+        except DecisionError:
+            try:
+                await conn.rollback()
+            except Exception:
+                pass
+            raise
+        except Exception:
+            try:
+                await conn.rollback()
+            except Exception:
+                pass
+            raise
+        finally:
+            await conn.close()
+
+        result = await self.get(decision_id)
+        assert result is not None
+        return result
+
+    async def reject(self, decision_id: int, actor: str, note: str = "") -> ProposedAction:
+        conn = await self._connect()
+        try:
+            await conn.execute("BEGIN IMMEDIATE;")
+            row = await self._get_row(conn, decision_id)
+            if row is None:
+                raise DecisionError(
+                    "DECISION_NOT_FOUND", f"No decision with id {decision_id}", 404
+                )
+            if row["status"] != "pending":
+                raise DecisionError(
+                    "DECISION_NOT_PENDING",
+                    f"Cannot reject a {row['status']} decision", 409,
+                )
+            ts = now_utc_iso()
+            await conn.execute(
+                "UPDATE decisions SET status='rejected', actor=?, decided_at=?, "
+                "decision_note=? WHERE id=?",
+                (actor, ts, note, decision_id),
+            )
+            await append_audit(
+                conn, decision_id=decision_id, event_type="REJECTED", actor=actor,
+                payload={"note": note}, created_at=ts,
+            )
+            await conn.commit()
+        except DecisionError:
+            try:
+                await conn.rollback()
+            except Exception:
+                pass
+            raise
+        finally:
+            await conn.close()
+
+        result = await self.get(decision_id)
+        assert result is not None
+        return result
