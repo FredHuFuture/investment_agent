@@ -24,6 +24,7 @@ from decisions.models import (
     default_quantity,
     is_past,
     now_utc_iso,
+    recompute_proposal_hash_from_row,
     ttl_hours,
 )
 from execution.adapter import ExecutionAdapter, Order, OrderSide
@@ -68,6 +69,13 @@ class DecisionManager:
         action = signal.final_signal.value
         if action in ("BUY", "SELL"):
             qty: float | None = float(quantity) if quantity is not None else default_quantity()
+            if qty <= 0:
+                # The API model enforces gt=0, but the CLI / direct-manager path
+                # bypasses it — a non-positive qty would become an executable fill.
+                raise DecisionError(
+                    "INVALID_QUANTITY",
+                    f"quantity must be > 0 for a {action} proposal, got {qty}", 400,
+                )
         else:  # HOLD — stored for audit, never executable
             qty = None
 
@@ -296,7 +304,16 @@ class DecisionManager:
                 raise DecisionError(
                     "DECISION_EXPIRED", "Approved proposal is stale", 409
                 )
-            if row["approved_proposal_hash"] != row["proposal_hash"]:
+            # The approval is bound to the EXACT proposal: recompute the hash
+            # from the row's current binding fields and require it to match the
+            # hash captured at approval. This catches post-approval tampering of
+            # ticker/action/quantity/source_signal even if the cached
+            # proposal_hash column was not updated (the column comparison alone
+            # would miss that). Both checks together = defense in depth.
+            if (
+                row["approved_proposal_hash"] != row["proposal_hash"]
+                or recompute_proposal_hash_from_row(row) != row["approved_proposal_hash"]
+            ):
                 raise DecisionError(
                     "PROPOSAL_HASH_MISMATCH",
                     "Approval is not bound to the current proposal", 409,

@@ -65,21 +65,49 @@ def ttl_hours() -> int:
     return int(os.getenv("DECISION_PROPOSAL_TTL_HOURS", "24"))
 
 
+def _hash_proposal_fields(
+    ticker: str, action: str, quantity: float | None,
+    final_signal: str, final_confidence: float, regime: str | None,
+) -> str:
+    payload = canonical_json({
+        "ticker": ticker,
+        "action": action,
+        "quantity": quantity,
+        "final_signal": final_signal,
+        "final_confidence": round(final_confidence, 2),
+        "regime": regime,
+    })
+    return sha256_hex(payload)
+
+
 def compute_proposal_hash(
     ticker: str, action: str, quantity: float | None, signal: Any
 ) -> str:
     """sha256 over ONLY the decision-binding fields — never the full mutable
     signal dict — so the same decision always hashes identically.
     """
-    payload = canonical_json({
-        "ticker": ticker,
-        "action": action,
-        "quantity": quantity,
-        "final_signal": signal.final_signal.value,
-        "final_confidence": round(signal.final_confidence, 2),
-        "regime": signal.regime.value if signal.regime else None,
-    })
-    return sha256_hex(payload)
+    return _hash_proposal_fields(
+        ticker, action, quantity,
+        signal.final_signal.value, signal.final_confidence,
+        signal.regime.value if signal.regime else None,
+    )
+
+
+def recompute_proposal_hash_from_row(row: Any) -> str:
+    """Recompute the proposal hash from a stored ``decisions`` row's CURRENT
+    binding fields (ticker/action/quantity + the final_signal/confidence/regime
+    inside ``source_signal_json``).
+
+    The execute gate compares this against ``approved_proposal_hash`` so that
+    post-approval tampering of the proposal columns (e.g. admin SQL or a
+    migration changing ticker/action/quantity) is detected even when the cached
+    ``proposal_hash`` column was not updated to match.
+    """
+    sig = json.loads(row["source_signal_json"])
+    return _hash_proposal_fields(
+        row["ticker"], row["action"], row["quantity"],
+        sig["final_signal"], sig["final_confidence"], sig.get("regime"),
+    )
 
 
 @dataclass

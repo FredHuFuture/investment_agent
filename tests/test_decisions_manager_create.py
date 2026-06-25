@@ -8,7 +8,7 @@ import pytest
 from agents.models import Regime, Signal
 from db.database import init_db
 from decisions.manager import DecisionManager
-from decisions.models import is_past, now_utc_iso
+from decisions.models import DecisionError, is_past, now_utc_iso
 from engine.aggregator import AggregatedSignal
 
 
@@ -96,3 +96,22 @@ async def test_expire_stale_transitions_and_audits(mgr: DecisionManager) -> None
     assert n == 1
     refreshed = await mgr.get(pa.id)
     assert refreshed is not None and refreshed.status == "expired"
+
+
+@pytest.mark.parametrize("bad_qty", [0, 0.0, -1, -5.5])
+async def test_create_rejects_non_positive_quantity(
+    mgr: DecisionManager, bad_qty: float
+) -> None:
+    # The CLI / direct-manager path must validate quantity (the API model has
+    # gt=0, but this lower-level path bypasses it).
+    with pytest.raises(DecisionError) as ei:
+        await mgr.create_proposal(_signal(), quantity=bad_qty)
+    assert ei.value.http_status == 400 and ei.value.code == "INVALID_QUANTITY"
+    # Nothing was stored.
+    assert await mgr.list() == []
+
+
+async def test_create_hold_ignores_quantity(mgr: DecisionManager) -> None:
+    # HOLD stores quantity=None regardless of any passed value; no qty validation.
+    pa = await mgr.create_proposal(_signal(sig=Signal.HOLD), quantity=0)
+    assert pa.action == "HOLD" and pa.quantity is None

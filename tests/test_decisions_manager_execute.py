@@ -103,6 +103,26 @@ async def test_execute_hash_mismatch_is_refused(mgr: DecisionManager) -> None:
     assert ei.value.http_status == 409 and ei.value.code == "PROPOSAL_HASH_MISMATCH"
 
 
+async def test_execute_field_tamper_after_approve_is_refused(mgr: DecisionManager) -> None:
+    # Tamper a BINDING FIELD (quantity) after approval WITHOUT updating
+    # proposal_hash. The gate recomputes the hash from the row's current fields,
+    # so the altered terms must not execute.
+    pa = await mgr.create_proposal(_signal(), quantity=1.0)
+    await mgr.approve(pa.id, actor="alice")
+    async with aiosqlite.connect(mgr._db_path) as conn:  # type: ignore[attr-defined]
+        await conn.execute(
+            "UPDATE decisions SET quantity=999 WHERE id=?", (pa.id,)
+        )
+        await conn.commit()
+    adapter = StubAdapter(price=199.0)
+    with pytest.raises(DecisionError) as ei:
+        await mgr.execute(pa.id, adapter)
+    assert ei.value.http_status == 409 and ei.value.code == "PROPOSAL_HASH_MISMATCH"
+    assert adapter.calls == 0  # no fill at the tampered size
+    refreshed = await mgr.get(pa.id)
+    assert refreshed is not None and refreshed.status == "approved"
+
+
 async def test_double_execute_is_refused(mgr: DecisionManager) -> None:
     pa = await mgr.create_proposal(_signal())
     await mgr.approve(pa.id, actor="alice")
