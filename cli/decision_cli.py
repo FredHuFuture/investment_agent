@@ -20,6 +20,12 @@ from decisions.models import DecisionError
 from engine.pipeline import AnalysisPipeline
 from execution.paper import PaperExecutionAdapter
 
+# Windows: aiodns (used by aiohttp in the news/data providers) requires a
+# SelectorEventLoop. Mirror api/app.py so `propose` can run the analysis
+# pipeline from the CLI without an aiodns RuntimeError.
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 
 def _print_proposal(pa) -> None:
     print(
