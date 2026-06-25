@@ -26,6 +26,7 @@ from decisions.models import (
     now_utc_iso,
     ttl_hours,
 )
+from execution.adapter import ExecutionAdapter, Order, OrderSide
 
 logger = logging.getLogger("investment_agent.decisions")
 
@@ -231,6 +232,106 @@ class DecisionManager:
             await append_audit(
                 conn, decision_id=decision_id, event_type="REJECTED", actor=actor,
                 payload={"note": note}, created_at=ts,
+            )
+            await conn.commit()
+        except DecisionError:
+            try:
+                await conn.rollback()
+            except Exception:
+                pass
+            raise
+        finally:
+            await conn.close()
+
+        result = await self.get(decision_id)
+        assert result is not None
+        return result
+
+    async def _record_failure(self, decision_id: int, error: str) -> None:
+        conn = await self._connect()
+        try:
+            await conn.execute("BEGIN IMMEDIATE;")
+            await append_audit(
+                conn, decision_id=decision_id, event_type="FAILED", actor=None,
+                payload={"error": error}, created_at=now_utc_iso(),
+            )
+            await conn.commit()
+        except Exception:
+            await conn.rollback()
+            raise
+        finally:
+            await conn.close()
+
+    async def execute(
+        self, decision_id: int, adapter: ExecutionAdapter
+    ) -> ProposedAction:
+        # Friendly pre-check (no lock) for not-found / HOLD.
+        pre = await self.get(decision_id)
+        if pre is None:
+            raise DecisionError(
+                "DECISION_NOT_FOUND", f"No decision with id {decision_id}", 404
+            )
+        if pre.action == "HOLD":
+            raise DecisionError(
+                "HOLD_NOT_EXECUTABLE", "HOLD proposals are not executable", 400
+            )
+
+        conn = await self._connect()
+        try:
+            await conn.execute("BEGIN IMMEDIATE;")  # write lock taken up front
+            row = await self._get_row(conn, decision_id)
+            if row is None:
+                raise DecisionError(
+                    "DECISION_NOT_FOUND", f"No decision with id {decision_id}", 404
+                )
+            if row["status"] == "executed":
+                raise DecisionError(
+                    "DECISION_ALREADY_EXECUTED", "Decision already executed", 409
+                )
+            if row["status"] != "approved":
+                raise DecisionError(
+                    "DECISION_NOT_APPROVED", "Decision is not approved", 409
+                )
+            if is_past(row["valid_until"]):
+                raise DecisionError(
+                    "DECISION_EXPIRED", "Approved proposal is stale", 409
+                )
+            if row["approved_proposal_hash"] != row["proposal_hash"]:
+                raise DecisionError(
+                    "PROPOSAL_HASH_MISMATCH",
+                    "Approval is not bound to the current proposal", 409,
+                )
+
+            order = Order(
+                ticker=row["ticker"], asset_type=row["asset_type"],
+                side=OrderSide(row["action"]), quantity=row["quantity"],
+            )
+            try:
+                report = await adapter.submit(order)
+            except Exception as exc:  # adapter failure: no state change
+                await conn.rollback()
+                await self._record_failure(decision_id, str(exc))
+                raise DecisionError(
+                    "EXECUTION_FAILED", f"Execution adapter failed: {exc}", 500
+                )
+
+            ts = now_utc_iso()
+            cur = await conn.execute(
+                "UPDATE decisions SET status='executed', execution_report_json=?, "
+                "decided_at=? WHERE id=? AND status='approved' "
+                "AND approved_proposal_hash=proposal_hash",
+                (json.dumps(report.to_dict()), ts, decision_id),
+            )
+            if cur.rowcount != 1:  # lost race / changed under us
+                await conn.rollback()
+                raise DecisionError(
+                    "DECISION_ALREADY_EXECUTED", "Execution race lost", 409
+                )
+            await append_audit(
+                conn, decision_id=decision_id, event_type="EXECUTED", actor=row["actor"],
+                payload={"fill_price": report.fill_price, "quantity": report.quantity,
+                         "venue": report.venue, "status": report.status},
+                created_at=ts,
             )
             await conn.commit()
         except DecisionError:
