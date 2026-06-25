@@ -94,6 +94,27 @@ async def test_mutating_past_payload_breaks_chain(tmp_path: Path) -> None:
         await conn.close()
 
 
+async def test_mutating_identity_column_breaks_chain(tmp_path: Path) -> None:
+    db_file = tmp_path / "coltamper.db"
+    await init_db(db_file)
+    conn = await _connect(db_file)
+    try:
+        did = await _seed_decision(conn)
+        for evt in ("PROPOSED", "APPROVED", "EXECUTED"):
+            await _append(conn, did, evt)
+        # Rewrite a DISPLAYED column without touching payload_json -> hash still
+        # matches, but the column no longer agrees with the hashed payload.
+        await conn.execute("BEGIN IMMEDIATE;")
+        await conn.execute("UPDATE decision_audit SET actor='FORGED' WHERE id=2")
+        await conn.commit()
+        result = await verify_chain(conn)
+        assert result["valid"] is False
+        assert result["broken_at_id"] == 2
+        assert "column" in result["reason"].lower()
+    finally:
+        await conn.close()
+
+
 async def test_concurrent_appends_keep_chain_intact(tmp_path: Path) -> None:
     db_file = tmp_path / "concurrent.db"
     await init_db(db_file)

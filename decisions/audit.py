@@ -11,6 +11,7 @@ sequence under SQLite's write lock so concurrent appends cannot fork the chain.
 """
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import aiosqlite
@@ -55,16 +56,18 @@ async def append_audit(
 
 async def verify_chain(conn: aiosqlite.Connection) -> dict[str, Any]:
     cur = await conn.execute(
-        "SELECT id, payload_json, prev_hash, entry_hash FROM decision_audit ORDER BY id ASC"
+        "SELECT id, decision_id, event_type, actor, payload_json, prev_hash, "
+        "entry_hash, created_at FROM decision_audit ORDER BY id ASC"
     )
     rows = await cur.fetchall()
     prev = GENESIS_HASH
     checked = 0
     for row in rows:
         checked += 1
-        row_id, payload_json, prev_hash, entry_hash = (
-            row[0], row[1], row[2], row[3],
-        )
+        row_id = row["id"]
+        payload_json = row["payload_json"]
+        prev_hash = row["prev_hash"]
+        entry_hash = row["entry_hash"]
         if prev_hash != prev:
             return {
                 "valid": False, "checked": checked, "broken_at_id": row_id,
@@ -74,6 +77,21 @@ async def verify_chain(conn: aiosqlite.Connection) -> dict[str, Any]:
             return {
                 "valid": False, "checked": checked, "broken_at_id": row_id,
                 "reason": "entry_hash does not match recomputed hash (payload tampered)",
+            }
+        try:
+            payload = json.loads(payload_json)
+        except Exception:
+            return {
+                "valid": False, "checked": checked, "broken_at_id": row_id,
+                "reason": "payload_json is not valid JSON",
+            }
+        if (payload.get("decision_id") != row["decision_id"]
+                or payload.get("event_type") != row["event_type"]
+                or payload.get("actor") != row["actor"]
+                or payload.get("created_at") != row["created_at"]):
+            return {
+                "valid": False, "checked": checked, "broken_at_id": row_id,
+                "reason": "audit columns do not match hashed payload (column tampered)",
             }
         prev = entry_hash
     return {"valid": True, "checked": checked, "broken_at_id": None, "reason": None}

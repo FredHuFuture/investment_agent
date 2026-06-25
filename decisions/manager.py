@@ -316,24 +316,45 @@ class DecisionManager:
                 )
 
             ts = now_utc_iso()
-            cur = await conn.execute(
-                "UPDATE decisions SET status='executed', execution_report_json=?, "
-                "decided_at=? WHERE id=? AND status='approved' "
-                "AND approved_proposal_hash=proposal_hash",
-                (json.dumps(report.to_dict()), ts, decision_id),
-            )
-            if cur.rowcount != 1:  # lost race / changed under us
-                await conn.rollback()
-                raise DecisionError(
-                    "DECISION_ALREADY_EXECUTED", "Execution race lost", 409
+            try:
+                cur = await conn.execute(
+                    "UPDATE decisions SET status='executed', execution_report_json=?, "
+                    "decided_at=? WHERE id=? AND status='approved' "
+                    "AND approved_proposal_hash=proposal_hash",
+                    (json.dumps(report.to_dict()), ts, decision_id),
                 )
-            await append_audit(
-                conn, decision_id=decision_id, event_type="EXECUTED", actor=row["actor"],
-                payload={"fill_price": report.fill_price, "quantity": report.quantity,
-                         "venue": report.venue, "status": report.status},
-                created_at=ts,
-            )
-            await conn.commit()
+                if cur.rowcount != 1:  # lost race / changed under us
+                    await conn.rollback()
+                    raise DecisionError(
+                        "DECISION_ALREADY_EXECUTED", "Execution race lost", 409
+                    )
+                await append_audit(
+                    conn, decision_id=decision_id, event_type="EXECUTED",
+                    actor=row["actor"],
+                    payload={"fill_price": report.fill_price, "quantity": report.quantity,
+                             "venue": report.venue, "status": report.status},
+                    created_at=ts,
+                )
+                await conn.commit()
+            except DecisionError:
+                raise
+            except Exception as exc:
+                # The (paper) fill already happened but persisting the executed
+                # state failed. Roll back the half-written tx and record the fill
+                # in a separate FAILED audit so it is never silently lost. The
+                # decision stays 'approved'; because a retry would re-fill, a real
+                # (non-paper) ExecutionAdapter MUST use an idempotency key
+                # (paper-only milestone trade-off — see execution/adapter.py).
+                await conn.rollback()
+                await self._record_failure(
+                    decision_id,
+                    f"paper fill succeeded but recording executed state failed: {exc}; "
+                    f"report={json.dumps(report.to_dict())}",
+                )
+                raise DecisionError(
+                    "EXECUTION_RECORD_FAILED",
+                    f"Fill occurred but could not be recorded: {exc}", 500
+                )
         except DecisionError:
             try:
                 await conn.rollback()

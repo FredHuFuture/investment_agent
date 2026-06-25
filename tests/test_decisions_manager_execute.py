@@ -18,8 +18,10 @@ from execution.adapter import ExecutionAdapter, ExecutionReport, Order
 class StubAdapter(ExecutionAdapter):
     def __init__(self, price: float) -> None:
         self._price = price
+        self.calls = 0
 
     async def submit(self, order: Order) -> ExecutionReport:
+        self.calls += 1
         return ExecutionReport(
             ticker=order.ticker, side=order.side.value, quantity=order.quantity,
             fill_price=self._price, status="FILLED", venue="PAPER",
@@ -104,10 +106,12 @@ async def test_execute_hash_mismatch_is_refused(mgr: DecisionManager) -> None:
 async def test_double_execute_is_refused(mgr: DecisionManager) -> None:
     pa = await mgr.create_proposal(_signal())
     await mgr.approve(pa.id, actor="alice")
-    await mgr.execute(pa.id, StubAdapter(price=199.0))
+    adapter = StubAdapter(price=199.0)
+    await mgr.execute(pa.id, adapter)
     with pytest.raises(DecisionError) as ei:
-        await mgr.execute(pa.id, StubAdapter(price=199.0))
+        await mgr.execute(pa.id, adapter)
     assert ei.value.http_status == 409 and ei.value.code == "DECISION_ALREADY_EXECUTED"
+    assert adapter.calls == 1  # the refused 2nd execute never reached submit
 
 
 async def test_adapter_failure_keeps_approved_and_writes_failed_audit(
@@ -120,6 +124,37 @@ async def test_adapter_failure_keeps_approved_and_writes_failed_audit(
     assert ei.value.http_status == 500 and ei.value.code == "EXECUTION_FAILED"
     refreshed = await mgr.get(pa.id)
     assert refreshed is not None and refreshed.status == "approved"  # unchanged
+    async with aiosqlite.connect(mgr._db_path) as conn:  # type: ignore[attr-defined]
+        conn.row_factory = aiosqlite.Row
+        rows = await (await conn.execute(
+            "SELECT event_type FROM decision_audit WHERE decision_id=? ORDER BY id", (pa.id,)
+        )).fetchall()
+    assert [r["event_type"] for r in rows] == ["PROPOSED", "APPROVED", "FAILED"]
+
+
+async def test_execute_records_failed_audit_if_persist_fails(
+    mgr: DecisionManager, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import decisions.manager as mgr_mod
+    real_append = mgr_mod.append_audit
+
+    async def selective_append(conn, *, decision_id, event_type, actor, payload, created_at):
+        if event_type == "EXECUTED":
+            raise RuntimeError("commit boom")
+        return await real_append(
+            conn, decision_id=decision_id, event_type=event_type,
+            actor=actor, payload=payload, created_at=created_at,
+        )
+
+    monkeypatch.setattr(mgr_mod, "append_audit", selective_append)
+
+    pa = await mgr.create_proposal(_signal())
+    await mgr.approve(pa.id, actor="alice")
+    with pytest.raises(DecisionError) as ei:
+        await mgr.execute(pa.id, StubAdapter(price=199.0))
+    assert ei.value.http_status == 500 and ei.value.code == "EXECUTION_RECORD_FAILED"
+    refreshed = await mgr.get(pa.id)
+    assert refreshed is not None and refreshed.status == "approved"  # NOT executed
     async with aiosqlite.connect(mgr._db_path) as conn:  # type: ignore[attr-defined]
         conn.row_factory = aiosqlite.Row
         rows = await (await conn.execute(
