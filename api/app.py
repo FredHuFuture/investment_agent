@@ -143,6 +143,10 @@ def create_app(db_path: str = str(DEFAULT_DB_PATH)) -> FastAPI:
     from api.routes.digest import router as digest_router
     app.include_router(digest_router, prefix="/digest", tags=["digest"])
 
+    # Decision Layer (human-in-the-loop): propose -> approve -> gated paper execute -> audit
+    from api.routes.decisions import router as decisions_router
+    app.include_router(decisions_router, prefix="/decisions", tags=["decisions"])
+
     return app
 
 
