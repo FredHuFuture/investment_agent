@@ -35,3 +35,8 @@ frontend/dist/
 
 # Internal workflow (not for public)
 CURRENT_PROMPT.txt
+
+# Decision Layer build/planning docs (local working artifacts, not committed)
+docs/DECISION_LAYER_SPEC.md
+docs/DECISION_LAYER_*.md
+docs/superpowers/
