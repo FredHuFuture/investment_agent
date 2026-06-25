@@ -66,11 +66,12 @@ def ttl_hours() -> int:
 
 
 def _hash_proposal_fields(
-    ticker: str, action: str, quantity: float | None,
+    ticker: str, asset_type: str, action: str, quantity: float | None,
     final_signal: str, final_confidence: float, regime: str | None,
 ) -> str:
     payload = canonical_json({
         "ticker": ticker,
+        "asset_type": asset_type,
         "action": action,
         "quantity": quantity,
         "final_signal": final_signal,
@@ -84,10 +85,12 @@ def compute_proposal_hash(
     ticker: str, action: str, quantity: float | None, signal: Any
 ) -> str:
     """sha256 over ONLY the decision-binding fields — never the full mutable
-    signal dict — so the same decision always hashes identically.
+    signal dict — so the same decision always hashes identically. The fields
+    are exactly those used to build the executed Order (incl. asset_type, which
+    selects the venue/provider), so an approval is bound to the precise terms.
     """
     return _hash_proposal_fields(
-        ticker, action, quantity,
+        ticker, signal.asset_type, action, quantity,
         signal.final_signal.value, signal.final_confidence,
         signal.regime.value if signal.regime else None,
     )
@@ -95,17 +98,17 @@ def compute_proposal_hash(
 
 def recompute_proposal_hash_from_row(row: Any) -> str:
     """Recompute the proposal hash from a stored ``decisions`` row's CURRENT
-    binding fields (ticker/action/quantity + the final_signal/confidence/regime
-    inside ``source_signal_json``).
+    binding fields (ticker/asset_type/action/quantity + the
+    final_signal/confidence/regime inside ``source_signal_json``).
 
     The execute gate compares this against ``approved_proposal_hash`` so that
-    post-approval tampering of the proposal columns (e.g. admin SQL or a
-    migration changing ticker/action/quantity) is detected even when the cached
-    ``proposal_hash`` column was not updated to match.
+    post-approval tampering of any executed-order field (e.g. admin SQL or a
+    migration changing ticker/asset_type/action/quantity) is detected even when
+    the cached ``proposal_hash`` column was not updated to match.
     """
     sig = json.loads(row["source_signal_json"])
     return _hash_proposal_fields(
-        row["ticker"], row["action"], row["quantity"],
+        row["ticker"], row["asset_type"], row["action"], row["quantity"],
         sig["final_signal"], sig["final_confidence"], sig.get("regime"),
     )
 

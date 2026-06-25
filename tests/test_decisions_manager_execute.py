@@ -123,6 +123,27 @@ async def test_execute_field_tamper_after_approve_is_refused(mgr: DecisionManage
     assert refreshed is not None and refreshed.status == "approved"
 
 
+async def test_execute_asset_type_tamper_after_approve_is_refused(
+    mgr: DecisionManager,
+) -> None:
+    # asset_type is part of the hashed binding fields (it selects the venue /
+    # price provider), so tampering it after approval must trip the gate.
+    pa = await mgr.create_proposal(_signal())  # asset_type="stock"
+    await mgr.approve(pa.id, actor="alice")
+    async with aiosqlite.connect(mgr._db_path) as conn:  # type: ignore[attr-defined]
+        await conn.execute(
+            "UPDATE decisions SET asset_type='btc' WHERE id=?", (pa.id,)
+        )
+        await conn.commit()
+    adapter = StubAdapter(price=199.0)
+    with pytest.raises(DecisionError) as ei:
+        await mgr.execute(pa.id, adapter)
+    assert ei.value.http_status == 409 and ei.value.code == "PROPOSAL_HASH_MISMATCH"
+    assert adapter.calls == 0  # no fill under the unapproved asset type
+    refreshed = await mgr.get(pa.id)
+    assert refreshed is not None and refreshed.status == "approved"
+
+
 async def test_double_execute_is_refused(mgr: DecisionManager) -> None:
     pa = await mgr.create_proposal(_signal())
     await mgr.approve(pa.id, actor="alice")

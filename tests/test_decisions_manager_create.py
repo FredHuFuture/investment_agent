@@ -98,12 +98,16 @@ async def test_expire_stale_transitions_and_audits(mgr: DecisionManager) -> None
     assert refreshed is not None and refreshed.status == "expired"
 
 
-@pytest.mark.parametrize("bad_qty", [0, 0.0, -1, -5.5])
-async def test_create_rejects_non_positive_quantity(
+@pytest.mark.parametrize(
+    "bad_qty",
+    [0, 0.0, -1, -5.5, float("inf"), float("-inf"), float("nan")],
+)
+async def test_create_rejects_invalid_quantity(
     mgr: DecisionManager, bad_qty: float
 ) -> None:
     # The CLI / direct-manager path must validate quantity (the API model has
-    # gt=0, but this lower-level path bypasses it).
+    # gt=0, but this lower-level path bypasses it) — non-positive AND non-finite
+    # (inf/nan) values must be refused before a proposal is stored.
     with pytest.raises(DecisionError) as ei:
         await mgr.create_proposal(_signal(), quantity=bad_qty)
     assert ei.value.http_status == 400 and ei.value.code == "INVALID_QUANTITY"

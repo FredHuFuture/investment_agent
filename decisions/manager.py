@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -69,12 +70,14 @@ class DecisionManager:
         action = signal.final_signal.value
         if action in ("BUY", "SELL"):
             qty: float | None = float(quantity) if quantity is not None else default_quantity()
-            if qty <= 0:
+            if not math.isfinite(qty) or qty <= 0:
                 # The API model enforces gt=0, but the CLI / direct-manager path
-                # bypasses it — a non-positive qty would become an executable fill.
+                # bypasses it — a non-positive OR non-finite qty (inf/nan, incl.
+                # via DECISION_DEFAULT_QUANTITY) would become an executable fill.
                 raise DecisionError(
                     "INVALID_QUANTITY",
-                    f"quantity must be > 0 for a {action} proposal, got {qty}", 400,
+                    f"quantity must be a finite number > 0 for a {action} "
+                    f"proposal, got {qty}", 400,
                 )
         else:  # HOLD — stored for audit, never executable
             qty = None
