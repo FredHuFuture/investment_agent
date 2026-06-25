@@ -42,8 +42,8 @@ export default function AppShell({ children }: AppShellProps) {
               <path d="M3 12h18M3 6h18M3 18h18" />
             </svg>
           </button>
-          <span className="flex-1 text-center font-display text-lg font-bold text-accent tracking-tight">
-            Grip
+          <span className="flex-1 text-center font-mono text-base font-semibold text-accent tracking-tight">
+            investment_agent
           </span>
           <div className="w-9" />
         </header>

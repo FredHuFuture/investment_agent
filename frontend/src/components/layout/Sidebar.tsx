@@ -300,13 +300,13 @@ export default function Sidebar({
       >
         {showLabels ? (
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            <span className="font-display text-[22px] font-bold text-accent tracking-tight">
-              Grip
+            <span className="font-mono text-[15px] font-semibold text-accent tracking-tight truncate">
+              investment_agent
             </span>
           </div>
         ) : (
-          <span className="font-display text-lg font-bold text-accent">
-            G
+          <span className="font-mono text-base font-bold text-accent">
+            ia
           </span>
         )}
 
