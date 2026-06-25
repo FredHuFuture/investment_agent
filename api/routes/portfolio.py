@@ -501,7 +501,8 @@ async def get_position_timeline(ticker: str, db_path: str = Depends(get_db_path)
             events.append({
                 "type": "signal",
                 "date": row["created_at"],
-                "title": f"Signal: {row['final_signal']} ({row['final_confidence']:.0%})",
+                # final_confidence is stored on a 0-100 scale; render as-is, do not re-scale.
+                "title": f"Signal: {row['final_signal']} ({row['final_confidence']:.0f}%)",
                 "detail": reasoning[:200] if reasoning else None,
                 "severity": None,
                 "metadata": {

@@ -23,6 +23,20 @@ export function formatDate(iso: string): string {
   });
 }
 
+/**
+ * Win-rate values are stored as 0-1 fractions (e.g. tracker accuracy stats and
+ * backtest metrics); render them as a percentage. Returns `fallback` when the
+ * value is null/undefined (e.g. a zero-trade backtest), so callers never display
+ * a misleading "0.0%".
+ */
+export function formatWinRate(
+  v: number | null | undefined,
+  fallback = "--",
+): string {
+  if (v == null) return fallback;
+  return `${(v * 100).toFixed(1)}%`;
+}
+
 export function formatNumber(v: number, decimals = 2): string {
   return v.toLocaleString("en-US", {
     minimumFractionDigits: decimals,

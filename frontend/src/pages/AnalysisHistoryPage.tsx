@@ -166,7 +166,7 @@ export default function AnalysisHistoryPage() {
 
                   {/* Confidence */}
                   <span className="font-mono text-sm text-gray-300">
-                    {(entry.final_confidence * 100).toFixed(0)}%
+                    {entry.final_confidence.toFixed(0)}%
                   </span>
 
                   {/* Regime */}
@@ -239,7 +239,7 @@ export default function AnalysisHistoryPage() {
                                     {signalBadge(as.signal)}
                                   </td>
                                   <td className="py-1.5 font-mono text-gray-300">
-                                    {(as.confidence * 100).toFixed(0)}%
+                                    {as.confidence.toFixed(0)}%
                                   </td>
                                 </tr>
                               ))}

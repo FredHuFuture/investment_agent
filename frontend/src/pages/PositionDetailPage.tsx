@@ -747,7 +747,7 @@ export default function PositionDetailPage() {
                           </span>
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap text-gray-300 font-mono text-xs">
-                          {(sig.final_confidence * 100).toFixed(0)}%
+                          {sig.final_confidence.toFixed(0)}%
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap text-gray-400 font-mono text-xs">
                           {sig.consensus_score.toFixed(2)}

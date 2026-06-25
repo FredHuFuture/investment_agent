@@ -9,7 +9,7 @@ import {
   clearAllBacktestRuns,
   type SavedBacktestRun,
 } from "../../lib/backtestStorage";
-import { formatPct } from "../../lib/formatters";
+import { formatPct, formatWinRate } from "../../lib/formatters";
 
 interface Props {
   /** Trigger comparison view with selected runs. */
@@ -201,7 +201,7 @@ export default function BacktestHistory({ onCompare, refreshKey }: Props) {
                         {run.metrics.sharpe_ratio.toFixed(2)}
                       </td>
                       <td className="px-3 py-3 text-right font-mono text-gray-300">
-                        {(run.metrics.win_rate * 100).toFixed(1)}%
+                        {formatWinRate(run.metrics.win_rate)}
                       </td>
                       <td className="px-3 py-3 text-right font-mono text-gray-300">
                         {run.metrics.sortino_ratio != null

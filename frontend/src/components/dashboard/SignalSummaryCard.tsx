@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useApi } from "../../hooks/useApi";
 import { getSignalHistory, getAccuracyStats } from "../../api/endpoints";
+import { formatWinRate } from "../../lib/formatters";
 import type { SignalHistoryEntry, AccuracyStats } from "../../api/types";
 import { Card, CardHeader, CardBody } from "../../components/ui/Card";
 import { SkeletonCard } from "../../components/ui/Skeleton";
@@ -37,10 +38,7 @@ export default function SignalSummaryCard() {
   const holdPct = counts.total > 0 ? (counts.hold / counts.total) * 100 : 0;
   const sellPct = counts.total > 0 ? (counts.sell / counts.total) * 100 : 0;
 
-  const accuracy =
-    accuracyApi.data?.win_rate != null
-      ? `${(accuracyApi.data.win_rate * 100).toFixed(1)}%`
-      : "--";
+  const accuracy = formatWinRate(accuracyApi.data?.win_rate);
 
   return (
     <Card>

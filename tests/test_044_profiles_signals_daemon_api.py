@@ -185,6 +185,25 @@ async def test_signal_history_empty(client: httpx.AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_timeline_signal_title_confidence_not_rescaled(
+    client: httpx.AsyncClient, db_path: str
+):
+    # final_confidence is stored on a 0-100 scale; the timeline title must render
+    # it as "72%", not re-scale it to "7200%" with a percent format string.
+    store = SignalStore(db_path)
+    await store.save_signal(_make_signal("AAPL", confidence=72.0))
+
+    resp = await client.get("/portfolio/positions/AAPL/timeline")
+    assert resp.status_code == 200
+    events = resp.json()["data"]
+    signal_events = [e for e in events if e["type"] == "signal"]
+    assert signal_events, "expected a signal event in the timeline"
+    title = signal_events[0]["title"]
+    assert "(72%)" in title
+    assert "7200%" not in title
+
+
+@pytest.mark.asyncio
 async def test_signal_history_after_insert(client: httpx.AsyncClient, db_path: str):
     store = SignalStore(db_path)
     await store.save_signal(_make_signal("AAPL"))

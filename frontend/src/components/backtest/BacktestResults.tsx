@@ -2,7 +2,7 @@ import { useState } from "react";
 import MetricCard from "../shared/MetricCard";
 import EquityCurveChart from "./EquityCurveChart";
 import TradesTable from "./TradesTable";
-import { formatPct } from "../../lib/formatters";
+import { formatPct, formatWinRate } from "../../lib/formatters";
 import type { BacktestResult } from "../../api/types";
 
 export default function BacktestResults({ data }: { data: BacktestResult }) {
@@ -91,7 +91,7 @@ export default function BacktestResults({ data }: { data: BacktestResult }) {
         />
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <MetricCard label="Win Rate" value={`${(m.win_rate * 100).toFixed(1)}%`} />
+        <MetricCard label="Win Rate" value={formatWinRate(m.win_rate)} />
         <MetricCard label="Total Trades" value={String(m.total_trades)} />
       </div>
 

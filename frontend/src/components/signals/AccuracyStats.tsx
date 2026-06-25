@@ -1,4 +1,5 @@
 import MetricCard from "../shared/MetricCard";
+import { formatWinRate } from "../../lib/formatters";
 import type { AccuracyStats as AccuracyStatsType } from "../../api/types";
 
 export default function AccuracyStats({ data }: { data: AccuracyStatsType }) {
@@ -10,7 +11,7 @@ export default function AccuracyStats({ data }: { data: AccuracyStatsType }) {
         <MetricCard label="Wins" value={String(data.win_count)} />
         <MetricCard
           label="Win Rate"
-          value={data.win_rate != null ? `${data.win_rate.toFixed(1)}%` : "N/A"}
+          value={formatWinRate(data.win_rate, "N/A")}
         />
       </div>
       {Object.keys(data.by_signal).length > 0 && (
@@ -25,7 +26,7 @@ export default function AccuracyStats({ data }: { data: AccuracyStatsType }) {
                 <span className="text-gray-400 ml-2">
                   {stats.count} signals
                   {stats.win_rate != null
-                    ? ` (${stats.win_rate.toFixed(1)}%)`
+                    ? ` (${formatWinRate(stats.win_rate)})`
                     : ""}
                 </span>
               </div>
@@ -45,7 +46,7 @@ export default function AccuracyStats({ data }: { data: AccuracyStatsType }) {
                 <span className="text-gray-400 ml-2">
                   {stats.count} signals
                   {stats.win_rate != null
-                    ? ` (${stats.win_rate.toFixed(1)}%)`
+                    ? ` (${formatWinRate(stats.win_rate)})`
                     : ""}
                 </span>
               </div>

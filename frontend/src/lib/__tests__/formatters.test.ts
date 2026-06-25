@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatCurrency, formatPct, formatDate, formatNumber, formatRelativeTime, formatRelativeDate, pnlColor, holdColor } from "../formatters";
+import { formatCurrency, formatPct, formatDate, formatNumber, formatRelativeTime, formatRelativeDate, pnlColor, holdColor, formatWinRate } from "../formatters";
 
 describe("formatCurrency", () => {
   it("formats a positive integer", () => {
@@ -126,6 +126,32 @@ describe("formatRelativeDate", () => {
   it("returns days ago", () => {
     const threeDaysAgo = new Date(Date.now() - 259200000).toISOString();
     expect(formatRelativeDate(threeDaysAgo)).toBe("3d ago");
+  });
+});
+
+describe("formatWinRate", () => {
+  it("renders a 0-1 fraction as a percentage", () => {
+    expect(formatWinRate(0.625)).toBe("62.5%");
+  });
+
+  it("renders a perfect win rate", () => {
+    expect(formatWinRate(1)).toBe("100.0%");
+  });
+
+  it("renders a zero win rate", () => {
+    expect(formatWinRate(0)).toBe("0.0%");
+  });
+
+  it("returns the default fallback for null (zero-trade backtest)", () => {
+    expect(formatWinRate(null)).toBe("--");
+  });
+
+  it("returns the default fallback for undefined", () => {
+    expect(formatWinRate(undefined)).toBe("--");
+  });
+
+  it("honors a custom fallback string", () => {
+    expect(formatWinRate(null, "N/A")).toBe("N/A");
   });
 });
 

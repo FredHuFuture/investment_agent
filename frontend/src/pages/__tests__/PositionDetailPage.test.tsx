@@ -301,6 +301,33 @@ describe("PositionDetailPage", () => {
     expect(screen.getByText("Record Dividend")).toBeInTheDocument();
   });
 
+  it("renders signal-history confidence as-is (0-100), not multiplied by 100", async () => {
+    mockGetPortfolio.mockResolvedValue({
+      data: mockPortfolio as never,
+      warnings: [],
+    });
+    mockSecondaryApis();
+    // final_confidence is stored on a 0-100 scale.
+    mockGetSignalHistory.mockResolvedValue({
+      data: [
+        {
+          id: 1,
+          ticker: "AAPL",
+          final_signal: "BUY",
+          final_confidence: 85,
+          consensus_score: 0.72,
+          created_at: "2024-01-15 10:00:00",
+        },
+      ] as never,
+      warnings: [],
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("85%")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("8500%")).not.toBeInTheDocument();
+  });
+
   it("renders the position timeline section with events", async () => {
     mockGetPortfolio.mockResolvedValue({
       data: mockPortfolio as never,

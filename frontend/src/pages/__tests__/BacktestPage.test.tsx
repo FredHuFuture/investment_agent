@@ -200,6 +200,33 @@ describe("BacktestResults - Advanced Metrics", () => {
   });
 });
 
+describe("BacktestResults - Win Rate display", () => {
+  it("renders win_rate (a 0-1 fraction) as a percentage", () => {
+    renderResults(); // win_rate: 0.625
+    expect(screen.getByText("62.5%")).toBeInTheDocument();
+  });
+
+  it("shows '--' instead of a misleading 0.0% for a zero-trade backtest", () => {
+    const zeroTradeResult = {
+      metrics: {
+        total_return_pct: 12.0,
+        annualized_return_pct: 5.0,
+        max_drawdown_pct: -3.0,
+        sharpe_ratio: 1.0,
+        win_rate: null,
+        total_trades: 0,
+      },
+      trades: [],
+      trades_count: 0,
+      equity_curve: [{ date: "2023-01-01", equity: 100000 }],
+      signals_log: [],
+    } as unknown as BacktestResult;
+    renderResults(zeroTradeResult);
+    expect(screen.getByText("--")).toBeInTheDocument();
+    expect(screen.queryByText("0.0%")).not.toBeInTheDocument();
+  });
+});
+
 // ---------------------------------------------------------------------------
 // BacktestComparison
 // ---------------------------------------------------------------------------

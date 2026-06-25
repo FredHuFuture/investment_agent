@@ -10,7 +10,7 @@ import {
 } from "recharts";
 import { Card, CardHeader, CardBody } from "../ui/Card";
 import { Button } from "../ui/Button";
-import { formatPct } from "../../lib/formatters";
+import { formatPct, formatWinRate } from "../../lib/formatters";
 import type { SavedBacktestRun } from "../../lib/backtestStorage";
 import type { BacktestMetrics } from "../../api/types";
 
@@ -58,7 +58,7 @@ const METRIC_DEFS: MetricDef[] = [
   {
     key: "win_rate",
     label: "Win Rate",
-    format: (v) => (v != null ? `${(v * 100).toFixed(1)}%` : "--"),
+    format: (v) => formatWinRate(v),
   },
   {
     key: "total_trades",

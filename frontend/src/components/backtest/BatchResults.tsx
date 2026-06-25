@@ -1,5 +1,6 @@
 import DataTable, { type Column } from "../shared/DataTable";
 import PnlText from "../shared/PnlText";
+import { formatWinRate } from "../../lib/formatters";
 import type { BatchRow } from "../../api/types";
 
 export default function BatchResults({ rows }: { rows: BatchRow[] }) {
@@ -37,9 +38,7 @@ export default function BatchResults({ rows }: { rows: BatchRow[] }) {
       key: "winrate",
       header: "Win Rate",
       render: (r) => (
-        <span className="font-mono">
-          {(r.metrics.win_rate * 100).toFixed(1)}%
-        </span>
+        <span className="font-mono">{formatWinRate(r.metrics.win_rate)}</span>
       ),
       sortValue: (r) => r.metrics.win_rate,
     },
