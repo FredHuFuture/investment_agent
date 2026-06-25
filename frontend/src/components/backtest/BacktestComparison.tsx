@@ -58,7 +58,7 @@ const METRIC_DEFS: MetricDef[] = [
   {
     key: "win_rate",
     label: "Win Rate",
-    format: (v) => (v != null ? `${v.toFixed(1)}%` : "--"),
+    format: (v) => (v != null ? `${(v * 100).toFixed(1)}%` : "--"),
   },
   {
     key: "total_trades",

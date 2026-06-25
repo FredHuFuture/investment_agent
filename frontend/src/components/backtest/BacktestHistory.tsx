@@ -201,7 +201,7 @@ export default function BacktestHistory({ onCompare, refreshKey }: Props) {
                         {run.metrics.sharpe_ratio.toFixed(2)}
                       </td>
                       <td className="px-3 py-3 text-right font-mono text-gray-300">
-                        {run.metrics.win_rate.toFixed(1)}%
+                        {(run.metrics.win_rate * 100).toFixed(1)}%
                       </td>
                       <td className="px-3 py-3 text-right font-mono text-gray-300">
                         {run.metrics.sortino_ratio != null
